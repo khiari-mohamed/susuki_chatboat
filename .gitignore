@@ -1,0 +1,74 @@
+# Node modules (catch both top-level and nested)
+node_modules/
+**/node_modules/
+.env
+.env.local
+.env.*.local
+
+# Build / output
+dist/
+build/
+out/
+/.next/
+/.nuxt/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDEs
+.idea/
+.vscode/
+
+# Coverage
+coverage/
+
+# Parcel / cache
+/.pnp/
+/.pnp.js
+.parcel-cache/
+.cache/
+
+# TypeScript
+*.tsbuildinfo
+
+# Runtime data
+*.pid
+*.seed
+*.pid.lock
+
+# Database files
+*.sqlite
+*.sqlite3
+*.db
+
+# Uploads and runtime directories
+uploads/
+tmp/
+temp/
+
+# Serverless
+.serverless/
+
+# Misc
+npm-debug.log
+
+# Keep project folders (frontend/backend) tracked. Do NOT ignore these:
+# suzuki-backend/
+# chatboat/
+
+.DS_Store
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.idea/
+.vscode/
+coverage/
+/.pnp/
+/.pnp.js

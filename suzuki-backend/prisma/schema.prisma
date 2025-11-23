@@ -1,0 +1,116 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// Vehicles Database
+// ============================================
+model Vehicle {
+  id              Int      @id @default(autoincrement())
+  immatriculation String   @unique @db.VarChar(20)
+  vin             String?  @unique @db.VarChar(17)
+  marque          String   @db.VarChar(50)
+  modele          String   @db.VarChar(50)
+  annee           Int
+  type            String?  @db.VarChar(50)
+  couleur         String?  @db.VarChar(30)
+  proprietaire    String?  @db.VarChar(100)
+  dateAchat       DateTime? @map("date_achat")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@map("vehicles")
+  @@index([marque, modele])
+  @@index([immatriculation])
+  @@index([vin])
+}
+
+// ============================================
+// Parts Catalog (from CSV)
+// ============================================
+model PiecesRechange {
+  id              Int      @id @default(autoincrement())
+  reference       String   @unique @db.VarChar(50)
+  designation     String
+  versionModele   String   @map("version_modele") @db.VarChar(50)
+  typeVehicule    String   @map("type_vehicule") @db.VarChar(50)
+  prixHt          Decimal  @map("prix_ht") @db.Decimal(10, 3)
+  stock           Int      @default(0)
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@map("pieces_rechange")
+  @@index([versionModele])
+  @@index([stock])
+}
+
+// ============================================
+// Chat Sessions
+// ============================================
+model ChatSession {
+  id          String        @id @default(uuid())
+  vehicleInfo Json?         @map("vehicle_info") // Store car details
+  startedAt   DateTime      @default(now()) @map("started_at")
+  endedAt     DateTime?     @map("ended_at")
+  metadata    Json?         // Browser, IP, etc.
+  messages    ChatMessage[]
+  prompts     ChatPrompt[]
+
+  @@map("chat_sessions")
+  @@index([startedAt])
+}
+
+// ============================================
+// Chat Messages
+// ============================================
+model ChatMessage {
+  id        String      @id @default(uuid())
+  sessionId String      @map("session_id")
+  sender    String      // 'user' or 'bot'
+  message   String      @db.Text
+  timestamp DateTime    @default(now())
+  metadata  Json?       // Tokens, model used, etc.
+  session   ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  feedback  ChatFeedback?
+
+  @@map("chat_messages")
+  @@index([sessionId])
+  @@index([timestamp])
+}
+
+// ============================================
+// Chat Prompts (for GPT tracking)
+// ============================================
+model ChatPrompt {
+  id           String      @id @default(uuid())
+  sessionId    String      @map("session_id")
+  promptText   String      @map("prompt_text") @db.Text
+  responseText String      @map("response_text") @db.Text
+  model        String?     // gpt-4, gpt-3.5-turbo, etc.
+  tokens       Int?        // Token count
+  createdAt    DateTime    @default(now()) @map("created_at")
+  session      ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@map("chat_prompts")
+  @@index([sessionId])
+  @@index([createdAt])
+}
+
+// ============================================
+// Chat Feedback
+// ============================================
+model ChatFeedback {
+  id        String      @id @default(uuid())
+  messageId String      @unique @map("message_id")
+  rating    Int?        // 1-5 or thumbs up/down
+  comment   String?     @db.Text
+  createdAt DateTime    @default(now()) @map("created_at")
+  message   ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@map("chat_feedback")
+  @@index([rating])
+}
