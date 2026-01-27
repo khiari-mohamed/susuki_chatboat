@@ -168,11 +168,7 @@ export class AdvancedSearchService {
     'moteur': 1.1
   };
 
-  // Cache for performance optimization
-  private searchCache = new Map<string, { results: any[]; timestamp: number }>();
-  private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
-
-  // cache metrics
+  // Real-time stock tracking - NO CACHE
   private cacheHits = 0;
   private cacheMisses = 0;
 
@@ -220,16 +216,8 @@ export class AdvancedSearchService {
     if (tunisianNormalized) {
       console.log(`[SEARCH] Tunisian detected, normalized to: "${tunisianNormalized}"`);
     }
-    const cacheKey = `${searchQuery}_all`;
-    const cached = this.searchCache.get(cacheKey);
-    const isCachedValid = !!cached && (Date.now() - cached.timestamp < this.CACHE_TTL);
-    if (isCachedValid) {
-      this.cacheHits++;
-      console.log(`[SEARCH] Cache HIT. Cache stats: ${this.cacheHits} hits, ${this.cacheMisses} misses`);
-      return cached.results;
-    }
-    // record miss when not cached or expired
-    this.cacheMisses++;
+    // Real-time: Always query database for fresh stock data
+    console.log(`[SEARCH] Real-time query - no cache`);
     const normalized = this.normalize(searchQuery);
     console.log(`[SEARCH] Normalized query: "${normalized}"`);
     const rawTokens = this.tokenize(normalized);
@@ -272,8 +260,6 @@ export class AdvancedSearchService {
     const TOP_N = this.calculateOptimalResultLimit(context, filtered.length);
     const results = filtered.slice(0, TOP_N);
     console.log(`[SEARCH] Final results returned: ${results.length} (TOP_N: ${TOP_N})`);
-    this.searchCache.set(cacheKey, { results, timestamp: Date.now() });
-    this.cleanCache();
     return results;
   }
 
@@ -501,14 +487,7 @@ export class AdvancedSearchService {
     return tokens.some(t => positions.includes(t));
   }
 
-  private cleanCache(): void {
-    const now = Date.now();
-    for (const [key, value] of this.searchCache.entries()) {
-      if (now - value.timestamp > this.CACHE_TTL) {
-        this.searchCache.delete(key);
-      }
-    }
-  }
+
 
   private async searchByReference(reference: string): Promise<any[]> {
     const cleanRef = reference.replace(/[^A-Z0-9]/gi, '').toUpperCase();
@@ -549,15 +528,9 @@ export class AdvancedSearchService {
   }
 
   getSearchStats(): {
-    cacheSize: number;
-    cacheHitRate: number;
     totalSynonyms: number;
   } {
-    const total = this.cacheHits + this.cacheMisses;
-    const hitRate = total > 0 ? this.cacheHits / total : 0;
     return {
-      cacheSize: this.searchCache.size,
-      cacheHitRate: hitRate,
       totalSynonyms: Object.keys(this.synonyms).length,
     };
   }

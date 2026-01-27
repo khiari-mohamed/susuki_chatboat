@@ -28,7 +28,19 @@ const ChatWidget = () => {
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
 
+  // Get logo URL from config or use default
+  const logoUrl = (typeof window !== 'undefined' && window.suzukiChatbotConfig?.logoUrl) || 'suzuli_logo.png';
+
   const quickActions = [];
+
+  // Debug: Log API URL on mount
+  useEffect(() => {
+    console.log('🔧 Suzuki Chatbot Config:', {
+      apiUrl: config.apiUrl,
+      environment: process.env.NODE_ENV,
+      timestamp: new Date().toISOString()
+    });
+  }, []);
 
   useEffect(() => {
     scrollToBottom();
@@ -94,23 +106,41 @@ const ChatWidget = () => {
     try {
       const formData = new FormData();
       formData.append('file', file);
-      const response = await fetch(`http://localhost:5000/verification/upload`, {
+      
+      const uploadUrl = `${config.apiUrl}/verification/upload`;
+      console.log('📤 Uploading to:', uploadUrl);
+      
+      const response = await fetch(uploadUrl, {
         method: 'POST',
         body: formData
       });
+      
+      console.log('✅ Upload response status:', response.status);
       const data = await response.json();
+      console.log('📊 Upload response data:', data);
       
       if (data.success) {
         setVehicleInfo(data.vehicleInfo);
         setShowVehicleCard(true);
         localStorage.setItem('suzuki-verified', 'true');
         localStorage.setItem('suzuki-vehicle', JSON.stringify(data.vehicleInfo));
+        
+        // Store upload count
+        if (data.uploadCount) {
+          localStorage.setItem('suzuki-upload-count', data.uploadCount.toString());
+        }
       } else {
-        setVerificationError(data.message || 'Seules les cartes grises Suzuki Celerio et S-Presso sont acceptées.');
+        // Check if limit reached
+        if (data.limitReached) {
+          setVerificationError(`⚠️ ${data.message}\n\nVous avez utilisé ${data.uploadCount || 3}/3 téléchargements ce mois-ci.\nLa limite se réinitialise le 1er du mois prochain.`);
+        } else {
+          setVerificationError(data.message || 'Seules les cartes grises Suzuki sont acceptées.');
+        }
         setUploadedFile(null);
       }
       setIsVerifying(false);
     } catch (error) {
+      console.error('❌ Upload error:', error);
       setVerificationError('Erreur de connexion. Veuillez réessayer.');
       setUploadedFile(null);
       setIsVerifying(false);
@@ -153,7 +183,10 @@ const ChatWidget = () => {
     setIsTyping(true);
 
     try {
-      const response = await fetch(`http://localhost:5000/chat/message`, {
+      const chatUrl = `${config.apiUrl}/chat/message`;
+      console.log('💬 Sending message to:', chatUrl);
+      
+      const response = await fetch(chatUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -161,7 +194,10 @@ const ChatWidget = () => {
           vehicle: vehicleInfo
         })
       });
+      
+      console.log('✅ Chat response status:', response.status);
       const data = await response.json();
+      console.log('📊 Chat response data:', data);
       const botResponse = {
         id: Date.now() + 1,
         text: data.response,
@@ -171,6 +207,7 @@ const ChatWidget = () => {
       setMessages(prev => [...prev, botResponse]);
       setIsTyping(false);
     } catch (error) {
+      console.error('❌ Chat error:', error);
       const errorResponse = {
         id: Date.now() + 1,
         text: "Désolé, erreur de connexion. Veuillez réessayer.",
@@ -202,7 +239,7 @@ const ChatWidget = () => {
         <div className="vehicle-card">
           <div className="vehicle-header">
             <div style={{ width: '80px', height: '80px', background: 'white', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '16px', boxShadow: '0 8px 24px rgba(0,0,0,0.15)', padding: '12px' }}>
-              <img src="suzuli_logo.png" alt="Suzuki" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+              <img src={logoUrl} alt="Suzuki" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
             </div>
             <FiCheckCircle className="success-icon" style={{ width: '48px', height: '48px' }} />
             <h2>Véhicule identifié</h2>
@@ -316,7 +353,7 @@ const ChatWidget = () => {
           <div className="verification-header" style={{ background: 'linear-gradient(to bottom right, #f8fafc, #e0f2fe)', padding: '48px 30px', borderBottom: '1px solid #e2e8f0' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px', marginBottom: '24px' }}>
               <div style={{ width: '80px', height: '80px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <img src="suzuli_logo.png" alt="Suzuki Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                <img src={logoUrl} alt="Suzuki Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
               </div>
               <div style={{ textAlign: 'left' }}>
                 <h1 style={{ fontSize: '32px', fontWeight: '700', background: 'linear-gradient(90deg, #1a73e8 0%, #7c4dff 50%, #c2185b 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', marginBottom: '4px' }}>Suzuki AI Assistant</h1>
@@ -324,6 +361,9 @@ const ChatWidget = () => {
               </div>
             </div>
             <p style={{ fontSize: '14px', color: '#64748b' }}>Bonjour merci de télécharger votre carte grise Suzuki</p>
+            <p style={{ fontSize: '12px', color: '#94a3b8', marginTop: '8px' }}>
+              📊 Limite: 3 téléchargements par mois
+            </p>
           </div>
 
           <div className="verification-content">
@@ -387,7 +427,7 @@ const ChatWidget = () => {
           <div className="header-content">
             <div className="header-logo">
               <div className="logo-circle">
-                <img src="suzuli_logo.png" alt="Suzuki" style={{ width: '32px', height: '32px', objectFit: 'contain' }} />
+                <img src={logoUrl} alt="Suzuki" style={{ width: '32px', height: '32px', objectFit: 'contain' }} />
               </div>
               <div className="header-text">
                 <h3>Suzuki AI Assistant</h3>

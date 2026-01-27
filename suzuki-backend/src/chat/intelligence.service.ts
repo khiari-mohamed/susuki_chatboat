@@ -466,7 +466,7 @@ export class IntelligenceService {
     return magA && magB ? dot / (magA * magB) : 0;
   }
   detectIntent(message: string): {
-    type: 'SEARCH' | 'DIAGNOSTIC' | 'PRICE_INQUIRY' | 'STOCK_CHECK' | 'GREETING' | 'COMPLAINT' | 'THANKS' | 'CLARIFICATION_NEEDED';
+    type: 'SEARCH' | 'PRICE_INQUIRY' | 'STOCK_CHECK' | 'GREETING' | 'COMPLAINT' | 'THANKS' | 'CLARIFICATION_NEEDED';
     confidence: number;
     subIntent?: { location?: string; model?: string; year?: string };
   } {
@@ -498,9 +498,10 @@ export class IntelligenceService {
         return { type: 'COMPLAINT', confidence: 0.88 };
       }
 
-      // DIAGNOSTIC
+      // DIAGNOSTIC REMOVED - redirect to professional service for car problems
       if (/bruit|fuite|probleme|problème|panne|ne marche pas|defectueux|casse|cassé|voyant|vibration|surchauffe|80000.*km|entretien|maintenance|bizarre|t9allek|ralenti|saccade|perte.*puissance/i.test(combinedText)) {
-        return { type: 'DIAGNOSTIC', confidence: 0.88, subIntent: this.detectSubIntent(message) };
+        // Treat as search query for parts instead of diagnostic
+        return { type: 'SEARCH', confidence: 0.75, subIntent: this.detectSubIntent(message) };
       }
 
       // PRICE

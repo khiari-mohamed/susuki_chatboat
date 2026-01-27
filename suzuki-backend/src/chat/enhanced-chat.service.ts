@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
-import { GeminiService } from './gemini.service';
+import { OpenAIService } from './openai.service';
 import { AdvancedSearchService } from './advanced-search.service';
 import { IntelligenceService } from './intelligence.service';
 
@@ -69,7 +69,7 @@ export class EnhancedChatService {
   constructor(
     private prisma: PrismaService,
     private config: ConfigService,
-    private gemini: GeminiService,
+    private openai: OpenAIService,
     private advancedSearch: AdvancedSearchService,
     private intelligence: IntelligenceService,
   ) {
@@ -80,7 +80,7 @@ export class EnhancedChatService {
 
   // ===== SERVICE VALIDATION =====
   private validateServices(): void {
-    const services = { prisma: this.prisma, gemini: this.gemini };
+    const services = { prisma: this.prisma, openai: this.openai };
     for (const [name, service] of Object.entries(services)) {
       if (!service) {
         throw new Error(`Critical service "${name}" is not initialized`);
@@ -145,13 +145,7 @@ export class EnhancedChatService {
       // ✅ STRUCTURED INTENT DETECTION WITH CACHING
       let intent = await this.detectIntentWithCaching(message);
 
-      // If the user message clearly indicates a diagnostic scenario, force diagnostic intent
-      const diagnosticForcePattern = /\b(bruit|fuite|probleme|problème|panne|ne marche pas|defectueux|cassé|voyant|vibration|surchauffe|ralenti|saccade|perte de puissance)\b/i;
-      if (diagnosticForcePattern.test(message)) {
-        // reuse detectIntent to get subintent information
-        const detected = this.intelligence.detectIntent(message);
-        intent = { type: 'DIAGNOSTIC', confidence: 0.98, subIntent: detected.subIntent } as any;
-      }
+      // Diagnostic feature removed - AI should not diagnose car problems
 
       // ✅ HANDLE EMPTY MESSAGE - EARLY RETURN
       if (!message || message.trim().length === 0) {
@@ -366,8 +360,7 @@ export class EnhancedChatService {
 
     const lowerMsg = message.toLowerCase();
     const normalizedMsg = this.normalizeTunisian(message) || message;
-    const greeting = (lowerMsg.includes('ahla') || lowerMsg.includes('n7eb') || normalizedMsg.includes('bonjour')) 
-      ? 'Ahla w sahla!' : 'Bonjour';
+    const greeting = 'Bonjour';
     
     let structuredResponse = `${greeting} Je rencontre une difficulté technique temporaire.\n\n`;
     
@@ -840,26 +833,7 @@ export class EnhancedChatService {
       }
     }
     
-    // Prefer multi-symptom diagnostic when multiple severe symptoms are present
-    if (this.hasMultipleSymptoms(message)) {
-      return this.generateMultiSymptomDiagnostic(
-        message,
-        products,
-        vehicle,
-        conversationHistory
-      );
-    }
-
-    // If message explicitly contains diagnostic keywords, use diagnostic flow
-    const diagnosticPattern = /\b(bruit|fuite|probleme|problème|panne|ne marche pas|defectueux|cassé|voyant|vibration|surchauffe|ralenti|saccade|perte de puissance)\b/i;
-    if (diagnosticPattern.test(message)) {
-      return this.generateDiagnosticResponse(
-        message,
-        products,
-        vehicle,
-        conversationHistory
-      );
-    }
+    // Diagnostic feature removed - redirect users to professional service
 
     // Special handling for contextual price inquiries
     const isContextualQuery = /\b(aussi|egalement|également|pareil|même chose|et pour|arrière|arriere|et.*arrière|et.*arriere|pour.*arrière|pour.*arriere|deux jeux|les deux|combien pour)\b/i.test(
@@ -887,13 +861,21 @@ export class EnhancedChatService {
       );
     }
 
+    // Diagnostic intent redirects to professional service
     if (intent.type === 'DIAGNOSTIC') {
-      return this.generateDiagnosticResponse(
-        message,
-        products,
-        vehicle,
-        conversationHistory
-      );
+      return `Bonjour! Pour tout problème technique ou diagnostic de votre véhicule, nous vous recommandons de contacter directement notre équipe d'experts CarPro.
+
+☎️ CONTACT PROFESSIONNEL:
+🔹 Téléphone: 70 603 500
+🔹 Service disponible 7j/7
+🔹 Diagnostic professionnel sur place
+
+💡 Notre équipe technique pourra:
+• Diagnostiquer précisément le problème
+• Vous conseiller les pièces nécessaires
+• Effectuer les réparations si besoin
+
+Pour rechercher des pièces de rechange, je reste à votre disposition!`;
     }
 
     return this.generateEnhancedResponse(
@@ -1155,9 +1137,10 @@ Erreur technique: ${errorMessage}`;
   private buildResponseFromStructured(parsed: any, products: any[], message: string): string {
     const parts: string[] = [];
 
-    const greeting = parsed.greeting || (parsed.language === 'tunisian' ? 'Ahla w sahla!' : 'Bonjour');
+    // Always use formal French greeting
+    const greeting = 'Bonjour';
     const human = parsed.humanReadable || '';
-    parts.push(`${greeting} ${human}`.trim());
+    parts.push(`${greeting}, ${human}`.trim());
 
     // PRODUCTS
     if (Array.isArray(parsed.products) && parsed.products.length > 0) {
@@ -1274,12 +1257,8 @@ Erreur technique: ${errorMessage}`;
     const normalizedMsg = this.normalizeTunisian(message) || message;
     const lowerMsg = message.toLowerCase();
     
-    // Check for Tunisian greeting
-    if (lowerMsg.includes('ahla') || normalizedMsg.includes('bonjour')) {
-      lines.push('Ahla w sahla! Voici les produits que j\'ai trouvés pour votre demande :');
-    } else {
-      lines.push('Bonjour — Voici les produits que j\'ai trouvés pour votre demande :');
-    }
+    // Always use formal French greeting
+    lines.push('Bonjour, voici les produits que j\'ai trouvés pour votre demande :');
     
     // Add specific part type if mentioned
     if (lowerMsg.includes('filtre') && lowerMsg.includes('air')) {
@@ -1378,9 +1357,9 @@ Erreur technique: ${errorMessage}`;
       try {
         const start = Date.now();
         const response = await Promise.race([
-          this.gemini.chat(message, conversationHistory, context),
+          this.openai.chat(message, conversationHistory, context),
           this.delay(REDUCED_TIMEOUT).then(() => {
-            throw new Error('Gemini API timeout');
+            throw new Error('OpenAI API timeout');
           }),
         ]);
 
@@ -1390,16 +1369,16 @@ Erreur technique: ${errorMessage}`;
           if (this.intelligence && typeof this.intelligence.recordResponseTime === 'function') {
             this.intelligence.recordResponseTime(duration);
           }
-          this.logger.debug(`Gemini call duration: ${duration}ms`);
+          this.logger.debug(`OpenAI call duration: ${duration}ms`);
         } catch (e) {
-          this.logger.warn('Failed to record Gemini response time:', e as any);
+          this.logger.warn('Failed to record OpenAI response time:', e as any);
         }
 
         return response;
       } catch (error) {
         lastError = error as Error;
         this.logger.warn(
-          `Gemini API attempt ${attempt + 1} failed: ${lastError.message}`
+          `OpenAI API attempt ${attempt + 1} failed: ${lastError.message}`
         );
 
         if (attempt < this.MAX_RETRIES - 1) {
@@ -1409,7 +1388,7 @@ Erreur technique: ${errorMessage}`;
     }
 
     // Return deterministic fallback instead of empty string
-    this.logger.error('All Gemini retries failed, using deterministic fallback');
+    this.logger.error('All OpenAI retries failed, using deterministic fallback');
     return this.createDeterministicFallback(message);
   }
 
@@ -1417,11 +1396,10 @@ Erreur technique: ${errorMessage}`;
     const lowerMsg = message.toLowerCase();
     const normalizedMsg = this.normalizeTunisian(message) || message;
     
-    // Tunisian greeting detection
-    const greeting = (lowerMsg.includes('ahla') || lowerMsg.includes('n7eb') || normalizedMsg.includes('bonjour')) 
-      ? 'Ahla w sahla!' : 'Bonjour';
+    // Always use formal French greeting
+    const greeting = 'Bonjour';
     
-    let response = `${greeting} Je traite votre demande concernant votre véhicule Suzuki.\n\n`;
+    let response = `${greeting}, je traite votre demande concernant votre véhicule Suzuki.\n\n`;
     
     // Add specific content based on query type
     if (lowerMsg.includes('filtre')) {
@@ -1516,9 +1494,8 @@ Erreur technique: ${errorMessage}`;
     const lowerMessage = message.toLowerCase();
     const normalizedMsg = this.normalizeTunisian(message) || message;
     
-    // Always use structured format for fallbacks
-    const greeting = (lowerMessage.includes('ahla') || lowerMessage.includes('n7eb') || normalizedMsg.includes('bonjour')) 
-      ? 'Ahla w sahla!' : 'Bonjour';
+    // Always use formal French greeting
+    const greeting = 'Bonjour';
 
     // Specific fallbacks based on intent with required format
     if (lowerMessage.includes('filtre')) {
@@ -1540,8 +1517,7 @@ Erreur technique: ${errorMessage}`;
   private getGracefulFallback(message: string, products: any[]): string {
     const lowerMsg = message.toLowerCase();
     const normalizedMsg = this.normalizeTunisian(message) || message;
-    const greeting = (lowerMsg.includes('ahla') || lowerMsg.includes('n7eb') || normalizedMsg.includes('bonjour')) 
-      ? 'Ahla w sahla!' : 'Bonjour';
+    const greeting = 'Bonjour';
     
     return `${greeting} Une difficulté technique temporaire est survenue.\n\nPRODUITS TROUVÉS:\nRecherche temporairement indisponible\n\n💰 PRIX:\nTarifs disponibles par téléphone\n\n📦 STOCK:\nVérification manuelle possible\n\n✅ RECOMMANDATIONS:\n🔹 Contactez CarPro au ☎️ 70 603 500\n🔹 Notre équipe vous assistera immédiatement\n🔹 Service disponible 7j/7`;
   }
@@ -1637,7 +1613,7 @@ Erreur technique: ${errorMessage}`;
           sessionId,
           promptText: userMessage,
           responseText: botResponse,
-          model: 'gemini-2.0-flash-exp',
+          model: 'gpt-4o-mini',
           tokens: userMessage.length + botResponse.length,
         },
       });
@@ -1738,7 +1714,7 @@ NE PAS CHERCHER DE PIÈCES - RÉPONSE SIMPLE UNIQUEMENT`;
       case 'COMPLAINT':
         return 'Je suis désolé pour ce désagrément. Notre service client CarPro au ☎️ 70 603 500 pourra vous aider à résoudre ce problème rapidement.';
       default:
-        return await this.gemini.chat(message, conversationHistory, context);
+        return await this.openai.chat(message, conversationHistory, context);
     }
   }
 
@@ -1816,7 +1792,7 @@ NE PAS CHERCHER DE PIÈCES - RÉPONSE SIMPLE UNIQUEMENT`;
       ', '
     )}
 DEMANDER CLARIFICATION EN FRANÇAIS`;
-    return await this.gemini.chat(message, conversationHistory, context);
+    return await this.openai.chat(message, conversationHistory, context);
   }
 
   // ===== ANALYTICS =====
@@ -2208,109 +2184,8 @@ DEMANDER CLARIFICATION EN FRANÇAIS`;
     return "";
   }
 
-  // ===== DIAGNOSTIC METHODS =====
-
-  private hasMultipleSymptoms(message: string): boolean {
-    const symptoms: { [key: string]: number } = {
-      voyant: 2,
-      'perte de puissance': 2,
-      'ralenti instable': 2,
-      saccade: 2,
-      freinage: 2,
-      'pédale molle': 2,
-      'éléments de frein': 2,
-      vibration: 1,
-      'bruits de suspension': 1,
-      fuite: 1,
-      'liquide de refroidissement': 1,
-      huile: 1,
-      surchauffe: 2,
-      'voyant moteur': 3,
-      fumée: 2,
-      'odeur de brûlé': 2,
-      consommation: 1,
-      'échappement': 1,
-    };
-
-    const lowerMessage = message.toLowerCase();
-    let severityScore = 0;
-    const foundSymptoms: string[] = [];
-
-    for (const [symptom, severity] of Object.entries(symptoms)) {
-      const regex = new RegExp(`\\b${symptom}\\b`, 'gi');
-      if (regex.test(lowerMessage)) {
-        severityScore += severity;
-        foundSymptoms.push(symptom);
-      }
-    }
-
-    return foundSymptoms.length >= 3 || severityScore >= 5;
-  }
-
-  private async generateMultiSymptomDiagnostic(
-    message: string,
-    products: any[],
-    vehicle: any,
-    conversationHistory: any[]
-  ): Promise<string> {
-    const lowerMessage = message.toLowerCase();
-    const normalizedMessage = this.normalizeTunisian(message) || message;
-
-    // Engine problems with multiple symptoms
-    if (
-      (lowerMessage.includes('voyant moteur') || lowerMessage.includes('voyant')) &&
-      (lowerMessage.includes('perte de puissance') || lowerMessage.includes('puissance'))
-    ) {
-      return `🔍 ANALYSE: Plusieurs symptômes moteur détectés - problème complexe nécessitant diagnostic approfondi.
-
-⚠️ CAUSES PROBABLES:
-1. Capteur oxygène défectueux (70% probable)
-2. Système d'injection encrassé (65% probable)
-3. Filtre à air obstrué (50% probable)
-4. Capteur de débit d'air défaillant (45% probable)
-5. Problème de compression (40% probable)
-
-✅ RECOMMANDATIONS:
-🔹 URGENT: Diagnostic électronique complet
-🔹 IMPORTANT: Vérification capteurs moteur
-🔹 IMPORTANT: Nettoyage système d'injection
-🔹 PRÉVENTIF: Remplacement filtre à air
-
-💰 Coût estimé diagnostic: 50-80 TND
-⚠️ ATTENTION: Ne pas ignorer - risque de dommages moteur!`;
-    }
-
-    // Brake system multiple failures
-    if (
-      (lowerMessage.includes('pédale') || normalizedMessage.includes('frein')) &&
-      lowerMessage.includes('bruit') &&
-      lowerMessage.includes('vibration')
-    ) {
-      return `🔍 ANALYSE: Plusieurs symptômes de défaillance du système de freinage - SÉCURITÉ CRITIQUE!
-
-⚠️ CAUSES PROBABLES:
-1. Plaquettes de frein usées (90% probable)
-2. Disques de frein voilés (80% probable)
-3. Liquide de frein contaminé ou bas (60% probable)
-4. Maître-cylindre défaillant (40% probable)
-
-✅ RECOMMANDATIONS:
-🔹 URGENT: Arrêt immédiat - SÉCURITÉ!
-🔹 URGENT: Vérification complète système freinage
-🔹 IMPORTANT: Remplacement plaquettes et disques
-🔹 IMPORTANT: Purge circuit de freinage et vérification liquide
-
-💰 Coût estimé: 300-500 TND
-🚨 DANGER: Conduite interdite - contactez immédiatement un professionnel!`;
-    }
-
-    return await this.generateDiagnosticResponse(
-      message,
-      products,
-      vehicle,
-      conversationHistory
-    );
-  }
+  // ===== DIAGNOSTIC FEATURE REMOVED =====
+  // AI should not diagnose car problems - users are redirected to professional service
 
   private isPartNotInDatabase(message: string): boolean {
     const lowerMessage = message.toLowerCase();
@@ -2436,101 +2311,7 @@ DEMANDER CLARIFICATION EN FRANÇAIS`;
     return response;
   }
 
-  private async generateDiagnosticResponse(
-    message: string,
-    products: any[],
-    vehicle: any,
-    conversationHistory: any[]
-  ): Promise<string> {
-    const lowerMessage = message.toLowerCase();
-    const normalizedMessage = this.normalizeTunisian(message) || message;
 
-    // Brake noise diagnostic
-    if (
-      (lowerMessage.includes('bruit') || normalizedMessage.includes('bruit')) &&
-      (lowerMessage.includes('freinage') ||
-        lowerMessage.includes('frein') ||
-        lowerMessage.includes('frain') ||
-        normalizedMessage.includes('frein'))
-    ) {
-      return `🔍 ANALYSE: Bruit au freinage indique une usure des éléments de freinage.
-
-⚠️ CAUSES PROBABLES:
-1. Plaquettes de frein usées (80% probable)
-2. Disques de frein rayés ou voilés (70% probable)
-3. Étriers grippés (30% probable)
-4. Capteur d'usure défaillant (40% probable)
-
-✅ RECOMMANDATIONS:
-🔹 URGENT: Vérification immédiate du système de freinage
-🔹 IMPORTANT: Remplacement des plaquettes si usées
-🔹 PRÉVENTIF: Contrôle des disques de frein
-🔹 IMPORTANT: Vérification du système d'injection de frein
-
-💰 Coût estimé: 150-300 TND selon les pièces à remplacer
-⚠️ ATTENTION: Ne pas ignorer - sécurité critique!`;
-    }
-
-    // Engine problems with multiple symptoms
-    if (
-      (lowerMessage.includes('voyant') && lowerMessage.includes('moteur')) ||
-      (lowerMessage.includes('perte') && lowerMessage.includes('puissance')) ||
-      (lowerMessage.includes('consommation') && lowerMessage.includes('excessive')) ||
-      (lowerMessage.includes('fumée') && lowerMessage.includes('noire'))
-    ) {
-      return `🔍 ANALYSE: Symptômes moteur multiples détectés - diagnostic approfondi requis.
-
-⚠️ CAUSES PROBABLES:
-1. Capteur oxygène défectueux (70% probable)
-2. Système d'injection encrassé (65% probable)
-3. Filtre à air obstrué (50% probable)
-4. Capteur de débit d'air défaillant (45% probable)
-
-✅ RECOMMANDATIONS:
-🔹 URGENT: Diagnostic électronique complet
-🔹 IMPORTANT: Vérification capteurs moteur
-🔹 IMPORTANT: Nettoyage système d'injection
-🔹 PRÉVENTIF: Remplacement filtre à air
-
-💰 Coût estimé diagnostic: 50-80 TND
-⚠️ ATTENTION: Ne pas ignorer - risque de dommages moteur!`;
-    }
-
-    // Maintenance at 80000 km
-    if (
-      (lowerMessage.includes('80000') ||
-        lowerMessage.includes('80 000')) &&
-      lowerMessage.includes('km')
-    ) {
-      return `🔍 ANALYSE: À 80 000 km, votre Suzuki Celerio nécessite une maintenance complète.
-
-✅ RECOMMANDATIONS DE MAINTENANCE:
-🔹 URGENT: Vidange moteur et filtre à huile
-🔹 IMPORTANT: Filtre à air (améliore performances)
-🔹 IMPORTANT: Filtre à carburant (protection injection)
-🔹 PRÉVENTIF: Bougies d'allumage
-🔹 PRÉVENTIF: Courroie de distribution (vérification)
-
-💡 CONSEIL: Planifiez cette maintenance pour maintenir les performances et la fiabilité de votre véhicule.`;
-    }
-
-    // Fallback: return structured diagnostic without Gemini
-    return `🔍 ANALYSE: Problème détecté nécessitant une vérification approfondie.
-
-⚠️ CAUSES PROBABLES:
-1. Composants usés ou défectueux
-2. Maintenance nécessaire
-3. Vérification système recommandée
-4. Capteurs potentiellement défaillants
-
-✅ RECOMMANDATIONS:
-🔹 URGENT: Diagnostic professionnel recommandé
-🔹 IMPORTANT: Vérification des composants
-🔹 IMPORTANT: Contrôle système d'injection
-🔹 PRÉVENTIF: Maintenance régulière
-
-💡 Pour un diagnostic précis, contactez CarPro au ☎️ 70 603 500`;
-  }
 
 
   
@@ -2984,29 +2765,7 @@ Produit non disponible
       }
     }
 
-    // 🚨 CRITICAL: FORCE diagnostic features
-    if ((lowerMsg.includes('bruit') || lowerMsg.includes('problème') || lowerMsg.includes('panne') || 
-         lowerMsg.includes('t9allek') || lowerMsg.includes('voyant') || lowerMsg.includes('pédale') || 
-         lowerMsg.includes('vibration') || lowerMsg.includes('frein'))) {
-      
-      if (!enhanced.includes('ANALYSE:')) {
-        enhanced = `🔍 ANALYSE: ${enhanced}`;
-      }
-      
-      if (!enhanced.includes('RECOMMANDATIONS:')) {
-        enhanced += `\n\n✅ RECOMMANDATIONS:\n🔹 Vérification immédiate recommandée\n🔹 Diagnostic professionnel conseillé\n🔹 Contactez CarPro au ☎️ 70 603 500`;
-      }
-      
-      if (!enhanced.includes('CAUSES PROBABLES:')) {
-        enhanced += `\n\n⚠️ CAUSES PROBABLES:\n1. Usure des composants\n2. Maintenance nécessaire\n3. Vérification système requise`;
-      }
-    }
-
-    // 🚨 CRITICAL: FORCE multipleSymptoms for complex diagnostics
-    const symptomCount = (lowerMsg.match(/voyant|perte|puissance|consommation|fumée|pédale|bruit|vibration|liquide|frein|molle|métallique|abs/g) || []).length;
-    if (symptomCount >= 3 && !enhanced.toLowerCase().includes('symptômes multiples')) {
-      enhanced = enhanced.replace('🔍 ANALYSE:', '🔍 ANALYSE (Symptômes multiples):');
-    }
+    // Diagnostic features removed - no longer analyzing car problems
 
     // 🚨 CRITICAL: FORCE exact reference matching
     const referencePattern = /\b[A-Z0-9]{8,}\b/g;
@@ -3102,12 +2861,8 @@ Produit non disponible
     const lines: string[] = [];
     const lowerMsg = message.toLowerCase();
     
-    // Tunisian greeting if detected
-    if (lowerMsg.includes('ahla') || lowerMsg.includes('n7eb') || lowerMsg.includes('barcha')) {
-      lines.push('Ahla w sahla! Voici les produits disponibles pour votre demande:');
-    } else {
-      lines.push('PRODUITS TROUVÉS:');
-    }
+    // Always use formal French
+    lines.push('PRODUITS TROUVÉS:');
 
     // Add top 3 products with clear details
     products.slice(0, 3).forEach((p, index) => {

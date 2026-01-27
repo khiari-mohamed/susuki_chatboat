@@ -8,15 +8,20 @@ datasource db {
 }
 
 // ============================================
-// Vehicles Database
+// Vehicles Database (vehicules)
 // ============================================
 model Vehicle {
-  id              Int      @id @default(autoincrement())
+  id              Int      @id @default(autoincrement()) @map("id_vehicule")
   immatriculation String   @unique @db.VarChar(20)
   vin             String?  @unique @db.VarChar(17)
   marque          String   @db.VarChar(50)
   modele          String   @db.VarChar(50)
   annee           Int
+  kilometrage     Int?
+  prix            Decimal? @db.Decimal(10, 3)
+  dateAjout       DateTime @default(now()) @map("date_ajout")
+  statut          String   @default("disponible") @db.VarChar(50)
+  idVendeur       Int?     @map("id_vendeur")
   type            String?  @db.VarChar(50)
   couleur         String?  @db.VarChar(30)
   proprietaire    String?  @db.VarChar(100)
@@ -24,19 +29,29 @@ model Vehicle {
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 
-  @@map("vehicles")
+  vendeur         Employe?  @relation(fields: [idVendeur], references: [id])
+  ventes          Vente[]
+  reparations     Reparation[]
+  documents       Document[]
+
+  @@map("vehicules")
   @@index([marque, modele])
-  @@index([immatriculation])
-  @@index([vin])
+  @@index([statut])
+  @@index([idVendeur])
 }
 
 // ============================================
-// Parts Catalog (from CSV)
+// Parts Catalog (pieces_rechange)
 // ============================================
 model PiecesRechange {
-  id              Int      @id @default(autoincrement())
+  id              Int      @id @default(autoincrement()) @map("id_piece")
   reference       String   @unique @db.VarChar(50)
+  nomPiece        String?  @map("nom_piece")
   designation     String
+  quantiteStock   Int      @default(0) @map("quantite_stock")
+  prixUnitaire    Decimal? @map("prix_unitaire") @db.Decimal(10, 3)
+  dateAjout       DateTime @default(now()) @map("date_ajout")
+  fournisseur     String?  @db.VarChar(100)
   versionModele   String   @map("version_modele") @db.VarChar(50)
   typeVehicule    String   @map("type_vehicule") @db.VarChar(50)
   prixHt          Decimal  @map("prix_ht") @db.Decimal(10, 3)
@@ -45,7 +60,114 @@ model PiecesRechange {
 
   @@map("pieces_rechange")
   @@index([versionModele])
-  @@index([stock])
+  @@index([quantiteStock])
+  @@index([fournisseur])
+}
+
+// ============================================
+// Clients (clients)
+// ============================================
+model Client {
+  id              Int      @id @default(autoincrement()) @map("id_client")
+  nom             String   @db.VarChar(100)
+  prenom          String   @db.VarChar(100)
+  email           String?  @db.VarChar(150)
+  telephone       String?  @db.VarChar(20)
+  adresse         String?  @db.Text
+  typeClient      String   @default("particulier") @map("type_client") @db.VarChar(50)
+  dateInscription DateTime @default(now()) @map("date_inscription")
+
+  ventes          Vente[]
+  reparations     Reparation[]
+  documents       Document[]
+
+  @@map("clients")
+  @@index([email])
+  @@index([telephone])
+}
+
+// ============================================
+// Employes (employes)
+// ============================================
+model Employe {
+  id              Int      @id @default(autoincrement()) @map("id_employe")
+  nom             String   @db.VarChar(100)
+  prenom          String   @db.VarChar(100)
+  poste           String   @db.VarChar(50)
+  email           String?  @db.VarChar(150)
+  telephone       String?  @db.VarChar(20)
+
+  vehicules       Vehicle[]
+  ventes          Vente[]
+  reparations     Reparation[]
+
+  @@map("employes")
+  @@index([poste])
+}
+
+// ============================================
+// Ventes (ventes)
+// ============================================
+model Vente {
+  id              Int      @id @default(autoincrement()) @map("id_vente")
+  idClient        Int      @map("id_client")
+  idVehicule      Int      @map("id_vehicule")
+  prixAchat       Decimal  @map("prix_achat") @db.Decimal(10, 3)
+  dateVente       DateTime @default(now()) @map("date_vente")
+  modePaiement    String   @map("mode_paiement") @db.VarChar(50)
+  idVendeur       Int      @map("id_vendeur")
+
+  client          Client   @relation(fields: [idClient], references: [id])
+  vehicule        Vehicle  @relation(fields: [idVehicule], references: [id])
+  vendeur         Employe  @relation(fields: [idVendeur], references: [id])
+
+  @@map("ventes")
+  @@index([idClient])
+  @@index([idVehicule])
+  @@index([idVendeur])
+  @@index([dateVente])
+}
+
+// ============================================
+// Reparations/Entretien (reparations)
+// ============================================
+model Reparation {
+  id              Int      @id @default(autoincrement()) @map("id_entretien")
+  idVehicule      Int      @map("id_vehicule")
+  idClient        Int      @map("id_client")
+  dateEntretien   DateTime @default(now()) @map("date_entretien")
+  typeEntretien   String   @map("type_entretien") @db.VarChar(100)
+  cout            Decimal  @db.Decimal(10, 3)
+  idVendeur       Int?     @map("id_vendeur")
+
+  vehicule        Vehicle  @relation(fields: [idVehicule], references: [id])
+  client          Client   @relation(fields: [idClient], references: [id])
+  employe         Employe? @relation(fields: [idVendeur], references: [id])
+
+  @@map("reparations")
+  @@index([idVehicule])
+  @@index([idClient])
+  @@index([dateEntretien])
+}
+
+// ============================================
+// Documents (documents)
+// ============================================
+model Document {
+  id              Int      @id @default(autoincrement()) @map("id_document")
+  typeDocument    String   @map("type_document") @db.VarChar(100)
+  dateCreation    DateTime @default(now()) @map("date_creation")
+  lienDocument    String?  @map("lien_document") @db.Text
+  idClient        Int?     @map("id_client")
+  idVehicule      Int?     @map("id_vehicule")
+
+  client          Client?  @relation(fields: [idClient], references: [id])
+  vehicule        Vehicle? @relation(fields: [idVehicule], references: [id])
+
+  @@map("documents")
+  @@index([idClient])
+  @@index([idVehicule])
+  @@index([typeDocument])
 }
 
 // ============================================
@@ -113,4 +235,19 @@ model ChatFeedback {
 
   @@map("chat_feedback")
   @@index([rating])
+}
+
+// ============================================
+// Upload Tracking (5 uploads per month limit)
+// ============================================
+model UploadTracking {
+  id        String   @id @default(uuid())
+  userIp    String   @map("user_ip") @db.VarChar(45) // IPv4 or IPv6
+  uploadedAt DateTime @default(now()) @map("uploaded_at")
+  success   Boolean  @default(true)
+  vehicleInfo Json?  @map("vehicle_info")
+
+  @@map("upload_tracking")
+  @@index([userIp, uploadedAt])
+  @@index([uploadedAt])
 }

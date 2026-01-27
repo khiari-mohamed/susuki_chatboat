@@ -1,6 +1,7 @@
-import { Controller, Post, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
+import { Controller, Post, UseInterceptors, UploadedFile, BadRequestException, Req } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { VerificationService } from './verification.service';
+import type { Request } from 'express';
 
 @Controller('verification')
 export class VerificationController {
@@ -25,7 +26,7 @@ export class VerificationController {
       fileSize: 20 * 1024 * 1024, // 20MB max for high-quality scans
     },
   }))
-  async verifyCarteGrise(@UploadedFile() file: Express.Multer.File) {
+  async verifyCarteGrise(@UploadedFile() file: Express.Multer.File, @Req() req: Request) {
     if (!file) {
       throw new BadRequestException('Aucun fichier téléchargé');
     }
@@ -46,7 +47,8 @@ export class VerificationController {
     }
 
     try {
-      const result = await this.verificationService.verifyDocument(file);
+      const userIp = req.ip || req.connection?.remoteAddress || 'unknown';
+      const result = await this.verificationService.verifyDocument(file, userIp);
       return result;
     } catch (error) {
       console.error('Verification error:', error);
