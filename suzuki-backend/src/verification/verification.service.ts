@@ -22,21 +22,22 @@ export class VerificationService {
     });
 
     try {
-      // Check upload limit (3 per month)
+      // Check IP-based upload limit (3 per month)
       if (userIp) {
-        const uploadCount = await this.getMonthlyUploadCount(userIp);
-        console.log(`📊 Upload count for ${userIp}: ${uploadCount}/3 this month`);
+        const ipUploadCount = await this.getMonthlyUploadCount(userIp);
+        console.log(`📊 Upload count for IP ${userIp}: ${ipUploadCount}/3 this month`);
         
-        if (uploadCount >= 3) {
-          console.log('❌ Upload limit exceeded');
+        if (ipUploadCount >= 3) {
+          console.log('❌ IP upload limit exceeded');
           return {
             success: false,
             message: 'Limite mensuelle atteinte. Vous avez déjà téléchargé 3 cartes grises ce mois-ci.',
-            uploadCount,
+            uploadCount: ipUploadCount,
             limitReached: true
           };
         }
       }
+
       // Handle PDF conversion if needed
       let imageBase64: string;
       if (file.mimetype === 'application/pdf') {
@@ -47,7 +48,7 @@ export class VerificationService {
         console.log('🖼️  Image detected - processing...');
       }
 
-      // 🔹 GEMINI OCR ONLY (Fast & Accurate with 2.5-flash)
+      // Extract vehicle info with Gemini
       console.log('🤖 Sending to Gemini 2.5-flash OCR...');
       const startTime = Date.now();
       
@@ -58,15 +59,35 @@ export class VerificationService {
       
       const vehicleInfo = { ...geminiResult, confidence: 'HIGH', source: 'Gemini 2.5-flash' };
       
+      // Check carte grise-based upload limit (3 per month per immatriculation)
+      if (vehicleInfo.immatriculation) {
+        const carteGriseUploadCount = await this.getMonthlyCarteGriseUploadCount(vehicleInfo.immatriculation);
+        console.log(`📊 Upload count for carte grise ${vehicleInfo.immatriculation}: ${carteGriseUploadCount}/3 this month`);
+        
+        if (carteGriseUploadCount >= 3) {
+          console.log('❌ Carte grise upload limit exceeded');
+          return {
+            success: false,
+            message: `Cette carte grise (${vehicleInfo.immatriculation}) a déjà été téléchargée 3 fois ce mois-ci. Limite mensuelle atteinte.`,
+            uploadCount: carteGriseUploadCount,
+            limitReached: true,
+            limitType: 'carte_grise'
+          };
+        }
+      }
+      
       console.log(`⏱️  Total OCR completed in ${geminiTime}ms`);
       console.log('✅ EXTRACTION SUCCESS:');
       console.log('📋 Final Vehicle Info:', JSON.stringify(vehicleInfo, null, 2));
       
-      // Track successful upload
+      // Track successful upload (both IP and carte grise)
       if (userIp) {
         await this.trackUpload(userIp, vehicleInfo);
-        const newCount = await this.getMonthlyUploadCount(userIp);
-        console.log(`📊 New upload count: ${newCount}/3`);
+        const newIpCount = await this.getMonthlyUploadCount(userIp);
+        const newCarteGriseCount = vehicleInfo.immatriculation 
+          ? await this.getMonthlyCarteGriseUploadCount(vehicleInfo.immatriculation)
+          : 0;
+        console.log(`📊 New upload counts - IP: ${newIpCount}/3, Carte grise: ${newCarteGriseCount}/3`);
       }
       
       console.log('========== VERIFICATION END ==========\n');
@@ -161,6 +182,26 @@ export class VerificationService {
         matchScore: `${matchCount}/3`
       }
     };
+  }
+
+  private async getMonthlyCarteGriseUploadCount(immatriculation: string): Promise<number> {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    
+    const count = await this.prisma.uploadTracking.count({
+      where: {
+        vehicleInfo: {
+          path: ['immatriculation'],
+          equals: immatriculation
+        },
+        uploadedAt: {
+          gte: startOfMonth
+        },
+        success: true
+      }
+    });
+    
+    return count;
   }
 
   private async getMonthlyUploadCount(userIp: string): Promise<number> {

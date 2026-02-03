@@ -44,28 +44,21 @@ const ChatWidget = () => {
 
   useEffect(() => {
     scrollToBottom();
+    // DO NOT restore verification state - always start fresh
+    // Only restore theme preference
     const theme = localStorage.getItem('suzuki-theme');
-    const verified = localStorage.getItem('suzuki-verified');
-    const vehicle = localStorage.getItem('suzuki-vehicle');
-    const savedMessages = localStorage.getItem('suzuki-chat-messages');
-    
     if (theme === 'dark') setIsDark(true);
-    if (verified === 'true') setIsVerified(true);
-    if (vehicle) {
-      try {
-        setVehicleInfo(JSON.parse(vehicle));
-      } catch (e) {}
-    }
-    if (savedMessages) {
-      try {
-        setMessages(JSON.parse(savedMessages));
-      } catch (e) {}
-    }
+    
+    // Clear all session data on mount to force new upload
+    localStorage.removeItem('suzuki-verified');
+    localStorage.removeItem('suzuki-vehicle');
+    localStorage.removeItem('suzuki-chat-messages');
   }, []);
 
   useEffect(() => {
     scrollToBottom();
-    localStorage.setItem('suzuki-chat-messages', JSON.stringify(messages));
+    // Save messages to sessionStorage (cleared when tab closes)
+    sessionStorage.setItem('suzuki-chat-messages', JSON.stringify(messages));
   }, [messages]);
 
   useEffect(() => {
@@ -125,8 +118,9 @@ const ChatWidget = () => {
       
       if (data.success) {
         setVehicleInfo(data.vehicleInfo);
-        localStorage.setItem('suzuki-verified', 'true');
-        localStorage.setItem('suzuki-vehicle', JSON.stringify(data.vehicleInfo));
+        // Use sessionStorage instead of localStorage (cleared when tab closes)
+        sessionStorage.setItem('suzuki-verified', 'true');
+        sessionStorage.setItem('suzuki-vehicle', JSON.stringify(data.vehicleInfo));
         
         // Store upload count
         if (data.uploadCount) {
