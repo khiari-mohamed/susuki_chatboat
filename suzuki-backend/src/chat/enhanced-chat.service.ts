@@ -1267,10 +1267,15 @@ Erreur technique: ${errorMessage}`;
     
     lines.push('\nPRODUITS TROUVÉS:');
     for (const p of products.slice(0, 5)) {
-      const price = p.prixHt !== undefined && p.prixHt !== null ? `${p.prixHt} TND` : 'prix non disponible';
-      const stock = typeof p.stock === 'number' ? `${p.stock}` : 'inconnu';
-      const dispo = typeof p.stock === 'number' && p.stock > 0 ? 'disponible' : 'indisponible';
-      lines.push(`• ${p.designation} (Réf: ${p.reference}) — Prix: ${price} — Stock: ${stock} (${dispo})`);
+      const stock = typeof p.stock === 'number' ? p.stock : 0;
+      const isAvailable = stock > 0;
+      
+      if (isAvailable) {
+        const price = p.prixHt !== undefined && p.prixHt !== null ? `${p.prixHt} TND` : 'prix non disponible';
+        lines.push(`• ${p.designation} (Réf: ${p.reference}) — Prix: ${price} (disponible)`);
+      } else {
+        lines.push(`• ${p.designation} (Réf: ${p.reference}) (indisponible)`);
+      }
     }
     
     // Add position info if mentioned in message
@@ -1725,9 +1730,22 @@ NE PAS CHERCHER DE PIÈCES - RÉPONSE SIMPLE UNIQUEMENT`;
     message: string
   ): { needed: boolean; variants: string[] } {
     const lowerMessage = message.toLowerCase();
-    const hasPositionSpecified = /\b(avant|arrière|arriere|gauche|droite|av|ar|g|d)\b/i.test(
+    const normalizedMsg = this.normalizeTunisian(message) || message;
+    const hasPositionSpecified = /\b(avant|arrière|arriere|gauche|droite|av|ar|g|d|droit)\b/i.test(
       message
     );
+
+    // Check for amortisseur without position
+    if (
+      (lowerMessage.includes('amortisseur') || normalizedMsg.includes('amortisseur')) &&
+      !hasPositionSpecified &&
+      products.length > 2
+    ) {
+      return {
+        needed: true,
+        variants: ['avant droit', 'avant gauche', 'arrière'],
+      };
+    }
 
     // Check for radiator clarification
     if (
@@ -1773,6 +1791,13 @@ NE PAS CHERCHER DE PIÈCES - RÉPONSE SIMPLE UNIQUEMENT`;
     variants: string[],
     conversationHistory: any[]
   ): Promise<string> {
+    if (
+      variants.length === 3 &&
+      variants.includes('avant droit')
+    ) {
+      return 'Je trouve plusieurs amortisseurs disponibles. Pouvez-vous préciser la position :\n• Avant droit ?\n• Avant gauche ?\n• Arrière ?';
+    }
+
     if (
       variants.length === 2 &&
       variants.includes('radiateur de refroidissement')
@@ -2431,24 +2456,21 @@ DEMANDER CLARIFICATION EN FRANÇAIS`;
   }
   
   private buildReferenceFoundResponse(reference: string, part: any, vehicle: any): string {
-    const price = part.prixHt !== undefined && part.prixHt !== null ? `${part.prixHt} TND` : 'Prix sur demande';
     const stock = typeof part.stock === 'number' ? part.stock : 0;
-    const disponible = stock > 0 ? 'Disponible' : 'Indisponible';
+    const isAvailable = stock > 0;
     
-    return `🎯 RÉFÉRENCE TROUVÉE: ${reference}
-
-PRODUITS TROUVÉS:
-• ${part.designation} (Réf: ${part.reference})
-
-💰 PRIX:
-• ${part.designation}: ${price}
-
-📦 STOCK:
-• Stock disponible: ${stock} unités (${disponible})
-
-✅ CORRESPONDANCE EXACTE confirmée pour votre ${vehicle?.marque || 'véhicule'} ${vehicle?.modele || ''}
-
-💡 Pour commander cette pièce, contactez CarPro au ☎️ 70 603 500`;
+    let response = `🎯 RÉFÉRENCE TROUVÉE: ${reference}\n\nPRODUITS TROUVÉS:\n• ${part.designation} (Réf: ${part.reference})`;
+    
+    if (isAvailable) {
+      const price = part.prixHt !== undefined && part.prixHt !== null ? `${part.prixHt} TND` : 'Prix sur demande';
+      response += `\n\n💰 PRIX:\n• ${part.designation}: ${price} (disponible)`;
+    } else {
+      response += ` (indisponible)`;
+    }
+    
+    response += `\n\n✅ CORRESPONDANCE EXACTE confirmée pour votre ${vehicle?.marque || 'véhicule'} ${vehicle?.modele || ''}\n\n💡 Pour commander cette pièce, contactez CarPro au ☎️ 70 603 500`;
+    
+    return response;
   }
   
   private buildReferenceNotFoundResponse(reference: string): string {
@@ -2866,12 +2888,15 @@ Produit non disponible
 
     // Add top 3 products with clear details
     products.slice(0, 3).forEach((p, index) => {
-      const price = p.prixHt !== undefined && p.prixHt !== null ? `${p.prixHt} TND` : 'Prix sur demande';
       const stock = typeof p.stock === 'number' ? p.stock : 0;
-      const disponible = stock > 0 ? '✅ Disponible' : '❌ Indisponible';
+      const isAvailable = stock > 0;
       
-      lines.push(`• ${p.designation} (Réf: ${p.reference})`);
-      lines.push(`  💰 Prix: ${price} | 📦 Stock: ${stock} | ${disponible}`);
+      if (isAvailable) {
+        const price = p.prixHt !== undefined && p.prixHt !== null ? `${p.prixHt} TND` : 'Prix sur demande';
+        lines.push(`• ${p.designation} (Réf: ${p.reference}) — Prix: ${price} (disponible)`);
+      } else {
+        lines.push(`• ${p.designation} (Réf: ${p.reference}) (indisponible)`);
+      }
     });
 
     return lines.join('\n');

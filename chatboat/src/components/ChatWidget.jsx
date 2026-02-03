@@ -44,11 +44,10 @@ const ChatWidget = () => {
 
   useEffect(() => {
     scrollToBottom();
-    // Clear old chat history to ensure French greeting
-    localStorage.removeItem('suzuki-chat-history');
     const theme = localStorage.getItem('suzuki-theme');
     const verified = localStorage.getItem('suzuki-verified');
     const vehicle = localStorage.getItem('suzuki-vehicle');
+    const savedMessages = localStorage.getItem('suzuki-chat-messages');
     
     if (theme === 'dark') setIsDark(true);
     if (verified === 'true') setIsVerified(true);
@@ -57,11 +56,16 @@ const ChatWidget = () => {
         setVehicleInfo(JSON.parse(vehicle));
       } catch (e) {}
     }
+    if (savedMessages) {
+      try {
+        setMessages(JSON.parse(savedMessages));
+      } catch (e) {}
+    }
   }, []);
 
   useEffect(() => {
     scrollToBottom();
-    localStorage.setItem('suzuki-chat-history', JSON.stringify(messages));
+    localStorage.setItem('suzuki-chat-messages', JSON.stringify(messages));
   }, [messages]);
 
   useEffect(() => {
