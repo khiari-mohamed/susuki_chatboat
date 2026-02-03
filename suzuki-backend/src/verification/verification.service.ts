@@ -47,45 +47,20 @@ export class VerificationService {
         console.log('🖼️  Image detected - processing...');
       }
 
-      // 🔹 LAYER 1: Gemini OCR (Primary)
-      console.log('🤖 Layer 1: Sending to Gemini OCR...');
+      // 🔹 GEMINI OCR ONLY (Fast & Accurate with 2.5-flash)
+      console.log('🤖 Sending to Gemini 2.5-flash OCR...');
       const startTime = Date.now();
       
-      let geminiResult;
-      let geminiTime = 0;
-      try {
-        geminiResult = await this.gemini.extractVehicleInfo(imageBase64, file.mimetype);
-        geminiTime = Date.now() - startTime;
-        console.log(`⏱️  Gemini OCR completed in ${geminiTime}ms`);
-        console.log('📋 Gemini Result:', JSON.stringify(geminiResult, null, 2));
-      } catch (error) {
-        console.log('⚠️  Gemini OCR failed, falling back to OpenAI only...');
-        geminiResult = null;
-      }
+      const geminiResult = await this.gemini.extractVehicleInfo(imageBase64, file.mimetype);
+      const geminiTime = Date.now() - startTime;
+      console.log(`⏱️  Gemini OCR completed in ${geminiTime}ms`);
+      console.log('📋 Gemini Result:', JSON.stringify(geminiResult, null, 2));
       
-      // 🔹 LAYER 2: OpenAI OCR (Verification or Fallback)
-      console.log('🤖 Layer 2: Sending to OpenAI OCR for verification...');
-      const openaiStartTime = Date.now();
+      const vehicleInfo = { ...geminiResult, confidence: 'HIGH', source: 'Gemini 2.5-flash' };
       
-      let openaiResult;
-      try {
-        openaiResult = await this.openai.extractVehicleInfo(imageBase64, file.mimetype);
-        const openaiTime = Date.now() - openaiStartTime;
-        console.log(`⏱️  OpenAI OCR completed in ${openaiTime}ms`);
-        console.log('📋 OpenAI Result:', JSON.stringify(openaiResult, null, 2));
-      } catch (error) {
-        console.log('⚠️  OpenAI verification failed');
-        openaiResult = null;
-      }
-      
-      // 🔹 CROSS-VALIDATION: Compare results
-      const vehicleInfo = this.crossValidateResults(geminiResult, openaiResult);
-      
-      const totalTime = Date.now() - startTime;
-      console.log(`⏱️  Total OCR (2 layers) completed in ${totalTime}ms`);
+      console.log(`⏱️  Total OCR completed in ${geminiTime}ms`);
       console.log('✅ EXTRACTION SUCCESS:');
       console.log('📋 Final Vehicle Info:', JSON.stringify(vehicleInfo, null, 2));
-      console.log('🎯 Confidence:', vehicleInfo.confidence);
       
       // Track successful upload
       if (userIp) {
@@ -101,12 +76,11 @@ export class VerificationService {
         vehicleInfo,
         uploadCount: userIp ? await this.getMonthlyUploadCount(userIp) : 0,
         debug: {
-          processingTime: `${totalTime}ms`,
+          processingTime: `${geminiTime}ms`,
           geminiTime: `${geminiTime}ms`,
-          openaiTime: openaiResult ? `${Date.now() - openaiStartTime}ms` : 'skipped',
           fileSize: `${(file.size / 1024).toFixed(2)} KB`,
           confidence: vehicleInfo.confidence,
-          crossValidated: !!openaiResult
+          model: 'Gemini 2.5-flash'
         }
       };
       

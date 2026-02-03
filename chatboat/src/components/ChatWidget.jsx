@@ -121,7 +121,6 @@ const ChatWidget = () => {
       
       if (data.success) {
         setVehicleInfo(data.vehicleInfo);
-        setShowVehicleCard(true);
         localStorage.setItem('suzuki-verified', 'true');
         localStorage.setItem('suzuki-vehicle', JSON.stringify(data.vehicleInfo));
         
@@ -129,6 +128,17 @@ const ChatWidget = () => {
         if (data.uploadCount) {
           localStorage.setItem('suzuki-upload-count', data.uploadCount.toString());
         }
+        
+        // Skip vehicle card, go directly to chat with vehicle info message
+        setIsVerified(true);
+        const welcomeMessage = {
+          id: Date.now(),
+          text: 'VEHICLE_INFO', // Special marker
+          vehicleData: data.vehicleInfo, // Store vehicle data
+          sender: 'bot',
+          timestamp: new Date()
+        };
+        setMessages(prev => [...prev, welcomeMessage]);
       } else {
         // Check if limit reached
         if (data.limitReached) {
@@ -361,9 +371,10 @@ const ChatWidget = () => {
               </div>
             </div>
             <p style={{ fontSize: '14px', color: '#64748b' }}>Bonjour merci de télécharger votre carte grise Suzuki</p>
-            <p style={{ fontSize: '12px', color: '#94a3b8', marginTop: '8px' }}>
-              📊 Limite: 3 téléchargements par mois
-            </p>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginTop: '8px' }}>
+              <MdOutlineCalendarMonth style={{ color: '#94a3b8', fontSize: '16px' }} />
+              <p style={{ fontSize: '12px', color: '#94a3b8', margin: 0 }}>Limite: 3 téléchargements par mois</p>
+            </div>
           </div>
 
           <div className="verification-content">
@@ -449,10 +460,39 @@ const ChatWidget = () => {
         <div className="chat-messages">
           {messages.map((msg) => (
             <div key={msg.id} className={`message ${msg.sender}`}>
-              <div className="message-content">
-                <p>{msg.text}</p>
-                <span className="message-time">{formatTime(msg.timestamp)}</span>
-              </div>
+              {msg.text === 'VEHICLE_INFO' ? (
+                <div className="message-content vehicle-info-card">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                    <FiCheckCircle style={{ color: '#10b981', fontSize: '20px' }} />
+                    <strong>Véhicule identifié!</strong>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <MdBusiness style={{ color: '#3b82f6', fontSize: '18px' }} />
+                      <span><strong>Marque:</strong> {msg.vehicleData.marque}</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <MdCarRepair style={{ color: '#3b82f6', fontSize: '18px' }} />
+                      <span><strong>Modèle:</strong> {msg.vehicleData.modele}</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <MdCalendarToday style={{ color: '#3b82f6', fontSize: '18px' }} />
+                      <span><strong>Année:</strong> {msg.vehicleData.annee}</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <MdDirectionsCar style={{ color: '#3b82f6', fontSize: '18px' }} />
+                      <span><strong>Immatriculation:</strong> {msg.vehicleData.immatriculation}</span>
+                    </div>
+                  </div>
+                  <p style={{ marginTop: '12px', color: '#64748b' }}>Parfait ! Demandez-moi vos pièces de rechange !</p>
+                  <span className="message-time">{formatTime(msg.timestamp)}</span>
+                </div>
+              ) : (
+                <div className="message-content">
+                  <p>{msg.text}</p>
+                  <span className="message-time">{formatTime(msg.timestamp)}</span>
+                </div>
+              )}
             </div>
           ))}
           
