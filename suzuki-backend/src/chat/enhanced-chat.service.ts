@@ -1735,46 +1735,50 @@ NE PAS CHERCHER DE PIÈCES - RÉPONSE SIMPLE UNIQUEMENT`;
       message
     );
 
-    // Check for amortisseur without position
-    if (
-      (lowerMessage.includes('amortisseur') || normalizedMsg.includes('amortisseur')) &&
-      !hasPositionSpecified &&
-      products.length > 2
-    ) {
-      return {
-        needed: true,
-        variants: ['avant droit', 'avant gauche', 'arrière'],
-      };
+    // PAIRED PARTS - Need position clarification
+    const pairedParts = [
+      { keywords: ['amortisseur'], variants: ['avant droit', 'avant gauche', 'arrière'] },
+      { keywords: ['frein', 'plaquette', 'frain', 'plakete'], variants: ['avant', 'arrière'] },
+      { keywords: ['phare', 'feu'], variants: ['droit', 'gauche'] },
+      { keywords: ['rétroviseur', 'retroviseur', 'miroir'], variants: ['droit', 'gauche'] },
+      { keywords: ['disque'], variants: ['avant', 'arrière'] },
+      { keywords: ['étrier', 'etrier'], variants: ['avant droit', 'avant gauche', 'arrière droit', 'arrière gauche'] },
+    ];
+
+    // Check if query is about a paired part without position
+    for (const part of pairedParts) {
+      const hasPart = part.keywords.some(kw => 
+        lowerMessage.includes(kw) || (normalizedMsg && normalizedMsg.includes(kw))
+      );
+      
+      if (hasPart && !hasPositionSpecified && products.length > 1) {
+        return {
+          needed: true,
+          variants: part.variants,
+        };
+      }
     }
 
-    // Check for radiator clarification
-    if (
-      lowerMessage.includes('radiateur') &&
-      !hasPositionSpecified
-    ) {
-      return {
-        needed: true,
-        variants: ['radiateur de refroidissement', 'radiateur de chauffage'],
-      };
+    // SINGLE PARTS - Only ask for TYPE clarification, not position
+    
+    // Radiator - only ask type (refroidissement vs chauffage)
+    if (lowerMessage.includes('radiateur')) {
+      const hasTypeSpecified = /\b(refroidissement|chauffage|cooling|heating)\b/i.test(message);
+      if (!hasTypeSpecified) {
+        return {
+          needed: true,
+          variants: ['radiateur de refroidissement', 'radiateur de chauffage'],
+        };
+      }
     }
 
-    // Check for S-Presso model mentioned with radiator
-    if (
-      lowerMessage.includes('radiateur') &&
-      lowerMessage.includes('s-presso')
-    ) {
-      return {
-        needed: true,
-        variants: ['radiateur de refroidissement', 'radiateur de chauffage'],
-      };
-    }
-
-    // Check for filter without specification
+    // Filter - ask type (air, huile, carburant)
     if (
       lowerMessage.includes('filtre') &&
       !lowerMessage.includes('air') &&
       !lowerMessage.includes('huile') &&
-      !lowerMessage.includes('carburant')
+      !lowerMessage.includes('carburant') &&
+      !lowerMessage.includes('habitacle')
     ) {
       return {
         needed: true,
@@ -1791,33 +1795,63 @@ NE PAS CHERCHER DE PIÈCES - RÉPONSE SIMPLE UNIQUEMENT`;
     variants: string[],
     conversationHistory: any[]
   ): Promise<string> {
-    if (
-      variants.length === 3 &&
-      variants.includes('avant droit')
-    ) {
-      return 'Je trouve plusieurs amortisseurs disponibles. Pouvez-vous préciser la position :\n• Avant droit ?\n• Avant gauche ?\n• Arrière ?';
+    // Use AI to generate smart, context-aware clarification questions
+    const context = `L'utilisateur recherche une pièce mais n'a pas précisé tous les détails nécessaires.
+
+PIÈCE RECHERCHÉE: ${message}
+VARIANTES DISPONIBLES: ${variants.join(', ')}
+NOMBRE DE PRODUITS TROUVÉS: ${products.length}
+
+INSTRUCTIONS:
+- Pose UNE question de clarification naturelle et humaine
+- Sois bref et direct (maximum 2-3 lignes)
+- Liste les options disponibles avec des puces (•)
+- Utilise un ton amical et professionnel
+- Ne demande JAMAIS la position pour des pièces uniques (moteur, batterie, pare-brise)
+- Demande la position UNIQUEMENT pour les pièces en paire (amortisseur, frein, phare, rétroviseur)
+
+EXEMPLES DE BONNES QUESTIONS:
+"Je trouve plusieurs amortisseurs. Lequel vous intéresse ?\n• Avant droit\n• Avant gauche\n• Arrière"
+"Pour les freins, vous cherchez :\n• Avant\n• Arrière"
+"Quel type de filtre recherchez-vous ?\n• Filtre à air\n• Filtre à huile\n• Filtre à carburant"`;
+
+    try {
+      const aiResponse = await this.openai.chat(message, conversationHistory, context);
+      
+      // Validate AI response is a proper clarification question
+      if (aiResponse && aiResponse.includes('?') && aiResponse.length < 300) {
+        return aiResponse;
+      }
+    } catch (error) {
+      this.logger.warn('AI clarification failed, using fallback');
     }
 
-    if (
-      variants.length === 2 &&
-      variants.includes('radiateur de refroidissement')
-    ) {
-      return 'Je trouve plusieurs types de radiateurs. Pouvez-vous préciser :\n• Radiateur de refroidissement moteur ?\n• Radiateur de chauffage habitacle ?';
+    // Fallback to structured responses if AI fails
+    if (variants.length === 3 && variants.includes('avant droit')) {
+      return 'Je trouve plusieurs amortisseurs disponibles. Lequel vous intéresse ?\n• Avant droit\n• Avant gauche\n• Arrière';
+    }
+
+    if (variants.length === 2 && (variants.includes('avant') && variants.includes('arrière'))) {
+      return 'Pour cette pièce, vous cherchez :\n• Avant\n• Arrière';
+    }
+
+    if (variants.length === 2 && (variants.includes('droit') && variants.includes('gauche'))) {
+      return 'De quel côté avez-vous besoin ?\n• Droit\n• Gauche';
+    }
+
+    if (variants.length === 4 && variants.includes('avant droit')) {
+      return 'Je trouve plusieurs étriers. Précisez la position :\n• Avant droit\n• Avant gauche\n• Arrière droit\n• Arrière gauche';
+    }
+
+    if (variants.length === 2 && variants.includes('radiateur de refroidissement')) {
+      return 'Quel type de radiateur recherchez-vous ?\n• Radiateur de refroidissement moteur\n• Radiateur de chauffage habitacle';
     }
 
     if (variants.length === 3 && variants.includes('filtre à air')) {
-      return 'Je trouve plusieurs types de filtres. Quel filtre recherchez-vous :\n• Filtre à air ?\n• Filtre à huile ?\n• Filtre à carburant ?';
+      return 'Quel type de filtre vous intéresse ?\n• Filtre à air\n• Filtre à huile\n• Filtre à carburant';
     }
 
-    if (variants[0]?.includes('précis')) {
-      return 'Pour vous aider au mieux, pourriez-vous décrire plus précisément la pièce que vous recherchez ou le problème que vous rencontrez ?';
-    }
-
-    const context = `PLUSIEURS VARIANTES DISPONIBLES: ${variants.join(
-      ', '
-    )}
-DEMANDER CLARIFICATION EN FRANÇAIS`;
-    return await this.openai.chat(message, conversationHistory, context);
+    return `Pour mieux vous aider, pouvez-vous préciser :\n${variants.map(v => `• ${v}`).join('\n')}`;
   }
 
   // ===== ANALYTICS =====
