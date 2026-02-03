@@ -29,7 +29,7 @@ const ChatWidget = () => {
   const fileInputRef = useRef(null);
 
   // Get logo URL from config or use default
-  const logoUrl = (typeof window !== 'undefined' && window.suzukiChatbotConfig?.logoUrl) || 'suzuli_logo.png';
+  const logoUrl = (typeof window !== 'undefined' && window.suzukiChatbotConfig?.logoUrl) || '/suzuli_logo.png';
 
   const quickActions = [];
 
