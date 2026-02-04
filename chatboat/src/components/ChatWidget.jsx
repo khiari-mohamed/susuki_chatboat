@@ -208,7 +208,7 @@ const ChatWidget = () => {
       console.log('📊 Chat response data:', data);
       const botResponse = {
         id: Date.now() + 1,
-        text: data.response,
+        text: data.response || data.message || data.text || 'Réponse reçue',
         sender: 'bot',
         timestamp: new Date()
       };
