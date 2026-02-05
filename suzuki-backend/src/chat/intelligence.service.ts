@@ -594,24 +594,16 @@ export class IntelligenceService {
       suggestions.push('Filtre à carburant');
     }
 
-    // If searching for brake parts, suggest complete brake kit
+    // If searching for brake parts, suggest related parts (NOT maintenance)
     if (/plaquette|disque|frein/i.test(lower)) {
-      suggestions.push('Kit de freinage complet (plaquettes + disques)');
+      suggestions.push('Disques de frein');
+      suggestions.push('Plaquettes de frein');
+      suggestions.push('Liquide de frein');
     }
 
-    // If searching for filters with specifics, suggest maintenance kit
+    // If searching for filters with specifics, suggest related filters
     if (/filtre/i.test(lower) && (/air|huile|carburant/i.test(lower))) {
-      suggestions.push('Kit d\'entretien complet (tous les filtres)');
-    }
-
-    // If searching for suspension, suggest alignment
-    if (/amortisseur|suspension/i.test(lower)) {
-      suggestions.push('Vérification de géométrie recommandée');
-    }
-
-    // If searching for battery, suggest alternator check
-    if (/batterie/i.test(lower)) {
-      suggestions.push('Vérification alternateur recommandée');
+      suggestions.push('Autres types de filtres disponibles');
     }
 
     // If no parts found, suggest alternatives
@@ -620,7 +612,7 @@ export class IntelligenceService {
       suggestions.push('Vérifiez la référence de la pièce');
     }
 
-    // Product recommendations based on found parts
+    // Product recommendations based on found parts (related parts only)
     foundParts.forEach(part => {
       const recs = this.recommendProducts(part.designation?.toLowerCase() || '');
       suggestions.push(...recs);
@@ -631,10 +623,10 @@ export class IntelligenceService {
 
   private recommendProducts(part: string): string[] {
     const map: Record<string, string[]> = {
-      'plaquette': ['Kit frein complet', 'Liquide de frein'],
-      'batterie': ['Chargeur de batterie', 'Câbles de démarrage'],
-      'pneu': ['Kit réparation pneu', 'Valve de pneu'],
-      'filtre': ['Kit entretien complet', 'Huile moteur'],
+      'plaquette': ['Disques de frein', 'Liquide de frein'],
+      'batterie': ['Câbles de batterie'],
+      'pneu': ['Valve de pneu'],
+      'filtre': ['Autres filtres disponibles'],
     };
     for (const [key, recs] of Object.entries(map)) {
       if (part.includes(key)) return recs;

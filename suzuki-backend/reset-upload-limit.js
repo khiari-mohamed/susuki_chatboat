@@ -3,7 +3,7 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient({
   datasources: {
     db: {
-      url: 'postgresql://postgres.xncjrdjqixpvpgysaicw:Suzuki2025!222@aws-1-eu-west-1.pooler.supabase.com:6543/postgres?pgbouncer=true'
+      url: 'postgresql://postgres.xncjrdjqixpvpgysaicw:Suzuki2025!222@aws-1-eu-west-1.pooler.supabase.com:5432/postgres'
     }
   }
 });
@@ -11,6 +11,11 @@ const prisma = new PrismaClient({
 async function resetUploadLimit() {
   try {
     console.log('🔄 Resetting upload tracking...');
+    console.log('📡 Connecting to Supabase...');
+    
+    // Test connection first
+    await prisma.$connect();
+    console.log('✅ Connected to database');
     
     const deleted = await prisma.uploadTracking.deleteMany({});
     
@@ -18,6 +23,7 @@ async function resetUploadLimit() {
     console.log('✅ Upload limit reset! You can now test OCR again.');
   } catch (error) {
     console.error('❌ Error:', error.message);
+    console.error('Full error:', error);
   } finally {
     await prisma.$disconnect();
   }

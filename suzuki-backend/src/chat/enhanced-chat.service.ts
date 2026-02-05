@@ -616,7 +616,7 @@ export class EnhancedChatService {
     message: string
   ): ProcessMessageResponse {
     const response =
-      "Pour vous aider au mieux, pourriez-vous préciser quel type de bruit vous entendez au niveau du moteur ? Cela m'aiderait à mieux diagnostiquer le problème.";
+      "Pourriez-vous préciser votre demande ? Par exemple, indiquez le type de pièce recherchée (filtre, plaquettes, amortisseur, etc.) et votre modèle Suzuki.";
     this.saveResponse(sessionId, response, {
       intent: 'CLARIFICATION_NEEDED',
     });
@@ -754,7 +754,8 @@ export class EnhancedChatService {
       'plakete': 'plaquette', 'plaq': 'plaquette', 'frain': 'frein', 'frin': 'frein',
       'combein': 'combien', 'cout': 'coût', 'sa cout': 'ça coûte',
       'maareftech': 'je ne sais pas où', 'win': 'où', 'nlaqa': 'trouver',
-      'zeda': 'aussi', 'w': 'et', 'bizarre': 'étrange', 'air': 'air filtre'
+      'zeda': 'aussi', 'w': 'et', 'bizarre': 'étrange', 'air': 'air filtre',
+      'chaqement': 'échappement', 'cha9ement': 'échappement', 'echapement': 'échappement'
     };
     
     for (const [tunisian, french] of Object.entries(tunisianMappings)) {
@@ -1735,33 +1736,63 @@ NE PAS CHERCHER DE PIÈCES - RÉPONSE SIMPLE UNIQUEMENT`;
       message
     );
 
-    // PAIRED PARTS - Need position clarification
-    const pairedParts = [
-      { keywords: ['amortisseur'], variants: ['avant droit', 'avant gauche', 'arrière'] },
-      { keywords: ['frein', 'plaquette', 'frain', 'plakete'], variants: ['avant', 'arrière'] },
-      { keywords: ['phare', 'feu'], variants: ['droit', 'gauche'] },
-      { keywords: ['rétroviseur', 'retroviseur', 'miroir'], variants: ['droit', 'gauche'] },
-      { keywords: ['disque'], variants: ['avant', 'arrière'] },
-      { keywords: ['étrier', 'etrier'], variants: ['avant droit', 'avant gauche', 'arrière droit', 'arrière gauche'] },
-    ];
+    // If position already specified, no clarification needed
+    if (hasPositionSpecified) {
+      return { needed: false, variants: [] };
+    }
 
-    // Check if query is about a paired part without position
-    for (const part of pairedParts) {
-      const hasPart = part.keywords.some(kw => 
-        lowerMessage.includes(kw) || (normalizedMsg && normalizedMsg.includes(kw))
-      );
+    // Check actual products in database to determine available positions
+    if (products && products.length > 1) {
+      const designations = products.map(p => (p.designation || '').toLowerCase());
       
-      if (hasPart && !hasPositionSpecified && products.length > 1) {
+      // Check if products have different positions
+      const hasAvantDroit = designations.some(d => d.includes('av d') || d.includes('avant d'));
+      const hasAvantGauche = designations.some(d => d.includes('av g') || d.includes('avant g'));
+      const hasArriereDroit = designations.some(d => d.includes('ar d') || d.includes('arrière d') || d.includes('arriere d'));
+      const hasArriereGauche = designations.some(d => d.includes('ar g') || d.includes('arrière g') || d.includes('arriere g'));
+      const hasAvant = designations.some(d => d.includes('avant') || d.includes('av'));
+      const hasArriere = designations.some(d => d.includes('arrière') || d.includes('arriere') || d.includes('ar'));
+      
+      // 4 positions (amortisseur, étrier, etc.)
+      if (hasAvantDroit && hasAvantGauche && hasArriereDroit && hasArriereGauche) {
         return {
           needed: true,
-          variants: part.variants,
+          variants: ['avant droit', 'avant gauche', 'arrière droit', 'arrière gauche'],
+        };
+      }
+      
+      // 2 positions avant/arrière (freins, disques)
+      if (hasAvant && hasArriere && !hasAvantDroit && !hasAvantGauche) {
+        return {
+          needed: true,
+          variants: ['avant', 'arrière'],
+        };
+      }
+      
+      // 2 positions gauche/droite (phares, rétroviseurs)
+      const hasGauche = designations.some(d => d.includes('gauche') || d.includes('g'));
+      const hasDroit = designations.some(d => d.includes('droit') || d.includes('d'));
+      if (hasGauche && hasDroit && !hasAvant && !hasArriere) {
+        return {
+          needed: true,
+          variants: ['droit', 'gauche'],
         };
       }
     }
 
-    // SINGLE PARTS - Only ask for TYPE clarification, not position
-    
-    // Radiator - only ask type (refroidissement vs chauffage)
+    // Type clarification for filters
+    if (lowerMessage.includes('filtre') &&
+        !lowerMessage.includes('air') &&
+        !lowerMessage.includes('huile') &&
+        !lowerMessage.includes('carburant') &&
+        !lowerMessage.includes('habitacle')) {
+      return {
+        needed: true,
+        variants: ['filtre à air', 'filtre à huile', 'filtre à carburant'],
+      };
+    }
+
+    // Type clarification for radiators
     if (lowerMessage.includes('radiateur')) {
       const hasTypeSpecified = /\b(refroidissement|chauffage|cooling|heating)\b/i.test(message);
       if (!hasTypeSpecified) {
@@ -1770,20 +1801,6 @@ NE PAS CHERCHER DE PIÈCES - RÉPONSE SIMPLE UNIQUEMENT`;
           variants: ['radiateur de refroidissement', 'radiateur de chauffage'],
         };
       }
-    }
-
-    // Filter - ask type (air, huile, carburant)
-    if (
-      lowerMessage.includes('filtre') &&
-      !lowerMessage.includes('air') &&
-      !lowerMessage.includes('huile') &&
-      !lowerMessage.includes('carburant') &&
-      !lowerMessage.includes('habitacle')
-    ) {
-      return {
-        needed: true,
-        variants: ['filtre à air', 'filtre à huile', 'filtre à carburant'],
-      };
     }
 
     return { needed: false, variants: [] };
@@ -1795,40 +1812,10 @@ NE PAS CHERCHER DE PIÈCES - RÉPONSE SIMPLE UNIQUEMENT`;
     variants: string[],
     conversationHistory: any[]
   ): Promise<string> {
-    // Use AI to generate smart, context-aware clarification questions
-    const context = `L'utilisateur recherche une pièce mais n'a pas précisé tous les détails nécessaires.
-
-PIÈCE RECHERCHÉE: ${message}
-VARIANTES DISPONIBLES: ${variants.join(', ')}
-NOMBRE DE PRODUITS TROUVÉS: ${products.length}
-
-INSTRUCTIONS:
-- Pose UNE question de clarification naturelle et humaine
-- Sois bref et direct (maximum 2-3 lignes)
-- Liste les options disponibles avec des puces (•)
-- Utilise un ton amical et professionnel
-- Ne demande JAMAIS la position pour des pièces uniques (moteur, batterie, pare-brise)
-- Demande la position UNIQUEMENT pour les pièces en paire (amortisseur, frein, phare, rétroviseur)
-
-EXEMPLES DE BONNES QUESTIONS:
-"Je trouve plusieurs amortisseurs. Lequel vous intéresse ?\n• Avant droit\n• Avant gauche\n• Arrière"
-"Pour les freins, vous cherchez :\n• Avant\n• Arrière"
-"Quel type de filtre recherchez-vous ?\n• Filtre à air\n• Filtre à huile\n• Filtre à carburant"`;
-
-    try {
-      const aiResponse = await this.openai.chat(message, conversationHistory, context);
-      
-      // Validate AI response is a proper clarification question
-      if (aiResponse && aiResponse.includes('?') && aiResponse.length < 300) {
-        return aiResponse;
-      }
-    } catch (error) {
-      this.logger.warn('AI clarification failed, using fallback');
-    }
-
-    // Fallback to structured responses if AI fails
-    if (variants.length === 3 && variants.includes('avant droit')) {
-      return 'Je trouve plusieurs amortisseurs disponibles. Lequel vous intéresse ?\n• Avant droit\n• Avant gauche\n• Arrière';
+    // DETERMINISTIC clarification - NO AI calls
+    
+    if (variants.length === 4 && variants.includes('avant droit')) {
+      return 'Je trouve plusieurs amortisseurs. Lequel vous intéresse ?\n• Avant droit\n• Avant gauche\n• Arrière droit\n• Arrière gauche';
     }
 
     if (variants.length === 2 && (variants.includes('avant') && variants.includes('arrière'))) {
@@ -1837,10 +1824,6 @@ EXEMPLES DE BONNES QUESTIONS:
 
     if (variants.length === 2 && (variants.includes('droit') && variants.includes('gauche'))) {
       return 'De quel côté avez-vous besoin ?\n• Droit\n• Gauche';
-    }
-
-    if (variants.length === 4 && variants.includes('avant droit')) {
-      return 'Je trouve plusieurs étriers. Précisez la position :\n• Avant droit\n• Avant gauche\n• Arrière droit\n• Arrière gauche';
     }
 
     if (variants.length === 2 && variants.includes('radiateur de refroidissement')) {
