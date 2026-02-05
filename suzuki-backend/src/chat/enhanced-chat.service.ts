@@ -65,6 +65,12 @@ export class EnhancedChatService {
   private rateLimitMap: Map<string, { count: number; resetTime: number }> = new Map();
   private readonly RATE_LIMIT_REQUESTS = 50; // Max requests per window
   private readonly RATE_LIMIT_WINDOW = 60000; // 1 minute window
+  private pendingClarifications = new Map<string, {
+    originalQuery: string;
+    dimension: string;
+    products: any[];
+    timestamp: number;
+  }>();
 
   constructor(
     private prisma: PrismaService,
@@ -76,6 +82,22 @@ export class EnhancedChatService {
     this.validateServices();
     // Start scheduled learning cycle (non-blocking)
     this.scheduleLearningCycle();
+    // Cleanup old clarification contexts every 5 minutes
+    setInterval(() => this.cleanupOldClarifications(), 5 * 60 * 1000);
+  }
+
+  /**
+   * Cleanup old clarification contexts (older than 10 minutes)
+   */
+  private cleanupOldClarifications(): void {
+    const now = Date.now();
+    const maxAge = 10 * 60 * 1000; // 10 minutes
+    
+    for (const [sessionId, context] of this.pendingClarifications.entries()) {
+      if (now - context.timestamp > maxAge) {
+        this.pendingClarifications.delete(sessionId);
+      }
+    }
   }
 
   // ===== SERVICE VALIDATION =====
@@ -165,8 +187,8 @@ export class EnhancedChatService {
       // ✅ HANDLE REFERENCE QUERIES FIRST (before vague query check)
       const isReferenceSearch = this.isReferenceQuery(message);
       if (isReferenceSearch) {
-        let products = await this.searchPartsWithFallback(message);
-        return await this.handleReferenceSearchResult(session.id, message, products, vehicle);
+        let refProducts = await this.searchPartsWithFallback(message);
+        return await this.handleReferenceSearchResult(session.id, message, refProducts, vehicle);
       }
 
       // ✅ HANDLE VAGUE QUERIES
@@ -188,6 +210,32 @@ export class EnhancedChatService {
       );
 
       let products = await this.searchPartsWithFallback(searchQuery);
+      
+      // ✅ CRITICAL: Filter products - ONLY show available with stock AND price
+      products = this.filterAvailableProducts(products);
+      
+      // ✅ CHECK FOR PENDING CLARIFICATION CONTEXT
+      const pendingContext = this.pendingClarifications.get(session.id);
+      if (pendingContext && this.isClarificationAnswer(message, pendingContext)) {
+        // User is answering a clarification question
+        const combinedQuery = `${pendingContext.originalQuery} ${message}`;
+        this.pendingClarifications.delete(session.id); // Clear context
+        
+        // Re-search with combined query
+        const clarifiedProducts = await this.searchPartsWithFallback(combinedQuery);
+        const filteredProducts = this.filterAvailableProducts(clarifiedProducts);
+        
+        if (filteredProducts.length === 1) {
+          // Perfect! Show the single matching product
+          products = filteredProducts;
+        } else if (filteredProducts.length > 1) {
+          // Still multiple - need more clarification
+          products = filteredProducts;
+        } else {
+          // No results - keep original search results
+          // products already set above
+        }
+      }
 
       // ✅ FILTER OUT UNAVAILABLE PARTS (skip for reference searches)
       if (!isReferenceSearch && this.isPartNotInDatabase(message)) {
@@ -200,12 +248,21 @@ export class EnhancedChatService {
         message
       );
       if (clarificationNeeded.needed) {
+        // Store clarification context for next message
+        this.pendingClarifications.set(session.id, {
+          originalQuery: message,
+          dimension: clarificationNeeded.dimension,
+          products: products,
+          timestamp: Date.now()
+        });
+        
         return await this.handleClarificationRequest(
           session.id,
           message,
           products,
           clarificationNeeded.variants,
-          conversationHistory
+          conversationHistory,
+          clarificationNeeded.dimension
         );
       }
 
@@ -398,6 +455,36 @@ export class EnhancedChatService {
   }
 
   // ===== PROCESS MESSAGE HELPERS =====
+
+  /**
+   * Check if message is answering a pending clarification
+   */
+  private isClarificationAnswer(message: string, context: any): boolean {
+    const lowerMsg = message.toLowerCase().trim();
+    
+    if (context.dimension === 'position') {
+      return ['avant', 'arriere', 'arrière', 'av', 'ar'].includes(lowerMsg);
+    }
+    
+    if (context.dimension === 'side') {
+      return ['gauche', 'droite', 'g', 'd', 'droit'].includes(lowerMsg);
+    }
+    
+    if (context.dimension === 'type') {
+      // Check if answer matches any of the variant types
+      return context.products.some((p: any) => {
+        const d = (p.designation || '').toLowerCase();
+        return d.includes(lowerMsg) || 
+               (lowerMsg === 'support' && d.includes('support')) ||
+               (lowerMsg === 'joint' && d.includes('joint')) ||
+               (lowerMsg === 'roulement' && d.includes('roulement')) ||
+               (lowerMsg === 'toc' && d.includes('toc')) ||
+               (lowerMsg === 'kit' && d.includes('kit'));
+      });
+    }
+    
+    return false;
+  }
 
   private validateMessageInput(message: string): void {
     if (typeof message !== 'string') {
@@ -755,7 +842,13 @@ export class EnhancedChatService {
       'combein': 'combien', 'cout': 'coût', 'sa cout': 'ça coûte',
       'maareftech': 'je ne sais pas où', 'win': 'où', 'nlaqa': 'trouver',
       'zeda': 'aussi', 'w': 'et', 'bizarre': 'étrange', 'air': 'air filtre',
-      'chaqement': 'échappement', 'cha9ement': 'échappement', 'echapement': 'échappement'
+      'chaqement': 'échappement', 'cha9ement': 'échappement', 'echapement': 'échappement',
+      // Enhanced car parts vocabulary
+      'disk': 'disque', 'rotule': 'rotule', 'cardan': 'cardan',
+      'ressort': 'ressort', 'silentbloc': 'silentbloc', 'bras': 'bras',
+      'biellette': 'biellette', 'triangle': 'triangle', 'poulie': 'poulie',
+      'courroie': 'courroie', 'pompe': 'pompe', 'injecteur': 'injecteur',
+      'bougie': 'bougie', 'bobine': 'bobine', 'capteur': 'capteur'
     };
     
     for (const [tunisian, french] of Object.entries(tunisianMappings)) {
@@ -781,13 +874,15 @@ export class EnhancedChatService {
     message: string,
     products: any[],
     variants: string[],
-    conversationHistory: any[]
+    conversationHistory: any[],
+    dimension: string
   ): Promise<ProcessMessageResponse> {
     const clarificationResponse = await this.generateClarificationResponse(
       message,
       products,
       variants,
-      conversationHistory
+      conversationHistory,
+      dimension
     );
     await this.saveResponse(sessionId, clarificationResponse, {
       intent: 'CLARIFICATION_NEEDED',
@@ -1201,113 +1296,76 @@ Erreur technique: ${errorMessage}`;
   }
 
   /**
-   * Ensure deterministic product/pricing/stock information appears in the bot response
-   * when the search returned parts but the LLM output did not include clear product details.
+   * Ensure product info is present (simplified)
    */
   private ensureProductInfoPresent(response: string, products: any[], message: string): string {
-    if (!products || products.length === 0) return response;
-
-    const lower = (response || '').toLowerCase();
-    const lowerMsg = message.toLowerCase();
+    const availableProducts = this.filterAvailableProducts(products);
+    if (availableProducts.length === 0) return response;
     
-    // Check if position keywords from message are in response
-    const positionPattern = /\b(avant|arrière|arriere|gauche|droite|av|ar|avent|gosh|droit)\b/gi;
-    const msgPositions = Array.from((lowerMsg.match(positionPattern) || [])).map(p => p.toLowerCase());
-    const respPositions = Array.from((lower.match(positionPattern) || [])).map(p => p.toLowerCase());
-
-    // If message has positions but response doesn't contain them, add all normalized positions
-    const missingPositions = msgPositions.filter(p => !respPositions.includes(p));
-    if (missingPositions.length > 0) {
-      const posMap: Record<string, string> = {
-        'avent': 'avant',
-        'gosh': 'gauche',
-        'arriere': 'arrière',
-        'av': 'avant',
-        'ar': 'arrière',
-        'droit': 'droite',
-      };
-
-      const normalized = Array.from(new Set(missingPositions.map(p => posMap[p] || p)));
-      if (normalized.length > 0) {
-        const header = normalized.length === 1 ? 'Position' : 'Positions';
-        response = `${header}: ${normalized.join(', ')}\n\n` + response;
-      }
-    }
-
-    // Always add product info for parts searches
     const mustHave = ['référence', 'prix', 'stock', 'disponible', 'tnd'];
-    const hasAny = mustHave.some(k => lower.includes(k));
+    const hasAny = mustHave.some(k => response.toLowerCase().includes(k));
 
-    if (!hasAny || products.length > 0) {
-      const lines: string[] = [];
-      lines.push('\n\nPRODUITS TROUVÉS:');
-      for (const p of products.slice(0, 5)) {
-        const price = p.prixHt !== undefined && p.prixHt !== null ? `${p.prixHt} TND` : 'prix non disponible';
-        const stock = typeof p.stock === 'number' ? `${p.stock}` : 'inconnu';
-        const dispo = typeof p.stock === 'number' && p.stock > 0 ? 'disponible' : 'indisponible';
-        lines.push(`• ${p.designation} (Réf: ${p.reference}) — Prix: ${price} — Stock: ${stock} (${dispo})`);
+    if (!hasAny) {
+      const lines: string[] = ['\n\nPRODUITS DISPONIBLES:'];
+      for (const p of availableProducts.slice(0, 3)) {
+        lines.push(`• ${p.designation} (Réf: ${p.reference}) — ${p.prixHt} TND — Stock: ${p.stock}`);
       }
-      response = response + '\n' + lines.join('\n');
+      return response + '\n' + lines.join('\n');
     }
 
     return response;
   }
 
+  /**
+   * Build standardized product response
+   */
+  private buildProductResponse(products: any[], message: string): string {
+    const availableProducts = this.filterAvailableProducts(products);
+    
+    if (availableProducts.length === 0) {
+      return `Bonjour. Cette pièce n'est actuellement pas disponible dans notre catalogue.\n\nPour une vérification manuelle ou une commande spéciale, contactez CarPro au ☎️ 70 603 500.`;
+    }
+    
+    const lines: string[] = ['Bonjour, voici les produits disponibles :'];
+    lines.push('\nPRODUITS DISPONIBLES:');
+    
+    availableProducts.slice(0, 3).forEach(p => {
+      lines.push(`• ${p.designation} (Réf: ${p.reference}) — ${p.prixHt} TND — Stock: ${p.stock}`);
+    });
+    
+    if (availableProducts.length > 3) {
+      lines.push(`\n... et ${availableProducts.length - 3} autres produits disponibles.`);
+    }
+    
+    lines.push('\nPour réserver, indiquez la référence souhaitée.');
+    return lines.join('\n');
+  }
+
   private buildDeterministicProductSummary(message: string, products: any[]): string {
+    // CRITICAL: Filter to ONLY available products first
+    const availableProducts = products.filter(p => 
+      typeof p.stock === 'number' && p.stock > 0 && 
+      p.prixHt !== undefined && p.prixHt !== null
+    );
+    
+    // If NO available products, return not available message
+    if (availableProducts.length === 0) {
+      return `Bonjour. Cette pièce n'est actuellement pas disponible dans notre catalogue.\n\nPour une vérification manuelle ou une commande spéciale, contactez CarPro au ☎️ 70 603 500.`;
+    }
+    
     const lines: string[] = [];
     const normalizedMsg = this.normalizeTunisian(message) || message;
     const lowerMsg = message.toLowerCase();
     
-    // Always use formal French greeting
-    lines.push('Bonjour, voici les produits que j\'ai trouvés pour votre demande :');
+    lines.push('Bonjour, voici les produits disponibles :');
+    lines.push('\nPRODUITS DISPONIBLES:');
     
-    // Add specific part type if mentioned
-    if (lowerMsg.includes('filtre') && lowerMsg.includes('air')) {
-      lines.push('\nType de pièce: Filtre à air');
-    }
+    availableProducts.slice(0, 3).forEach(p => {
+      const price = `${p.prixHt} TND`;
+      lines.push(`• ${p.designation} (Réf: ${p.reference}) — Prix: ${price} — Stock: ${p.stock}`);
+    });
     
-    lines.push('\nPRODUITS TROUVÉS:');
-    for (const p of products.slice(0, 5)) {
-      const stock = typeof p.stock === 'number' ? p.stock : 0;
-      const isAvailable = stock > 0;
-      
-      if (isAvailable) {
-        const price = p.prixHt !== undefined && p.prixHt !== null ? `${p.prixHt} TND` : 'prix non disponible';
-        lines.push(`• ${p.designation} (Réf: ${p.reference}) — Prix: ${price} (disponible)`);
-      } else {
-        lines.push(`• ${p.designation} (Réf: ${p.reference}) (indisponible)`);
-      }
-    }
-    
-    // Add position info if mentioned in message
-    const posPattern = /\b(avant|arrière|arriere|gauche|droite|avent|gosh|droit)\b/gi;
-    const matches = Array.from(((normalizedMsg || message).toLowerCase().match(posPattern) || [])).map(s => s.toLowerCase());
-    if (matches.length > 0) {
-      const posMap: Record<string, string> = {
-        'avent': 'avant',
-        'gosh': 'gauche',
-        'arriere': 'arrière',
-        'droit': 'droite'
-      };
-      const normalizedPositions = Array.from(new Set(matches.map(m => posMap[m] || m)));
-      lines.push(`\nPosition spécifiée: ${normalizedPositions.join(', ')}`);
-    }
-    
-    // Add price summary if requested
-    if (lowerMsg.includes('prix') || lowerMsg.includes('choufli') || normalizedMsg.includes('prix')) {
-      const availablePrices = products.filter(p => p.prixHt !== undefined && p.prixHt !== null);
-      if (availablePrices.length > 0) {
-        lines.push(`\nRésumé des prix disponibles: ${availablePrices.length} produits avec prix`);
-      }
-    }
-    
-    // Add stock summary if requested
-    if (lowerMsg.includes('stock') || lowerMsg.includes('ken famma') || normalizedMsg.includes('stock')) {
-      const inStock = products.filter(p => typeof p.stock === 'number' && p.stock > 0);
-      lines.push(`\nRésumé du stock: ${inStock.length}/${products.length} produits disponibles`);
-    }
-    
-    lines.push('\nSi vous voulez réserver une pièce, indiquez la référence ou demandez le prix exact.');
+    lines.push('\nSi vous voulez réserver une pièce, indiquez la référence.');
     return lines.join('\n');
   }
 
@@ -1729,112 +1787,176 @@ NE PAS CHERCHER DE PIÈCES - RÉPONSE SIMPLE UNIQUEMENT`;
   private checkIfNeedsClarification(
     products: any[],
     message: string
-  ): { needed: boolean; variants: string[] } {
+  ): { needed: boolean; variants: string[]; dimension: string } {
+    if (!products || products.length <= 1) {
+      return { needed: false, variants: [], dimension: '' };
+    }
+
+    // CRITICAL: Filter by user's specifications FIRST
+    const filteredProducts = this.filterProductsBySpecification(products, message);
+    if (filteredProducts.length === 1) {
+      return { needed: false, variants: [], dimension: '' };
+    }
+    
+    // Use filtered products for dimension analysis
+    const productsToAnalyze = filteredProducts.length > 0 ? filteredProducts : products;
+
     const lowerMessage = message.toLowerCase();
-    const normalizedMsg = this.normalizeTunisian(message) || message;
-    const hasPositionSpecified = /\b(avant|arrière|arriere|gauche|droite|av|ar|g|d|droit)\b/i.test(
-      message
-    );
-
-    // If position already specified, no clarification needed
-    if (hasPositionSpecified) {
-      return { needed: false, variants: [] };
-    }
-
-    // Check actual products in database to determine available positions
-    if (products && products.length > 1) {
-      const designations = products.map(p => (p.designation || '').toLowerCase());
-      
-      // Check if products have different positions
-      const hasAvantDroit = designations.some(d => d.includes('av d') || d.includes('avant d'));
-      const hasAvantGauche = designations.some(d => d.includes('av g') || d.includes('avant g'));
-      const hasArriereDroit = designations.some(d => d.includes('ar d') || d.includes('arrière d') || d.includes('arriere d'));
-      const hasArriereGauche = designations.some(d => d.includes('ar g') || d.includes('arrière g') || d.includes('arriere g'));
-      const hasAvant = designations.some(d => d.includes('avant') || d.includes('av'));
-      const hasArriere = designations.some(d => d.includes('arrière') || d.includes('arriere') || d.includes('ar'));
-      
-      // 4 positions (amortisseur, étrier, etc.)
-      if (hasAvantDroit && hasAvantGauche && hasArriereDroit && hasArriereGauche) {
-        return {
-          needed: true,
-          variants: ['avant droit', 'avant gauche', 'arrière droit', 'arrière gauche'],
-        };
-      }
-      
-      // 2 positions avant/arrière (freins, disques)
-      if (hasAvant && hasArriere && !hasAvantDroit && !hasAvantGauche) {
-        return {
-          needed: true,
-          variants: ['avant', 'arrière'],
-        };
-      }
-      
-      // 2 positions gauche/droite (phares, rétroviseurs)
-      const hasGauche = designations.some(d => d.includes('gauche') || d.includes('g'));
-      const hasDroit = designations.some(d => d.includes('droit') || d.includes('d'));
-      if (hasGauche && hasDroit && !hasAvant && !hasArriere) {
-        return {
-          needed: true,
-          variants: ['droit', 'gauche'],
-        };
-      }
-    }
-
-    // Type clarification for filters
-    if (lowerMessage.includes('filtre') &&
-        !lowerMessage.includes('air') &&
-        !lowerMessage.includes('huile') &&
-        !lowerMessage.includes('carburant') &&
-        !lowerMessage.includes('habitacle')) {
+    const hasPositionSpecified = /\b(avant|arrière|arriere|av)\b/i.test(message);
+    const hasSideSpecified = /\b(gauche|droite|g|d|droit|gosh)\b/i.test(message);
+    
+    const dimensions = this.extractDiscriminantDimensions(productsToAnalyze);
+    
+    if (!hasPositionSpecified && dimensions.positions.length > 1) {
       return {
         needed: true,
-        variants: ['filtre à air', 'filtre à huile', 'filtre à carburant'],
+        variants: dimensions.positions,
+        dimension: 'position'
+      };
+    }
+    
+    if (!hasSideSpecified && dimensions.sides.length > 1) {
+      return {
+        needed: true,
+        variants: dimensions.sides,
+        dimension: 'side'
+      };
+    }
+    
+    if (dimensions.types.length > 1) {
+      return {
+        needed: true,
+        variants: dimensions.types,
+        dimension: 'type'
       };
     }
 
-    // Type clarification for radiators
-    if (lowerMessage.includes('radiateur')) {
-      const hasTypeSpecified = /\b(refroidissement|chauffage|cooling|heating)\b/i.test(message);
-      if (!hasTypeSpecified) {
-        return {
-          needed: true,
-          variants: ['radiateur de refroidissement', 'radiateur de chauffage'],
-        };
-      }
-    }
+    return { needed: false, variants: [], dimension: '' };
+  }
 
-    return { needed: false, variants: [] };
+  /**
+   * Filter products by user's specifications in message
+   */
+  private filterProductsBySpecification(products: any[], message: string): any[] {
+    const lowerMsg = message.toLowerCase();
+    const positionSpecified = lowerMsg.includes('avant') ? 'avant' : 
+                             lowerMsg.includes('arrière') || lowerMsg.includes('arriere') ? 'arrière' : null;
+    const sideSpecified = lowerMsg.includes('gauche') ? 'gauche' : 
+                         lowerMsg.includes('droite') || lowerMsg.includes('droit') ? 'droite' : null;
+    
+    if (!positionSpecified && !sideSpecified) {
+      return products;
+    }
+    
+    return products.filter(p => {
+      const d = (p.designation || '').toLowerCase();
+      const matchesPosition = !positionSpecified || d.includes(positionSpecified);
+      const matchesSide = !sideSpecified || 
+        (sideSpecified === 'gauche' && (d.includes('gauche') || d.includes(' g '))) ||
+        (sideSpecified === 'droite' && (d.includes('droite') || d.includes('droit') || d.includes(' d ')));
+      return matchesPosition && matchesSide;
+    });
+  }
+
+  /**
+   * INTELLIGENT DB ANALYSIS - Extract discriminant dimensions from products
+   * Enhanced with SMARTER pattern matching to avoid false positives
+   */
+  private extractDiscriminantDimensions(products: any[]): {
+    positions: string[];
+    sides: string[];
+    types: string[];
+  } {
+    const positions = new Set<string>();
+    const sides = new Set<string>();
+    const types = new Set<string>();
+
+    products.forEach(p => {
+      const d = (p.designation || '').toUpperCase();
+      
+      // SMARTER position detection - word boundaries only
+      const positionRegex = /\b(?:AV|AVANT|AR|ARRI[ÈE]RE)\b/;
+      const positionMatch = d.match(positionRegex);
+      
+      if (positionMatch) {
+        const pos = positionMatch[0];
+        if (pos === 'AV' || pos === 'AVANT') positions.add('avant');
+        if (pos === 'AR' || pos.startsWith('ARRI')) positions.add('arrière');
+      }
+      
+      // SMARTER side detection - word boundaries only
+      const sideRegex = /\b(?:G|GAUCHE|D|DROIT[E]?)\b/;
+      const sideMatch = d.match(sideRegex);
+      
+      if (sideMatch) {
+        const side = sideMatch[0];
+        if (side === 'G' || side === 'GAUCHE') sides.add('gauche');
+        if (side === 'D' || side.startsWith('DROIT')) sides.add('droite');
+      }
+      
+      // SMARTER type detection - whole words only
+      const words = d.split(/\s+/);
+      words.forEach(word => {
+        if (word === 'SUPPORT' || word === 'SUPPORTS') types.add('support');
+        if (word === 'JOINT' || word === 'JOINTS') types.add('joint');
+        if (word === 'ROULEMENT' || word === 'ROULEMENTS') types.add('roulement');
+        if (word === 'TOC') types.add('toc');
+        if (word === 'KIT') types.add('kit');
+      });
+    });
+
+    return {
+      positions: Array.from(positions),
+      sides: Array.from(sides),
+      types: Array.from(types)
+    };
   }
 
   private async generateClarificationResponse(
     message: string,
     products: any[],
     variants: string[],
-    conversationHistory: any[]
+    conversationHistory: any[],
+    dimension: string
   ): Promise<string> {
-    // DETERMINISTIC clarification - NO AI calls
+    // DETERMINISTIC clarification - NO AI calls - DB-DRIVEN
     
-    if (variants.length === 4 && variants.includes('avant droit')) {
-      return 'Je trouve plusieurs amortisseurs. Lequel vous intéresse ?\n• Avant droit\n• Avant gauche\n• Arrière droit\n• Arrière gauche';
+    const partName = this.extractPartName(message, products);
+    
+    if (dimension === 'position') {
+      return `Merci pour votre demande concernant ${partName}.\n\nAfin d'identifier précisément la pièce compatible, merci de préciser la position :\n${variants.map(v => `• ${v.charAt(0).toUpperCase() + v.slice(1)}`).join('\n')}\n\nDès confirmation, je pourrai vous communiquer la référence et le prix.`;
+    }
+    
+    if (dimension === 'side') {
+      return `Merci pour votre demande concernant ${partName}.\n\nAfin d'identifier précisément la pièce compatible, merci de préciser le côté :\n${variants.map(v => `• ${v.charAt(0).toUpperCase() + v.slice(1)}`).join('\n')}\n\nDès confirmation, je pourrai vous communiquer la référence et le prix.`;
+    }
+    
+    if (dimension === 'type') {
+      return `Merci pour votre demande concernant ${partName}.\n\nAfin d'identifier précisément la pièce compatible, merci de préciser le type :\n${variants.map(v => `• ${v.charAt(0).toUpperCase() + v.slice(1)}`).join('\n')}\n\nDès confirmation, je pourrai vous communiquer la référence et le prix.`;
     }
 
-    if (variants.length === 2 && (variants.includes('avant') && variants.includes('arrière'))) {
-      return 'Pour cette pièce, vous cherchez :\n• Avant\n• Arrière';
+    return `Merci pour votre demande.\n\nAfin d'identifier précisément la pièce compatible, merci de préciser :\n${variants.map(v => `• ${v}`).join('\n')}\n\nDès confirmation, je pourrai vous communiquer la référence et le prix.`;
+  }
+  
+  private extractPartName(message: string, products: any[]): string {
+    // Extract part name from message or first product
+    const lowerMsg = message.toLowerCase();
+    
+    if (lowerMsg.includes('amortisseur')) return 'l\'amortisseur';
+    if (lowerMsg.includes('feu')) return 'le feu';
+    if (lowerMsg.includes('aile')) return 'l\'aile';
+    if (lowerMsg.includes('phare')) return 'le phare';
+    if (lowerMsg.includes('rétroviseur') || lowerMsg.includes('retroviseur')) return 'le rétroviseur';
+    
+    // Fallback to first product designation
+    if (products && products.length > 0) {
+      const firstPart = products[0].designation.toLowerCase();
+      if (firstPart.includes('amortisseur')) return 'l\'amortisseur';
+      if (firstPart.includes('feu')) return 'le feu';
+      if (firstPart.includes('aile')) return 'l\'aile';
     }
-
-    if (variants.length === 2 && (variants.includes('droit') && variants.includes('gauche'))) {
-      return 'De quel côté avez-vous besoin ?\n• Droit\n• Gauche';
-    }
-
-    if (variants.length === 2 && variants.includes('radiateur de refroidissement')) {
-      return 'Quel type de radiateur recherchez-vous ?\n• Radiateur de refroidissement moteur\n• Radiateur de chauffage habitacle';
-    }
-
-    if (variants.length === 3 && variants.includes('filtre à air')) {
-      return 'Quel type de filtre vous intéresse ?\n• Filtre à air\n• Filtre à huile\n• Filtre à carburant';
-    }
-
-    return `Pour mieux vous aider, pouvez-vous préciser :\n${variants.map(v => `• ${v}`).join('\n')}`;
+    
+    return 'cette pièce';
   }
 
   // ===== ANALYTICS =====
@@ -2249,10 +2371,11 @@ NE PAS CHERCHER DE PIÈCES - RÉPONSE SIMPLE UNIQUEMENT`;
     const lowerMessage = message.toLowerCase();
     const normalizedMessage = this.normalizeTunisian(message) || message;
     
-    // Build contextual brake response with guaranteed keywords
+    // CRITICAL: Filter to available products only
+    const availableProducts = this.filterAvailableProducts(products);
+    
     let response = 'Bonjour! Concernant les plaquettes de frein pour votre véhicule:\n\n';
     
-    // Determine if asking about rear specifically
     const isRearQuery = lowerMessage.includes('arrière') || lowerMessage.includes('arriere') || 
                        normalizedMessage.includes('arrière') || normalizedMessage.includes('arriere');
     
@@ -2262,27 +2385,23 @@ NE PAS CHERCHER DE PIÈCES - RÉPONSE SIMPLE UNIQUEMENT`;
       response += '🔍 CONTEXTE: Plaquettes de frein (suite de votre demande)\n\n';
     }
     
-    if (products && products.length > 0) {
-      response += 'PRODUITS TROUVÉS:\n';
-      products.slice(0, 3).forEach(p => {
-        const price = p.prixHt !== undefined && p.prixHt !== null ? `${p.prixHt} TND` : 'Prix sur demande';
-        // CRITICAL: Always mention "plaquette" and "frein" in descriptions
+    if (availableProducts.length > 0) {
+      response += 'PRODUITS DISPONIBLES:\n';
+      availableProducts.slice(0, 3).forEach(p => {
+        const price = `${p.prixHt} TND`;
         const designation = p.designation.toLowerCase().includes('plaquette') ? p.designation : `Plaquette de frein - ${p.designation}`;
-        response += `• ${designation} (Réf: ${p.reference})\n`;
+        response += `• ${designation} (Réf: ${p.reference}) — ${price} — Stock: ${p.stock}\n`;
       });
       
       response += '\n💰 PRIX:\n';
-      products.slice(0, 3).forEach(p => {
-        const price = p.prixHt !== undefined && p.prixHt !== null ? `${p.prixHt} TND` : 'Sur demande';
-        response += `• Plaquette frein: ${price}\n`;
+      availableProducts.slice(0, 3).forEach(p => {
+        response += `• Plaquette frein: ${p.prixHt} TND\n`;
       });
       
       response += '\n📦 STOCK:\n';
-      const inStock = products.filter(p => typeof p.stock === 'number' && p.stock > 0);
-      response += `• Plaquettes frein disponibles: ${inStock.length}/${products.length}\n`;
-      
+      response += `• Plaquettes frein disponibles: ${availableProducts.length}\n`;
     } else {
-      response += 'PRODUITS TROUVÉS:\nRecherche plaquettes frein en cours\n\n';
+      response += '⚠️ Aucun produit disponible actuellement.\n\n';
       response += '💰 PRIX:\nTarifs plaquettes frein disponibles sur demande\n\n';
       response += '📦 STOCK:\nVérification stock plaquettes frein\n';
     }
@@ -2302,47 +2421,46 @@ NE PAS CHERCHER DE PIÈCES - RÉPONSE SIMPLE UNIQUEMENT`;
     const lowerMessage = message.toLowerCase();
     const normalizedMessage = this.normalizeTunisian(message) || message;
     
-    // Build response with context awareness - ALWAYS include brake keywords for brake topics
+    // CRITICAL: Filter to available products only
+    const availableProducts = this.filterAvailableProducts(products);
+    
     let response = 'Bonjour! Voici les informations de prix pour votre demande:\n\n';
     
-    // Add context about what we're pricing
     if (lastTopic === 'plaquettes frein' || lastTopic === 'frein' || lastTopic.includes('frein')) {
       response += '🔍 CONTEXTE: Prix pour plaquettes de frein (avant + arrière)\n\n';
       
-      if (products && products.length > 0) {
-        response += 'PRODUITS TROUVÉS:\n';
-        products.slice(0, 3).forEach(p => {
-          const price = p.prixHt !== undefined && p.prixHt !== null ? `${p.prixHt} TND` : 'Prix sur demande';
-          // CRITICAL: Always mention "plaquette" and "frein" in product descriptions
+      if (availableProducts.length > 0) {
+        response += 'PRODUITS DISPONIBLES:\n';
+        availableProducts.slice(0, 3).forEach(p => {
+          const price = `${p.prixHt} TND`;
           const designation = p.designation.toLowerCase().includes('plaquette') ? p.designation : `Plaquette de frein - ${p.designation}`;
-          response += `• ${designation} - ${price}\n`;
+          response += `• ${designation} — ${price} — Stock: ${p.stock}\n`;
         });
         
-        // Calculate total if possible
-        const validPrices = products.filter(p => p.prixHt !== undefined && p.prixHt !== null);
+        const validPrices = availableProducts.filter(p => p.prixHt !== undefined && p.prixHt !== null);
         if (validPrices.length >= 2) {
           const total = validPrices.slice(0, 2).reduce((sum, p) => sum + parseFloat(p.prixHt), 0);
           response += `\n💰 PRIX TOTAL plaquettes frein (2 jeux): ${total.toFixed(2)} TND\n`;
         } else {
-          response += `\n💰 PRIX plaquettes frein: Tarifs disponibles sur demande\n`;
+          response += `\n💰 PRIX plaquettes frein: Voir détails ci-dessus\n`;
         }
       } else {
-        response += 'PRODUITS TROUVÉS:\nRecherche en cours pour plaquettes frein avant + arrière\n\n';
+        response += '⚠️ Aucun produit disponible actuellement.\n\n';
         response += '💰 PRIX:\nTarifs plaquettes frein disponibles sur demande\n';
       }
       
       response += '\n📦 STOCK:\nVérification disponibilité plaquettes frein pour les deux positions\n';
       response += '\n💡 RECOMMANDATIONS:\n🔹 Remplacement simultané plaquettes frein recommandé\n🔹 Vérification disques de frein conseillée\n🔹 Contactez CarPro au ☎️ 70 603 500';
     } else {
-      // Generic contextual price response
       response += `🔍 CONTEXTE: Prix pour ${lastTopic}\n\n`;
       
-      if (products && products.length > 0) {
-        response += 'PRODUITS TROUVÉS:\n';
-        products.slice(0, 3).forEach(p => {
-          const price = p.prixHt !== undefined && p.prixHt !== null ? `${p.prixHt} TND` : 'Prix sur demande';
-          response += `• ${p.designation} - ${price}\n`;
+      if (availableProducts.length > 0) {
+        response += 'PRODUITS DISPONIBLES:\n';
+        availableProducts.slice(0, 3).forEach(p => {
+          response += `• ${p.designation} — ${p.prixHt} TND — Stock: ${p.stock}\n`;
         });
+      } else {
+        response += '⚠️ Aucun produit disponible actuellement.\n';
       }
       
       response += '\n💰 PRIX:\nTarifs détaillés disponibles sur demande\n';
@@ -2407,12 +2525,10 @@ NE PAS CHERCHER DE PIÈCES - RÉPONSE SIMPLE UNIQUEMENT`;
     // Extract reference from message with multiple patterns
     let reference = '';
     
-    // Try "Référence XXXXX" pattern first
     const refKeywordMatch = message.match(/ref[eé]rence[\s:]*([a-z0-9-]{5,})/i);
     if (refKeywordMatch) {
       reference = refKeywordMatch[1];
     } else {
-      // Try standalone reference pattern
       const standaloneMatch = message.match(/\b([a-z0-9]{5,}(?:-[a-z0-9]+)*)\b/i);
       if (standaloneMatch) {
         reference = standaloneMatch[1];
@@ -2423,10 +2539,11 @@ NE PAS CHERCHER DE PIÈCES - RÉPONSE SIMPLE UNIQUEMENT`;
     
     this.logger.debug(`Extracted reference: "${reference}" from message: "${message}"`);
     
-    // CRITICAL FIX: Always handle reference queries properly, even when no products found
+    // CRITICAL: Filter to available products and prioritize them
     if (products && products.length > 0) {
-      // Reference found - return success response
-      const part = products[0];
+      const availableProducts = this.filterAvailableProducts(products);
+      // Use first available product, or first product if none available
+      const part = availableProducts.length > 0 ? availableProducts[0] : products[0];
       const response = this.buildReferenceFoundResponse(reference, part, vehicle);
       
       await this.saveResponseAtomic(sessionId, response, {
@@ -2438,17 +2555,16 @@ NE PAS CHERCHER DE PIÈCES - RÉPONSE SIMPLE UNIQUEMENT`;
       return {
         response,
         sessionId,
-        products: products.slice(0, 3),
+        products: availableProducts.length > 0 ? availableProducts.slice(0, 3) : [],
         confidence: 'HIGH',
         intent: 'PARTS_SEARCH',
         metadata: {
-          productsFound: products.length,
+          productsFound: availableProducts.length,
           conversationLength: 0,
           queryClarity: 10,
         },
       };
     } else {
-      // Reference not found - return not found response
       const response = this.buildReferenceNotFoundResponse(reference);
       
       await this.saveResponseAtomic(sessionId, response, {
@@ -2761,240 +2877,31 @@ Produit non disponible
   }
 
   /**
-   * 🚨 CRITICAL FIX: FORCE ALL REQUIRED FEATURES TO APPEAR
+   * SIMPLIFIED: Ensure product info is present (removed keyword forcing)
    */
   private ensureRequiredFeatures(response: string, products: any[], message: string): string {
-    let enhanced = response;
-    const lowerMsg = message.toLowerCase();
-    const normalizedMsg = this.normalizeTunisian(message) || message;
+    // ONLY add product info if we have available products and response doesn't include them
+    const availableProducts = this.filterAvailableProducts(products);
     
-    // 🚨 CRITICAL: FORCE partsFound feature - THIS IS THE MAIN ISSUE
-    if (products && products.length > 0) {
-      if (!enhanced.toLowerCase().includes('produits trouvés') && 
-          !enhanced.toLowerCase().includes('pièces trouvées') &&
-          !enhanced.toLowerCase().includes('produits disponibles')) {
-        
-        // FORCE products section at the BEGINNING
-        const productSection = this.buildForcedProductSection(products, message);
-        enhanced = productSection + '\n\n' + enhanced;
-      }
-    }
-
-    // 🚨 CRITICAL: FORCE priceInfo feature
-    if ((lowerMsg.includes('prix') || lowerMsg.includes('pris') || lowerMsg.includes('combien') || 
-         lowerMsg.includes('choufli') || normalizedMsg.includes('prix')) ||
-        (products && products.length > 0)) {
+    if (availableProducts.length > 0 && !response.includes('PRODUITS')) {
+      const productLines = availableProducts.slice(0, 3).map(p => 
+        `• ${p.designation} (Réf: ${p.reference}) — ${p.prixHt} TND — Stock: ${p.stock}`
+      );
       
-      if (!enhanced.toLowerCase().includes('prix:') && !enhanced.includes('TND') && 
-          !enhanced.toLowerCase().includes('tarif')) {
-        
-        const priceSection = this.buildForcedPriceSection(products);
-        enhanced += '\n\n' + priceSection;
-      }
-    }
-
-    // 🚨 CRITICAL: FORCE stockInfo feature  
-    if ((lowerMsg.includes('stock') || lowerMsg.includes('stok') || lowerMsg.includes('dispo') || 
-         lowerMsg.includes('ken famma') || lowerMsg.includes('famma') || normalizedMsg.includes('stock')) ||
-        (products && products.length > 0)) {
-      
-      if (!enhanced.toLowerCase().includes('stock:') && !enhanced.toLowerCase().includes('disponible')) {
-        const stockSection = this.buildForcedStockSection(products);
-        enhanced += '\n\n' + stockSection;
-      }
-    }
-
-    // Diagnostic features removed - no longer analyzing car problems
-
-    // 🚨 CRITICAL: FORCE exact reference matching
-    const referencePattern = /\b[A-Z0-9]{8,}\b/g;
-    const references = message.match(referencePattern);
-    if (references && references.length > 0) {
-      const refNumber = references[0];
-      if (!enhanced.includes(refNumber)) {
-        enhanced = `🎯 RÉFÉRENCE EXACTE: ${refNumber}\n\n` + enhanced;
-      }
-      if (!enhanced.includes('CORRESPONDANCE EXACTE')) {
-        enhanced = '✅ CORRESPONDANCE EXACTE - ' + enhanced;
-      }
-    }
-
-    // 🚨 CRITICAL: FORCE smart suggestions for partial queries
-    if (this.isPartialQuery(message, products) && !enhanced.includes('SUGGESTIONS:')) {
-      const suggestions = this.generateForcedSuggestions(message);
-      enhanced += `\n\n💡 SUGGESTIONS:\n${suggestions}`;
-    }
-
-    // 🚨 CRITICAL: FORCE all missing keywords from the original message
-    enhanced = this.forceMissingKeywords(enhanced, message, products);
-
-    return enhanced;
-  }
-
-  /**
-   * 🚨 FORCE ALL MISSING KEYWORDS TO APPEAR
-   */
-  private forceMissingKeywords(response: string, message: string, products: any[]): string {
-    let enhanced = response;
-    const lowerMsg = message.toLowerCase();
-    const normalizedMsg = this.normalizeTunisian(message) || message;
-    const requiredKeywords: string[] = [];
-
-    // Extract keywords from original message that should appear in response
-    if (lowerMsg.includes('filtre') && !enhanced.toLowerCase().includes('filtre')) {
-      requiredKeywords.push('filtre');
-    }
-    if (lowerMsg.includes('air') && !enhanced.toLowerCase().includes('air')) {
-      requiredKeywords.push('air');
-    }
-    if ((lowerMsg.includes('frein') || lowerMsg.includes('frain') || normalizedMsg.includes('frein')) && !enhanced.toLowerCase().includes('frein')) {
-      requiredKeywords.push('frein');
-    }
-    if ((lowerMsg.includes('plaquette') || lowerMsg.includes('plakete')) && !enhanced.toLowerCase().includes('plaquette')) {
-      requiredKeywords.push('plaquette');
-    }
-    if (lowerMsg.includes('prix') && !enhanced.toLowerCase().includes('prix')) {
-      requiredKeywords.push('prix');
-    }
-    if (lowerMsg.includes('stock') && !enhanced.toLowerCase().includes('stock')) {
-      requiredKeywords.push('stock');
-    }
-    if (lowerMsg.includes('disponible') && !enhanced.toLowerCase().includes('disponible')) {
-      requiredKeywords.push('disponible');
-    }
-    if (lowerMsg.includes('liquide') && !enhanced.toLowerCase().includes('liquide')) {
-      requiredKeywords.push('liquide');
-    }
-    if ((lowerMsg.includes('arrière') || lowerMsg.includes('arriere')) && !enhanced.toLowerCase().includes('arrière') && !enhanced.toLowerCase().includes('arriere')) {
-      requiredKeywords.push('arrière');
-    }
-    if (lowerMsg.includes('total') && !enhanced.toLowerCase().includes('total')) {
-      requiredKeywords.push('total');
-    }
-
-    // CRITICAL: For contextual queries, force context keywords to appear
-    const isContextual = /\b(aussi|egalement|également|et pour|deux jeux|les deux|combien pour)\b/i.test(message);
-    if (isContextual) {
-      // If it's a contextual query about brakes, ensure brake keywords appear
-      if (!enhanced.toLowerCase().includes('frein') && !enhanced.toLowerCase().includes('plaquette')) {
-        enhanced = 'Concernant les plaquettes de frein: ' + enhanced;
-      }
-      // If asking about rear parts, ensure position is mentioned
-      if ((lowerMsg.includes('arrière') || lowerMsg.includes('arriere')) && !enhanced.toLowerCase().includes('arrière') && !enhanced.toLowerCase().includes('arriere')) {
-        enhanced = enhanced.replace('plaquettes', 'plaquettes arrière');
-      }
-    }
-
-    // Add missing keywords at the end if they're still missing
-    if (requiredKeywords.length > 0) {
-      enhanced += `\n\n🔍 Mots-clés recherchés: ${requiredKeywords.join(', ')}`;
-    }
-
-    return enhanced;
-  }
-
-  /**
-   * 🚨 BUILD FORCED PRODUCT SECTION (guarantees partsFound feature)
-   */
-  private buildForcedProductSection(products: any[], message: string): string {
-    const lines: string[] = [];
-    const lowerMsg = message.toLowerCase();
-    
-    // Always use formal French
-    lines.push('PRODUITS TROUVÉS:');
-
-    // Add top 3 products with clear details
-    products.slice(0, 3).forEach((p, index) => {
-      const stock = typeof p.stock === 'number' ? p.stock : 0;
-      const isAvailable = stock > 0;
-      
-      if (isAvailable) {
-        const price = p.prixHt !== undefined && p.prixHt !== null ? `${p.prixHt} TND` : 'Prix sur demande';
-        lines.push(`• ${p.designation} (Réf: ${p.reference}) — Prix: ${price} (disponible)`);
-      } else {
-        lines.push(`• ${p.designation} (Réf: ${p.reference}) (indisponible)`);
-      }
-    });
-
-    return lines.join('\n');
-  }
-
-  /**
-   * 🚨 BUILD FORCED PRICE SECTION (guarantees priceInfo feature)  
-   */
-  private buildForcedPriceSection(products: any[]): string {
-    const lines: string[] = ['💰 PRIX:'];
-    
-    if (products && products.length > 0) {
-      products.slice(0, 3).forEach(p => {
-        const price = p.prixHt !== undefined && p.prixHt !== null ? `${p.prixHt} TND` : 'Sur demande';
-        lines.push(`• ${p.designation}: ${price}`);
-      });
-    } else {
-      lines.push('Prix disponibles sur demande. Contactez-nous pour plus de détails.');
+      return `PRODUITS DISPONIBLES:\n${productLines.join('\n')}\n\n${response}`;
     }
     
-    return lines.join('\n');
-  }
-
-  /**
-   * 🚨 BUILD FORCED STOCK SECTION (guarantees stockInfo feature)
-   */
-  private buildForcedStockSection(products: any[]): string {
-    const lines: string[] = ['📦 STOCK:'];
-    
-    if (products && products.length > 0) {
-      const inStock = products.filter(p => typeof p.stock === 'number' && p.stock > 0);
-      lines.push(`• Produits disponibles: ${inStock.length}/${products.length}`);
-      
-      inStock.slice(0, 2).forEach(p => {
-        lines.push(`• ${p.designation}: ${p.stock} unités`);
-      });
-    } else {
-      lines.push('Vérification de disponibilité en cours.');
-    }
-    
-    return lines.join('\n');
+    return response;
   }
 
 
 
-  /**
-   * 🚨 GENERATE FORCED SUGGESTIONS
-   */
-  private generateForcedSuggestions(message: string): string {
-    const lowerMsg = message.toLowerCase();
-    const suggestions: string[] = [];
 
-    if (lowerMsg.includes('filtre')) {
-      suggestions.push('• Filtre à air - pour admission moteur');
-      suggestions.push('• Filtre à huile - pour lubrification');
-      suggestions.push('• Filtre à carburant - pour alimentation');
-      suggestions.push('• Filtre habitacle - pour air conditionné');
-    }
 
-    if (lowerMsg.includes('celerio')) {
-      suggestions.push('• Spécifiez la position: avant/arrière');
-      suggestions.push('• Indiquez l\'année du véhicule');
-      suggestions.push('• Précisez le côté: gauche/droite');
-    }
 
-    if (lowerMsg.includes('frein')) {
-      suggestions.push('• Plaquettes de frein avant/arrière');
-      suggestions.push('• Disques de frein');
-      suggestions.push('• Liquide de frein');
-      suggestions.push('• Kit de freinage complet');
-    }
 
-    // Always provide suggestions even for generic queries
-    if (suggestions.length === 0) {
-      suggestions.push('• Précisez le type de pièce recherchée');
-      suggestions.push('• Indiquez la position (avant/arrière)');
-      suggestions.push('• Mentionnez l\'année de votre véhicule');
-    }
 
-    return suggestions.join('\n');
-  }
+
 
   /**
    * 🏗️ CHECK TUNISIAN WORD STRUCTURE
@@ -3047,6 +2954,17 @@ Produit non disponible
   /**
    * 💡 GENERATE SMART SUGGESTIONS ARRAY (for response.suggestions)
    */
+  /**
+   * CRITICAL: Filter products to only show available ones with stock AND price
+   */
+  private filterAvailableProducts(products: any[]): any[] {
+    return products.filter(p => {
+      const hasStock = typeof p.stock === 'number' && p.stock > 0;
+      const hasPrice = p.prixHt !== undefined && p.prixHt !== null;
+      return hasStock && hasPrice;
+    });
+  }
+
   private generateSmartSuggestionsArray(message: string, products: any[]): string[] {
     const lowerMsg = message.toLowerCase();
     const suggestions: string[] = [];
