@@ -36,6 +36,7 @@ export class IntelligenceService {
     'celirio': 'celerio', 'celario': 'celerio',
     'frain': 'frein', 'frin': 'frein',
     'fil': 'dans le', 'el': 'le', 'w': 'et',
+    'mouch': 'pas', 'mech': 'pas',
   };
 
   constructor(private prisma: PrismaService) {
@@ -466,7 +467,7 @@ export class IntelligenceService {
     return magA && magB ? dot / (magA * magB) : 0;
   }
   detectIntent(message: string): {
-    type: 'SEARCH' | 'PRICE_INQUIRY' | 'STOCK_CHECK' | 'GREETING' | 'COMPLAINT' | 'THANKS' | 'CLARIFICATION_NEEDED';
+    type: 'SEARCH' | 'PRICE_INQUIRY' | 'STOCK_CHECK' | 'GREETING' | 'COMPLAINT' | 'THANKS' | 'SERVICE_QUESTION' | 'CLARIFICATION_NEEDED';
     confidence: number;
     subIntent?: { location?: string; model?: string; year?: string };
   } {
@@ -493,9 +494,14 @@ export class IntelligenceService {
         return { type: 'THANKS', confidence: 0.95 };
       }
 
-      // COMPLAINT
-      if (/pas content|défectueux|defectueux|mauvais service|nul|terrible|horrible|bâclé|ne fonctionne pas|cassé|pièce cassée|pièce défectueuse|arnaque|deçu|marbou9/i.test(combinedText)) {
-        return { type: 'COMPLAINT', confidence: 0.88 };
+      // COMPLAINT - CRITICAL: Redirect to CarPro, don't search products
+      if (/pas content|pas satisfait|insatisfait|défectueux|defectueux|mauvais service|service.*pas|pas.*service|nul|terrible|horrible|bâclé|ne fonctionne pas|cassé|pièce cassée|pièce défectueuse|arnaque|deçu|marbou9/i.test(combinedText)) {
+        return { type: 'COMPLAINT', confidence: 0.95 };
+      }
+      
+      // SERVICE QUESTIONS - hours, delivery, warranty, location
+      if (/ouvrez|ouvert|heure|horaire|quand|livraison|délai|garantie|situé|adresse|où|localisation/i.test(combinedText)) {
+        return { type: 'SERVICE_QUESTION', confidence: 0.90 };
       }
 
       // DIAGNOSTIC REMOVED - redirect to professional service for car problems
@@ -519,6 +525,20 @@ export class IntelligenceService {
         return { type: 'CLARIFICATION_NEEDED', confidence: 0.75, subIntent: this.detectSubIntent(message) };
       }
 
+      // CRITICAL: Detect specific part queries (like "amortisseur avant")
+      const hasSpecificPart = /filtre|plaquette|disque|amortisseur|phare|batterie|courroie|bougie|alternateur|démarreur|capteur|pneu|joint|durite|radiateur|pompe|injecteur|embrayage|roulement/i.test(combinedText);
+      const hasPosition = /avant|arrière|arriere|gauche|droite|av|ar|g|d/i.test(combinedText);
+      
+      // If specific part + position mentioned, high confidence search
+      if (hasSpecificPart && hasPosition) {
+        return { type: 'SEARCH', confidence: 0.92, subIntent: this.detectSubIntent(message) };
+      }
+      
+      // If specific part mentioned (even without position), search
+      if (hasSpecificPart) {
+        return { type: 'SEARCH', confidence: 0.85, subIntent: this.detectSubIntent(message) };
+      }
+      
       // Default SEARCH (includes greetings with specific part requests)
       return { type: 'SEARCH', confidence: 0.72, subIntent: this.detectSubIntent(message) };
     } catch (error) {

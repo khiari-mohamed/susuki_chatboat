@@ -603,7 +603,7 @@ export class EnhancedChatService {
   }
 
   private isNonSearchIntent(intentType: string): boolean {
-    return ['GREETING', 'THANKS', 'COMPLAINT'].includes(intentType);
+    return ['GREETING', 'THANKS', 'COMPLAINT', 'SERVICE_QUESTION'].includes(intentType);
   }
 
   private async detectIntentWithCaching(message: string): Promise<any> {
@@ -1308,7 +1308,7 @@ Erreur technique: ${errorMessage}`;
     if (!hasAny) {
       const lines: string[] = ['\n\nPRODUITS DISPONIBLES:'];
       for (const p of availableProducts.slice(0, 3)) {
-        lines.push(`• ${p.designation} (Réf: ${p.reference}) — ${p.prixHt} TND — Stock: ${p.stock}`);
+        lines.push(`• ${p.designation} (Réf: ${p.reference}) — ${p.prixHt} TND`);
       }
       return response + '\n' + lines.join('\n');
     }
@@ -1330,7 +1330,7 @@ Erreur technique: ${errorMessage}`;
     lines.push('\nPRODUITS DISPONIBLES:');
     
     availableProducts.slice(0, 3).forEach(p => {
-      lines.push(`• ${p.designation} (Réf: ${p.reference}) — ${p.prixHt} TND — Stock: ${p.stock}`);
+      lines.push(`• ${p.designation} (Réf: ${p.reference}) — ${p.prixHt} TND`);
     });
     
     if (availableProducts.length > 3) {
@@ -1362,7 +1362,7 @@ Erreur technique: ${errorMessage}`;
     
     availableProducts.slice(0, 3).forEach(p => {
       const price = `${p.prixHt} TND`;
-      lines.push(`• ${p.designation} (Réf: ${p.reference}) — Prix: ${price} — Stock: ${p.stock}`);
+      lines.push(`• ${p.designation} (Réf: ${p.reference}) — Prix: ${price}`);
     });
     
     lines.push('\nSi vous voulez réserver une pièce, indiquez la référence.');
@@ -1761,7 +1761,9 @@ Erreur technique: ${errorMessage}`;
   ): Promise<string> {
     const context = `INTENTION: ${intentType}
 RÉPONDRE EN FRANÇAIS FORMEL ET PROFESSIONNEL
-NE PAS CHERCHER DE PIÈCES - RÉPONSE SIMPLE UNIQUEMENT`;
+CRITICAL: TOUJOURS COMMENCER PAR "Bonjour" ou "Bonjour !"
+NE PAS CHERCHER DE PIÈCES - RÉPONSE SIMPLE UNIQUEMENT
+POUR LES QUESTIONS DE SERVICE (heures, livraison, garantie, localisation): Dire poliment que vous ne pouvez pas aider avec ça et rediriger vers les pièces automobiles`;
 
     switch (intentType) {
       case 'GREETING':
@@ -1774,9 +1776,11 @@ NE PAS CHERCHER DE PIÈCES - RÉPONSE SIMPLE UNIQUEMENT`;
         }
         return 'Bonjour, comment puis-je vous aider aujourd\'hui ?';
       case 'THANKS':
-        return 'Je vous en prie ! N\'hésitez pas si vous avez d\'autres questions.';
+        return 'Bonjour ! Je vous en prie ! N\'hésitez pas si vous avez d\'autres questions.';
       case 'COMPLAINT':
-        return 'Je suis désolé pour ce désagrément. Notre service client CarPro au ☎️ 70 603 500 pourra vous aider à résoudre ce problème rapidement.';
+        return 'Bonjour, je suis désolé pour ce désagrément. Notre service client CarPro au ☎️ 70 603 500 pourra vous aider à résoudre ce problème rapidement.';
+      case 'SERVICE_QUESTION':
+        return 'Bonjour ! Je suis spécialisé dans les pièces automobiles Suzuki. Pour les questions sur les horaires, livraisons, garanties ou notre localisation, veuillez contacter CarPro au ☎️ 70 603 500. Comment puis-je vous aider avec des pièces ?';
       default:
         return await this.openai.chat(message, conversationHistory, context);
     }
@@ -1792,6 +1796,20 @@ NE PAS CHERCHER DE PIÈCES - RÉPONSE SIMPLE UNIQUEMENT`;
       return { needed: false, variants: [], dimension: '' };
     }
 
+    // CRITICAL: Brake pads are sold as SETS - never ask for left/right
+    const lowerMessage = message.toLowerCase();
+    if (lowerMessage.includes('plaquette') && lowerMessage.includes('frein')) {
+      const hasPositionSpecified = /\b(avant|arrière|arriere|av|ar)\b/i.test(message);
+      if (hasPositionSpecified) {
+        return { needed: false, variants: [], dimension: '' };
+      }
+      const dimensions = this.extractDiscriminantDimensions(products);
+      if (dimensions.positions.length > 1) {
+        return { needed: true, variants: dimensions.positions, dimension: 'position' };
+      }
+      return { needed: false, variants: [], dimension: '' };
+    }
+
     // CRITICAL: Filter by user's specifications FIRST
     const filteredProducts = this.filterProductsBySpecification(products, message);
     if (filteredProducts.length === 1) {
@@ -1801,7 +1819,6 @@ NE PAS CHERCHER DE PIÈCES - RÉPONSE SIMPLE UNIQUEMENT`;
     // Use filtered products for dimension analysis
     const productsToAnalyze = filteredProducts.length > 0 ? filteredProducts : products;
 
-    const lowerMessage = message.toLowerCase();
     const hasPositionSpecified = /\b(avant|arrière|arriere|av)\b/i.test(message);
     const hasSideSpecified = /\b(gauche|droite|g|d|droit|gosh)\b/i.test(message);
     
@@ -2140,6 +2157,18 @@ NE PAS CHERCHER DE PIÈCES - RÉPONSE SIMPLE UNIQUEMENT`;
   private isVagueQuery(message: string): boolean {
     const lowerMessage = message.toLowerCase();
 
+    // CRITICAL: Don't treat specific part + position queries as vague
+    const hasSpecificPart = /filtre|plaquette|disque|amortisseur|phare|batterie|courroie|bougie|alternateur|démarreur|capteur|pneu|joint|durite|radiateur|pompe|injecteur|embrayage|roulement/i.test(message);
+    const hasPosition = /avant|arrière|arriere|gauche|droite|av|ar|g|d/i.test(message);
+    
+    if (hasSpecificPart && hasPosition) {
+      return false; // "amortisseur avant" is NOT vague
+    }
+    
+    if (hasSpecificPart) {
+      return false; // "amortisseur" alone is NOT vague
+    }
+
     // ✅ EXPLICIT VAGUE INDICATORS
     const explicitVaguePhrases = [
       /quelque chose|truc|machin|bidule|chose|un\s+vrai|un\s+truc/,
@@ -2186,8 +2215,8 @@ NE PAS CHERCHER DE PIÈCES - RÉPONSE SIMPLE UNIQUEMENT`;
 
     // ✅ CHECK FOR ACTUAL SPECIFICITY
     const wordCount = lowerMessage.split(/\s+/).length;
-    if (wordCount < 3) {
-      return true; // Too short, likely vague
+    if (wordCount < 3 && !hasSpecificPart) {
+      return true; // Too short, likely vague (unless it's a specific part)
     }
 
     return false;
@@ -2390,7 +2419,7 @@ NE PAS CHERCHER DE PIÈCES - RÉPONSE SIMPLE UNIQUEMENT`;
       availableProducts.slice(0, 3).forEach(p => {
         const price = `${p.prixHt} TND`;
         const designation = p.designation.toLowerCase().includes('plaquette') ? p.designation : `Plaquette de frein - ${p.designation}`;
-        response += `• ${designation} (Réf: ${p.reference}) — ${price} — Stock: ${p.stock}\n`;
+        response += `• ${designation} (Réf: ${p.reference}) — ${price}\n`;
       });
       
       response += '\n💰 PRIX:\n';
@@ -2434,7 +2463,7 @@ NE PAS CHERCHER DE PIÈCES - RÉPONSE SIMPLE UNIQUEMENT`;
         availableProducts.slice(0, 3).forEach(p => {
           const price = `${p.prixHt} TND`;
           const designation = p.designation.toLowerCase().includes('plaquette') ? p.designation : `Plaquette de frein - ${p.designation}`;
-          response += `• ${designation} — ${price} — Stock: ${p.stock}\n`;
+          response += `• ${designation} — ${price}\n`;
         });
         
         const validPrices = availableProducts.filter(p => p.prixHt !== undefined && p.prixHt !== null);
@@ -2457,7 +2486,7 @@ NE PAS CHERCHER DE PIÈCES - RÉPONSE SIMPLE UNIQUEMENT`;
       if (availableProducts.length > 0) {
         response += 'PRODUITS DISPONIBLES:\n';
         availableProducts.slice(0, 3).forEach(p => {
-          response += `• ${p.designation} — ${p.prixHt} TND — Stock: ${p.stock}\n`;
+          response += `• ${p.designation} — ${p.prixHt} TND\n`;
         });
       } else {
         response += '⚠️ Aucun produit disponible actuellement.\n';
@@ -2480,6 +2509,17 @@ NE PAS CHERCHER DE PIÈCES - RÉPONSE SIMPLE UNIQUEMENT`;
   private isReferenceQuery(message: string): boolean {
     const trimmed = message.trim();
     
+    // CRITICAL: Ignore very short queries (< 6 chars) - likely not references
+    if (trimmed.length < 6) {
+      return false;
+    }
+    
+    // CRITICAL: Ignore Tunisian words that look like references
+    const tunisianWords = ['nchri', 'n7eb', 'famma', 'chouf', 'barcha', 'mte3', 'w'];
+    if (tunisianWords.some(word => trimmed.toLowerCase().includes(word))) {
+      return false;
+    }
+    
     // Check for "référence" keyword followed by alphanumeric code
     if (trimmed.toLowerCase().startsWith('référence') || trimmed.toLowerCase().startsWith('reference')) {
       const refMatch = trimmed.match(/ref[eé]rence[\s:]*([a-z0-9-]{5,})/i);
@@ -2493,8 +2533,8 @@ NE PAS CHERCHER DE PIÈCES - RÉPONSE SIMPLE UNIQUEMENT`;
       }
     }
     
-    // Check for standalone alphanumeric codes (5+ chars with letters and numbers)
-    const standaloneMatch = trimmed.match(/^\s*([a-z0-9-]{5,})\s*$/i);
+    // Check for standalone alphanumeric codes (6+ chars with letters and numbers)
+    const standaloneMatch = trimmed.match(/^\s*([a-z0-9-]{6,})\s*$/i);
     if (standaloneMatch) {
       const ref = standaloneMatch[1];
       if (/[a-z]/i.test(ref) && /[0-9]/.test(ref)) {
@@ -2885,7 +2925,7 @@ Produit non disponible
     
     if (availableProducts.length > 0 && !response.includes('PRODUITS')) {
       const productLines = availableProducts.slice(0, 3).map(p => 
-        `• ${p.designation} (Réf: ${p.reference}) — ${p.prixHt} TND — Stock: ${p.stock}`
+        `• ${p.designation} (Réf: ${p.reference}) — ${p.prixHt} TND`
       );
       
       return `PRODUITS DISPONIBLES:\n${productLines.join('\n')}\n\n${response}`;
