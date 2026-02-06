@@ -2,6 +2,11 @@ import { Injectable } from '@nestjs/common';
 
 @Injectable()
 export class ResponseService {
+  private extractQuantity(query: string): number {
+    const match = query.match(/(\d+)\s*(?:jeux?|sets?|paires?|kits?)/i);
+    return match ? parseInt(match[1]) : 1;
+  }
+
   buildProductResponse(products: any[], query: string, vehicle: any): string {
     const available = products.filter(p => typeof p.stock === 'number' && p.stock > 0 && p.prixHt !== undefined && p.prixHt !== null);
     
@@ -20,8 +25,7 @@ export class ResponseService {
     const available = products.filter(p => typeof p.stock === 'number' && p.stock > 0 && p.prixHt !== undefined && p.prixHt !== null);
     
     // Parse quantity
-    const quantityMatch = query.match(/(\d+)\s*(?:jeux?|sets?|paires?)/i);
-    const quantity = quantityMatch ? parseInt(quantityMatch[1]) : 1;
+    const quantity = this.extractQuantity(query);
     
     if (lastTopic === 'plaquettes frein' || lastTopic === 'frein') {
       const brakePads = available.filter(p => p.designation.toLowerCase().includes('plaquette') || p.designation.toLowerCase().includes('jeu de plaquettes'));
@@ -34,9 +38,19 @@ export class ResponseService {
         const rear = brakePads.find(p => p.designation.toLowerCase().includes('ar'));
         
         if (front && rear) {
-          const total = (parseFloat(front.prixHt) + parseFloat(rear.prixHt)) * quantity;
-          response += `\n💰 PRIX TOTAL (avant + arrière${quantity > 1 ? ' x ' + quantity : ''}): ${total.toFixed(2)} TND\n`;
-          response += `\n📊 DÉTAIL:\n• Plaquettes avant: ${front.prixHt} TND${quantity > 1 ? ' x ' + quantity + ' = ' + (parseFloat(front.prixHt) * quantity).toFixed(2) + ' TND' : ''}\n• Plaquettes arrière: ${rear.prixHt} TND${quantity > 1 ? ' x ' + quantity + ' = ' + (parseFloat(rear.prixHt) * quantity).toFixed(2) + ' TND' : ''}`;
+          const unitTotal = parseFloat(front.prixHt) + parseFloat(rear.prixHt);
+          const total = unitTotal * quantity;
+          response += `\n💰 PRIX TOTAL (avant + arrière${quantity > 1 ? ' x ' + quantity : ''}): ${total.toFixed(3)} TND\n`;
+          response += `\n📊 DÉTAIL:\n• Plaquettes avant: ${front.prixHt} TND${quantity > 1 ? ' x ' + quantity + ' = ' + (parseFloat(front.prixHt) * quantity).toFixed(3) + ' TND' : ''}\n• Plaquettes arrière: ${rear.prixHt} TND${quantity > 1 ? ' x ' + quantity + ' = ' + (parseFloat(rear.prixHt) * quantity).toFixed(3) + ' TND' : ''}`;
+        } else if (brakePads.length > 0) {
+          const unitPrice = parseFloat(brakePads[0].prixHt);
+          const total = unitPrice * quantity;
+          if (quantity > 1) {
+            response += `\n💰 PRIX TOTAL (${quantity} jeux): ${total.toFixed(3)} TND`;
+            response += `\n📊 Prix unitaire: ${unitPrice.toFixed(3)} TND`;
+          } else {
+            response += `\n💰 PRIX: ${unitPrice.toFixed(3)} TND`;
+          }
         }
         
         response += '\n\n📦 STOCK:\nVérification disponibilité en cours\n';

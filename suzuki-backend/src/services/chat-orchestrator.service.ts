@@ -144,7 +144,7 @@ export class ChatOrchestratorService {
       return {
         response,
         sessionId: session.id,
-        products: products.length > 0 ? products.slice(0, 3).map(p => ({ id: p.id, designation: p.designation, reference: p.reference, prixHt: String(p.prixHt), stock: p.stock })) : [],
+        products: [],
         confidence: 'MEDIUM',
         intent: 'CLARIFICATION_NEEDED',
         metadata: { productsFound: products.length, conversationLength: conversationHistory.length, queryClarity: 0 }

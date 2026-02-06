@@ -36,11 +36,15 @@ export class ClarificationService {
     // Check for contextual queries that reference previous topic
     const isContextualQuery = /\b(et pour|aussi|egalement|également|pareil|même chose)\b/i.test(lower);
     if (isContextualQuery) {
-      // Extract position/side from contextual query
       const hasPosition = /\b(avant|arriere|arrière|av|ar)\b/i.test(lower);
       const hasSide = /\b(gauche|droite|g|d|droit|gosh)\b/i.test(lower);
       return hasPosition || hasSide;
     }
+    
+    // CRITICAL: Combined position + side answers (e.g., "arriere gauche")
+    const hasBoth = /\b(avant|arriere|arrière|av|ar)\s+(gauche|droite|g|d|droit|gosh)\b/i.test(lower) ||
+                    /\b(gauche|droite|g|d|droit|gosh)\s+(avant|arriere|arrière|av|ar)\b/i.test(lower);
+    if (hasBoth) return true;
     
     // Direct position/side answers
     const hasPosition = /\b(avant|arriere|arrière|av|ar)\b/i.test(lower);
@@ -48,7 +52,7 @@ export class ClarificationService {
     
     if (hasPosition || hasSide) return true;
     if (context.dimension === 'position') return ['avant', 'arriere', 'arrière', 'av', 'ar'].includes(lower);
-    if (context.dimension === 'side') return ['gauche', 'droite', 'g', 'd', 'droit'].includes(lower);
+    if (context.dimension === 'side') return ['gauche', 'droite', 'g', 'd', 'droit', 'gosh'].includes(lower);
     if (context.dimension === 'type') {
       return context.products.some(p => {
         const d = (p.designation || '').toLowerCase();
@@ -63,18 +67,11 @@ export class ClarificationService {
 
     const lower = message.toLowerCase();
     
-    // CRITICAL: Detect generic queries
-    const genericPatterns = [
-      /pi[èe]ces?\s+pour\s+(?:ma|mon)?\s*suzuki/i,
-      /je\s+cherche\s+des\s+pi[èe]ces/i,
-      /besoin\s+de\s+pi[èe]ces/i,
-      /quelles?\s+pi[èe]ces/i
-    ];
-    
-    if (genericPatterns.some(p => p.test(message))) {
+    // CRITICAL: Detect generic queries FIRST
+    if (this.isGenericQuery(lower)) {
       return { 
         needed: true, 
-        variants: ['Filtre', 'Plaquettes frein', 'Amortisseur', 'Batterie', 'Phare'],
+        variants: ['Filtre à air', 'Plaquettes frein', 'Amortisseur', 'Batterie', 'Phare'],
         dimension: 'type' 
       };
     }
@@ -104,6 +101,17 @@ export class ClarificationService {
     if (dims.types.length > 1) return { needed: true, variants: dims.types, dimension: 'type' };
 
     return { needed: false, variants: [], dimension: '' };
+  }
+
+  private isGenericQuery(message: string): boolean {
+    const patterns = [
+      /^je cherche des pi[èe]ces/i,
+      /pi[èe]ces pour (?:ma|mon)?\s*suzuki/i,
+      /^besoin de pi[èe]ces/i,
+      /^quelles? pi[èe]ces/i,
+      /^aide.*pi[èe]ces/i
+    ];
+    return patterns.some(pattern => pattern.test(message));
   }
 
   private isBilateralPart(products: any[]): boolean {

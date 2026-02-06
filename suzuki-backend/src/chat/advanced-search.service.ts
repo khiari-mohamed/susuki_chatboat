@@ -340,7 +340,7 @@ export class AdvancedSearchService {
     
     // CRITICAL: Big bonus for exact part type match
     if (context.mainPartType && designation.includes(context.mainPartType)) {
-      score += 500;
+      score += 1000;
     }
     
     const allTokensPresent = context.rawTokens.every(token => 
@@ -368,12 +368,17 @@ export class AdvancedSearchService {
     const hasArriere = /\b(arriere|arrière|ar)\b/i.test(designation);
     const hasGauche = /\b(gauche|g|conducteur)\b/i.test(designation);
     const hasDroite = /\b(droite|d|passager)\b/i.test(designation);
-    if (positionInfo.avant && hasAvant) score += 150;
-    if (positionInfo.arriere && hasArriere) score += 150;
-    if (positionInfo.gauche && hasGauche) score += 130;
-    if (positionInfo.droite && hasDroite) score += 130;
-    if (positionInfo.avant && hasArriere) score -= 40;
-    if (positionInfo.arriere && hasAvant) score -= 40;
+    
+    if (positionInfo.avant && hasAvant) score += 300;
+    if (positionInfo.arriere && hasArriere) score += 300;
+    if (positionInfo.gauche && hasGauche) score += 300;
+    if (positionInfo.droite && hasDroite) score += 300;
+    
+    if (positionInfo.avant && hasArriere) score -= 500;
+    if (positionInfo.arriere && hasAvant) score -= 500;
+    if (positionInfo.gauche && hasDroite) score -= 500;
+    if (positionInfo.droite && hasGauche) score -= 500;
+    
     return score;
   }
 

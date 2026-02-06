@@ -473,6 +473,12 @@ export class IntelligenceService {
   } {
     try {
       const lower = (message || '').toLowerCase().trim();
+      
+      // CRITICAL FIX: Check greeting BEFORE normalization
+      if (!hasPendingClarification && this.isGreetingWord(lower)) {
+        return { type: 'GREETING', confidence: 0.95 };
+      }
+      
       const normalized = this.normalizeTunisian(lower);
       const combinedText = normalized || lower;
 
@@ -554,6 +560,11 @@ export class IntelligenceService {
       this.logger.error('Error in detectIntent:', error);
       return { type: 'SEARCH', confidence: 0.5 };
     }
+  }
+
+  private isGreetingWord(word: string): boolean {
+    const greetings = ['ahla', 'salam', 'bonjour', 'salut', 'hello', 'hi', 'hey', 'assalam'];
+    return greetings.includes(word.toLowerCase().trim());
   }
 
   private isClarificationAnswerPattern(text: string): boolean {
