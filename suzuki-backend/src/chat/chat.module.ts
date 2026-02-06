@@ -17,6 +17,7 @@ import { ResponseService } from '../services/response.service';
 import { SearchService } from '../services/search.service';
 import { ChatOrchestratorService } from '../services/chat-orchestrator.service';
 import { TunisianNormalizerService } from '../services/tunisian-normalizer.service';
+import { SearchValidatorService } from '../services/search-validator.service';
 
 @Module({
   imports: [ConfigModule, ScheduleModule.forRoot()],
@@ -36,7 +37,8 @@ import { TunisianNormalizerService } from '../services/tunisian-normalizer.servi
     ResponseService,
     SearchService,
     ChatOrchestratorService,
-    TunisianNormalizerService
+    TunisianNormalizerService,
+    SearchValidatorService
   ],
   exports: [GeminiService, OpenAIService],
 })

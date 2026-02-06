@@ -88,6 +88,12 @@ export class ChatOrchestratorService {
     // 4. Detect intent
     const intent = this.intelligenceService.detectIntent(message, !!pendingClarification);
 
+    // Store last part for context
+    const partName = this.extractPartName(message);
+    if (partName) {
+      this.contextService.setLastPart(session.id, partName);
+    }
+
     // 5. Handle non-search intents (use OpenAI for natural conversation)
     if (intent.type === 'GREETING' || intent.type === 'THANKS') {
       const contextPrompt = intent.type === 'GREETING' 
@@ -96,6 +102,20 @@ export class ChatOrchestratorService {
       const response = await this.openaiService.chat(message, conversationHistory, contextPrompt);
       await this.sessionService.saveBotResponse(session.id, response, { intent: intent.type });
       return { response, sessionId: session.id, products: [], confidence: 'HIGH', intent: intent.type, metadata: { productsFound: 0, conversationLength: conversationHistory.length, queryClarity: 0 } };
+    }
+    
+    // Handle availability check with context
+    if (intent.type === 'STOCK_CHECK' && context.lastPart) {
+      const availabilityQuery = `${context.lastPart} ${vehicle?.modele || 'S-PRESSO'}`;
+      const products = await this.searchService.search(availabilityQuery);
+      if (products.length > 0) {
+        const available = products.filter(p => p.stock > 0);
+        const response = available.length > 0 
+          ? `Oui, ${context.lastPart} est disponible.\n\nPRODUITS DISPONIBLES:\n${available.slice(0, 3).map(p => `• ${p.designation} — ${p.prixHt} TND`).join('\n')}\n\nContactez CarPro au ☎️ 70 603 500 pour réserver.`
+          : `Désolé, ${context.lastPart} n'est pas disponible actuellement. Contactez CarPro au ☎️ 70 603 500.`;
+        await this.sessionService.saveBotResponse(session.id, response, { intent: 'STOCK_CHECK' });
+        return { response, sessionId: session.id, products: available.slice(0, 3).map(p => ({ id: p.id, designation: p.designation, reference: p.reference, prixHt: String(p.prixHt), stock: p.stock })), confidence: 'HIGH', intent: 'STOCK_CHECK', metadata: { productsFound: available.length, conversationLength: conversationHistory.length, queryClarity: 0 } };
+      }
     }
     if (intent.type === 'COMPLAINT') {
       const response = this.responseService.buildComplaintResponse();
@@ -154,7 +174,7 @@ export class ChatOrchestratorService {
     // 9. Build response based on intent
     let response: string;
     if (intent.type === 'PRICE_INQUIRY') {
-      response = this.responseService.buildPriceResponse(products, searchQuery, vehicle, context.lastTopic || 'général');
+      response = this.responseService.buildPriceResponse(products, message, vehicle, context.lastTopic || 'général');
     } else if (products.length > 0) {
       response = this.responseService.buildProductResponse(products, searchQuery, vehicle);
     } else {
@@ -184,5 +204,17 @@ export class ChatOrchestratorService {
       intent: intent.type,
       metadata: { productsFound: products.length, conversationLength: conversationHistory.length, queryClarity, duration: Date.now() - startTime }
     };
+  }
+
+  private extractPartName(message: string): string {
+    const lower = message.toLowerCase();
+    if (lower.includes('amortisseur')) return 'amortisseur';
+    if (lower.includes('plaquette')) return 'plaquettes frein';
+    if (lower.includes('filtre') && lower.includes('air')) return 'filtre air';
+    if (lower.includes('filtre') && lower.includes('huile')) return 'filtre huile';
+    if (lower.includes('disque')) return 'disque frein';
+    if (lower.includes('batterie')) return 'batterie';
+    if (lower.includes('phare')) return 'phare';
+    return '';
   }
 }

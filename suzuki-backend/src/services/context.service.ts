@@ -5,9 +5,14 @@ import { TunisianNormalizerService } from './tunisian-normalizer.service';
 @Injectable()
 export class ContextService {
   private cache = new Map<string, { data: any; timestamp: number }>();
+  private lastPartCache = new Map<string, string>();
   private readonly TTL = 300000;
 
   constructor(private prisma: PrismaService, private tunisianNormalizer: TunisianNormalizerService) {}
+
+  setLastPart(sessionId: string, partName: string) {
+    this.lastPartCache.set(sessionId, partName);
+  }
 
   async get(sessionId: string) {
     const cached = this.cache.get(sessionId);
@@ -34,7 +39,7 @@ export class ContextService {
       }
     }
 
-    const data = { topicFlow, lastTopic, lastPart, messageCount: messages.length };
+    const data = { topicFlow, lastTopic, lastPart: lastPart || this.lastPartCache.get(sessionId), messageCount: messages.length };
     this.cache.set(sessionId, { data, timestamp: Date.now() });
     return data;
   }
@@ -59,6 +64,13 @@ export class ContextService {
     
     if (hasSpecificPart && hasPosition) return normalized.trim();
 
+    // CRITICAL: Handle clarification answers (position/side only)
+    const isPositionOnly = /^(avant|arriere|arrière|av|ar)\s*(gauche|droite|g|d)?$/i.test(message.trim()) ||
+                          /^(gauche|droite|g|d)\s*(avant|arriere|arrière|av|ar)?$/i.test(message.trim());
+    if (isPositionOnly && context.lastPart) {
+      return `${context.lastPart} ${message.trim()} ${vehicle?.modele || 'S-PRESSO'}`;
+    }
+
     // CRITICAL: Handle "et pour" follow-up questions
     const isFollowUp = /\b(et\s+pour|aussi|egalement|également|pareil|même\s+chose)\b/i.test(normalized);
     if (isFollowUp && context.lastPart) {
@@ -70,42 +82,14 @@ export class ContextService {
       return `${context.lastPart} ${vehicle?.modele || 'S-PRESSO'}`;
     }
 
-    // Handle contextual queries
-    const isContextual = /\b(aussi|egalement|également|pareil|même chose|et pour|arrière|arriere|et.*arrière|et.*arriere|pour.*arrière|pour.*arriere|deux jeux|les deux|combien pour)\b/i.test(normalized);
+    // Handle contextual queries (price inquiries)
+    const isContextual = /\b(combien pour|prix pour|deux jeux|les deux)\b/i.test(normalized);
     
     if (isContextual && context.lastTopic) {
-      const posMatch = message.match(/\b(avant|arrière|arriere|gauche|droite|av|ar|g|d)\b/i);
-      const pos = posMatch ? posMatch[0].toLowerCase().replace('è', 'e') : '';
-      
       if (context.lastTopic === 'plaquettes frein' || context.lastTopic.includes('frein')) {
-        if (pos.match(/arrière|arriere|ar/i) || lower.includes('arrière') || lower.includes('arriere')) {
-          return `plaquettes frein arriere ${vehicle?.modele || 'S-PRESSO'}`;
-        }
-        if (pos.match(/avant|av/i)) {
-          return `plaquettes frein avant ${vehicle?.modele || 'S-PRESSO'}`;
-        }
-        if (lower.includes('combien') || lower.includes('prix')) {
-          return `plaquettes frein ${vehicle?.modele || 'S-PRESSO'}`;
-        }
+        return `plaquettes frein ${vehicle?.modele || 'S-PRESSO'}`;
       }
-      
-      if (context.lastTopic === 'suspension' || lower.includes('amortisseur')) {
-        if (pos.match(/arrière|arriere|ar/i) || lower.includes('arrière') || lower.includes('arriere')) {
-          const side = message.match(/\b(gauche|droite|g|d)\b/i)?.[0] || '';
-          return side ? `amortisseur arriere ${side} ${vehicle?.modele || 'S-PRESSO'}` : `amortisseur arriere ${vehicle?.modele || 'S-PRESSO'}`;
-        }
-        if (pos.match(/avant|av/i)) {
-          const side = message.match(/\b(gauche|droite|g|d)\b/i)?.[0] || '';
-          return side ? `amortisseur avant ${side} ${vehicle?.modele || 'S-PRESSO'}` : `amortisseur avant ${vehicle?.modele || 'S-PRESSO'}`;
-        }
-      }
-      
-      if (pos && context.lastTopic) {
-        const normPos = pos === 'arriere' ? 'arriere' : pos === 'ar' ? 'arriere' : pos;
-        return `${context.lastTopic} ${normPos} ${vehicle?.modele || 'S-PRESSO'}`;
-      }
-      
-      if (context.lastTopic) return `${context.lastTopic} ${vehicle?.modele || 'S-PRESSO'}`;
+      return `${context.lastTopic} ${vehicle?.modele || 'S-PRESSO'}`;
     }
 
     return normalized.trim();

@@ -3,6 +3,17 @@ import { Injectable } from '@nestjs/common';
 @Injectable()
 export class ResponseService {
   private extractQuantity(query: string): number {
+    const frenchNumbers: Record<string, number> = {
+      'un': 1, 'une': 1, 'deux': 2, 'trois': 3, 'quatre': 4,
+      'cinq': 5, 'six': 6, 'sept': 7, 'huit': 8, 'neuf': 9, 'dix': 10
+    };
+    
+    const lower = query.toLowerCase();
+    
+    for (const [word, num] of Object.entries(frenchNumbers)) {
+      if (new RegExp(`\\b${word}\\b`).test(lower)) return num;
+    }
+    
     const match = query.match(/(\d+)\s*(?:jeux?|sets?|paires?|kits?)/i);
     return match ? parseInt(match[1]) : 1;
   }

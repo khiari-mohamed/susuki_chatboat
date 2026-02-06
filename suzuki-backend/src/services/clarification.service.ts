@@ -67,7 +67,7 @@ export class ClarificationService {
 
     const lower = message.toLowerCase();
     
-    // CRITICAL: Detect generic queries FIRST
+    // CRITICAL: Detect generic queries FIRST (before any other checks)
     if (this.isGenericQuery(lower)) {
       return { 
         needed: true, 
@@ -109,9 +109,11 @@ export class ClarificationService {
       /pi[èe]ces pour (?:ma|mon)?\s*suzuki/i,
       /^besoin de pi[èe]ces/i,
       /^quelles? pi[èe]ces/i,
-      /^aide.*pi[èe]ces/i
+      /^aide.*pi[èe]ces/i,
+      /^des pi[èe]ces pour/i,
+      /^pi[èe]ces.*suzuki/i
     ];
-    return patterns.some(pattern => pattern.test(message));
+    return patterns.some(pattern => pattern.test(message.trim()));
   }
 
   private isBilateralPart(products: any[]): boolean {

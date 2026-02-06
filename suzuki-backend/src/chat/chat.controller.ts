@@ -1,12 +1,16 @@
 import { Controller, Post, Body, Get, Query, BadRequestException, HttpException, HttpStatus, Logger, Req } from '@nestjs/common';
 import { EnhancedChatService, ProcessMessageResponse, AnalyticsResponse } from './enhanced-chat.service';
+import { SearchValidatorService } from '../services/search-validator.service';
 import type { Request } from 'express';
 
 @Controller('chat')
 export class ChatController {
   private readonly logger = new Logger(ChatController.name);
 
-  constructor(private readonly chatService: EnhancedChatService) {}
+  constructor(
+    private readonly chatService: EnhancedChatService,
+    private readonly validator: SearchValidatorService
+  ) {}
 
   @Post('message')
   async chat(
@@ -102,5 +106,16 @@ export class ChatController {
       this.logger.error('Learning trigger failed:', error);
       return { success: false, message: 'Learning failed: ' + error.message };
     }
+  }
+
+  @Get('search-validation')
+  async getSearchValidation(): Promise<any> {
+    return this.validator.getValidationReport();
+  }
+
+  @Post('search-validation/clear')
+  async clearValidationLog() {
+    this.validator.clearLog();
+    return { success: true, message: 'Validation log cleared' };
   }
 }

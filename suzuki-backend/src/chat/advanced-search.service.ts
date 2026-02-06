@@ -332,28 +332,39 @@ export class AdvancedSearchService {
   private calculateContentMatches(part: any, context: SearchContext): number {
     let score = 0;
     const designation = this.normalize(part.designation);
+    const ref = this.normalize(part.reference);
     
-    // CRITICAL: Heavy penalty if part type doesn't match query
-    if (context.mainPartType && !designation.includes(context.mainPartType)) {
-      score -= 1000;
+    // CRITICAL: Part type MUST match if specified in query
+    if (context.mainPartType) {
+      if (designation.includes(context.mainPartType)) {
+        score += 2000; // Massive bonus for correct part type
+      } else {
+        score -= 2000; // Massive penalty for wrong part type
+      }
     }
     
-    // CRITICAL: Big bonus for exact part type match
-    if (context.mainPartType && designation.includes(context.mainPartType)) {
-      score += 1000;
+    // Reference exact match (lower priority than part type)
+    if (ref === context.normalizedQuery) {
+      score += 400;
+    } else if (ref.includes(context.normalizedQuery)) {
+      score += 200;
     }
     
+    // All tokens present
     const allTokensPresent = context.rawTokens.every(token => 
-      designation.includes(token) || part.reference.toLowerCase().includes(token)
+      designation.includes(token) || ref.includes(token)
     );
     if (allTokensPresent) {
-      score += 220;
+      score += 150;
     }
     
-    for (const [type, weight] of Object.entries(this.typeWeights)) {
-      if (designation.includes(type)) {
-        const baseScore = type === context.mainPartType ? 150 : 15;
-        score += baseScore * weight;
+    // Type weights (only if part type matches)
+    if (context.mainPartType && designation.includes(context.mainPartType)) {
+      for (const [type, weight] of Object.entries(this.typeWeights)) {
+        if (designation.includes(type)) {
+          const baseScore = type === context.mainPartType ? 100 : 10;
+          score += baseScore * weight;
+        }
       }
     }
 
