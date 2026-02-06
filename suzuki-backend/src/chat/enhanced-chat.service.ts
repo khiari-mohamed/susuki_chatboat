@@ -221,21 +221,22 @@ export class EnhancedChatService {
         const combinedQuery = `${pendingContext.originalQuery} ${message}`;
         this.pendingClarifications.delete(session.id); // Clear context
         
+        this.logger.debug(`Clarification answer detected: "${message}" for original query: "${pendingContext.originalQuery}"`);
+        this.logger.debug(`Combined query: "${combinedQuery}"`);
+        
         // Re-search with combined query
         const clarifiedProducts = await this.searchPartsWithFallback(combinedQuery);
         const filteredProducts = this.filterAvailableProducts(clarifiedProducts);
         
-        if (filteredProducts.length === 1) {
-          // Perfect! Show the single matching product
-          products = filteredProducts;
-        } else if (filteredProducts.length > 1) {
-          // Still multiple - need more clarification
+        this.logger.debug(`Clarified search found ${filteredProducts.length} products`);
+        
+        if (filteredProducts.length > 0) {
           products = filteredProducts;
         } else {
-          // No results - keep original search results
-          // products already set above
+          // No results with clarification - return helpful message
+          return await this.handleNoResultsAfterClarification(session.id, combinedQuery, vehicle);
         }
-      }
+      } else {
 
       // ✅ FILTER OUT UNAVAILABLE PARTS (skip for reference searches)
       if (!isReferenceSearch && this.isPartNotInDatabase(message)) {
@@ -264,6 +265,7 @@ export class EnhancedChatService {
           conversationHistory,
           clarificationNeeded.dimension
         );
+      }
       }
 
       // ✅ INTELLIGENT ANALYSIS
@@ -462,6 +464,14 @@ export class EnhancedChatService {
   private isClarificationAnswer(message: string, context: any): boolean {
     const lowerMsg = message.toLowerCase().trim();
     
+    // Check for position + side combinations (e.g., "arriere gauche")
+    const hasPosition = /\b(avant|arriere|arrière|av|ar)\b/i.test(lowerMsg);
+    const hasSide = /\b(gauche|droite|g|d|droit|gosh)\b/i.test(lowerMsg);
+    
+    if (hasPosition || hasSide) {
+      return true; // Any position/side mention is a clarification answer
+    }
+    
     if (context.dimension === 'position') {
       return ['avant', 'arriere', 'arrière', 'av', 'ar'].includes(lowerMsg);
     }
@@ -471,7 +481,6 @@ export class EnhancedChatService {
     }
     
     if (context.dimension === 'type') {
-      // Check if answer matches any of the variant types
       return context.products.some((p: any) => {
         const d = (p.designation || '').toLowerCase();
         return d.includes(lowerMsg) || 
@@ -484,6 +493,33 @@ export class EnhancedChatService {
     }
     
     return false;
+  }
+
+  private async handleNoResultsAfterClarification(
+    sessionId: string,
+    query: string,
+    vehicle: any
+  ): Promise<ProcessMessageResponse> {
+    const response = `Désolé, je n'ai pas trouvé de pièce correspondant à "${query}" pour votre ${vehicle?.marque || 'véhicule'} ${vehicle?.modele || ''}.\n\nPour une recherche manuelle, contactez CarPro au ☎️ 70 603 500.`;
+    
+    await this.saveResponseAtomic(sessionId, response, {
+      confidence: 'LOW',
+      intent: 'NO_RESULTS',
+      productsFound: 0,
+    });
+    
+    return {
+      response,
+      sessionId,
+      products: [],
+      confidence: 'LOW',
+      intent: 'NO_RESULTS',
+      metadata: {
+        productsFound: 0,
+        conversationLength: 0,
+        queryClarity: 0,
+      },
+    };
   }
 
   private validateMessageInput(message: string): void {

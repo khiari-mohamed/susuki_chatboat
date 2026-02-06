@@ -41,93 +41,47 @@ export class GeminiService {
 
   async extractVehicleInfo(imageBase64: string, mimeType?: string): Promise<any> {
     const prompt = GEMINI_OCR_PROMPT;
-
-    console.log('🔍 Starting OCR extraction...');
     
     try {
-      // Detect mime type from base64 or use provided
-      let detectedMimeType = mimeType;
-      if (!detectedMimeType) {
-        if (imageBase64.startsWith('data:image/png')) detectedMimeType = 'image/png';
-        else if (imageBase64.startsWith('data:image/webp')) detectedMimeType = 'image/webp';
-        else if (imageBase64.startsWith('data:image/heic')) detectedMimeType = 'image/heic';
-        else if (imageBase64.startsWith('data:application/pdf')) detectedMimeType = 'application/pdf';
-        else detectedMimeType = 'image/jpeg';
-      }
+      const detectedMimeType = mimeType || 
+        (imageBase64.startsWith('data:image/png') ? 'image/png' :
+         imageBase64.startsWith('data:image/webp') ? 'image/webp' :
+         imageBase64.startsWith('data:image/heic') ? 'image/heic' :
+         imageBase64.startsWith('data:application/pdf') ? 'application/pdf' : 'image/jpeg');
 
-      console.log('📷 Detected MIME type:', detectedMimeType);
       const base64Data = imageBase64.split(',')[1];
-      console.log('📦 Base64 data size:', `${(base64Data.length / 1024).toFixed(2)} KB`);
 
-      console.log('🚀 Calling Gemini Vision API...');
       const response = await axios.post(`${this.apiUrl}?key=${this.apiKey}`, {
         contents: [{
           parts: [
             { text: prompt },
-            {
-              inline_data: {
-                mime_type: detectedMimeType,
-                data: base64Data
-              }
-            }
+            { inline_data: { mime_type: detectedMimeType, data: base64Data } }
           ]
         }],
         generationConfig: {
-          temperature: 0.1, // Low temperature for accurate OCR
+          temperature: 0.1,
           topK: 1,
           topP: 0.8,
-          maxOutputTokens: 2048,
+          maxOutputTokens: 1024
         }
       }, {
         headers: { 'Content-Type': 'application/json' },
-        timeout: 30000 // 30 second timeout for large files
+        timeout: 15000
       });
 
-      console.log('✅ Gemini API response received');
       const text = response.data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
-      console.log('📝 Raw OCR text:', text);
-      
-      // Better JSON extraction
       const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) {
-        console.log('❌ No JSON found in response');
-        throw new Error('OCR_FAILED');
-      }
+      if (!jsonMatch) throw new Error('OCR_FAILED');
       
-      const jsonText = jsonMatch[0];
-      console.log('📦 Extracted JSON:', jsonText);
-      
-      let parsed;
-      try {
-        parsed = JSON.parse(jsonText);
-        console.log('✅ JSON parsed successfully:', parsed);
-      } catch (e) {
-        console.log('❌ JSON parse error:', e.message);
-        throw new Error('OCR_FAILED');
-      }
+      const parsed = JSON.parse(jsonMatch[0]);
+      if (parsed.error === 'invalid_brand') throw new Error('INVALID_BRAND');
 
-      if (parsed.error === 'invalid_brand') {
-        console.log('❌ Invalid brand detected by Gemini');
-        throw new Error('INVALID_BRAND');
-      }
-
-      // Normalize data
       const marque = (parsed.marque || '').toString().toUpperCase().trim();
-      console.log('🔍 Validating brand:', marque);
-      
-      if (!marque.includes('SUZUKI')) {
-        console.log('❌ Brand validation failed - Not SUZUKI');
-        console.log('📊 Match percentage: 0% (Wrong brand)');
-        throw new Error('INVALID_BRAND');
-      }
-      console.log('✅ Brand validated: SUZUKI');
+      if (!marque.includes('SUZUKI')) throw new Error('INVALID_BRAND');
 
-      // Accept ALL Suzuki models
       const modeleRaw = (parsed.modele || '').toString().trim();
       const modeleNorm = modeleRaw.toUpperCase().replace(/\s+/g, '').replace(/\./g, '').replace(/-/g, '');
-      console.log('🔍 Model detected:', modeleRaw, '(normalized:', modeleNorm + ')');
       
-      // Known Suzuki models for normalization
       const suzukiModels: Record<string, string> = {
         'CELERIO': 'CELERIO', 'SPRESSO': 'S-PRESSO', 'SWIFT': 'SWIFT',
         'VITARA': 'VITARA', 'JIMNY': 'JIMNY', 'BALENO': 'BALENO',
@@ -137,40 +91,21 @@ export class GeminiService {
       };
       
       let modeleCanon = modeleRaw.toUpperCase();
-      let matchPercentage = 90;
-      
       for (const [key, value] of Object.entries(suzukiModels)) {
         if (modeleNorm.includes(key)) {
           modeleCanon = value;
-          matchPercentage = 95;
-          console.log(`✅ Model validated: ${modeleCanon}`);
           break;
         }
       }
-      
-      if (matchPercentage === 90) {
-        console.log(`✅ Suzuki model accepted: ${modeleCanon}`);
-      }
 
-      const result = {
+      return {
         immatriculation: parsed.immatriculation?.trim().toUpperCase() || null,
         marque: 'SUZUKI',
         modele: modeleCanon || modeleRaw.toUpperCase(),
         typeMoteur: parsed.typeMoteur?.trim() || null,
         annee: parsed.annee || null
       };
-
-      console.log('🎯 FINAL RESULT:');
-      console.log('  • Immatriculation:', result.immatriculation || 'N/A');
-      console.log('  • Marque:', result.marque);
-      console.log('  • Modèle:', result.modele);
-      console.log('  • Type Moteur:', result.typeMoteur || 'N/A');
-      console.log('  • Année:', result.annee || 'N/A');
-      console.log(`📊 Match Confidence: ${matchPercentage}%`);
-
-      return result;
     } catch (error) {
-      console.error('Gemini vision error:', error.response?.data || error.message);
       throw error;
     }
   }

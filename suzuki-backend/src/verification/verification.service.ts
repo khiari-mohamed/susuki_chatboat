@@ -12,93 +12,53 @@ export class VerificationService {
   ) {}
 
   async verifyDocument(file: Express.Multer.File, userIp?: string) {
-    console.log('\n🔍 ========== VERIFICATION START ==========');
-    console.log('📁 File Info:', {
-      name: file.originalname,
-      size: `${(file.size / 1024).toFixed(2)} KB`,
-      type: file.mimetype,
-      timestamp: new Date().toISOString(),
-      userIp: userIp || 'unknown'
-    });
-
+    const startTime = Date.now();
+    
     try {
-      // Check IP-based upload limit (3 per month)
-      if (userIp) {
-        const ipUploadCount = await this.getMonthlyUploadCount(userIp);
-        console.log(`📊 Upload count for IP ${userIp}: ${ipUploadCount}/3 this month`);
-        
-        if (ipUploadCount >= 3) {
-          console.log('❌ IP upload limit exceeded');
-          return {
-            success: false,
-            message: 'Limite mensuelle atteinte. Vous avez déjà téléchargé 3 cartes grises ce mois-ci.',
-            uploadCount: ipUploadCount,
-            limitReached: true
-          };
-        }
-      }
-
-      // Handle PDF conversion if needed
-      let imageBase64: string;
-      if (file.mimetype === 'application/pdf') {
-        imageBase64 = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
-        console.log('📄 PDF detected - processing...');
-      } else {
-        imageBase64 = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
-        console.log('🖼️  Image detected - processing...');
-      }
-
-      // Extract vehicle info with Gemini
-      console.log('🤖 Sending to Gemini 2.5-flash OCR...');
-      const startTime = Date.now();
+      // Parallel: Check upload limit + Prepare image
+      const [ipUploadCount, imageBase64] = await Promise.all([
+        userIp ? this.getMonthlyUploadCount(userIp) : Promise.resolve(0),
+        Promise.resolve(`data:${file.mimetype};base64,${file.buffer.toString('base64')}`)
+      ]);
       
+      if (userIp && ipUploadCount >= 3) {
+        return {
+          success: false,
+          message: 'Limite mensuelle atteinte. Vous avez déjà téléchargé 3 cartes grises ce mois-ci.',
+          uploadCount: ipUploadCount,
+          limitReached: true
+        };
+      }
+
+      // OCR extraction
       const geminiResult = await this.gemini.extractVehicleInfo(imageBase64, file.mimetype);
-      const geminiTime = Date.now() - startTime;
-      console.log(`⏱️  Gemini OCR completed in ${geminiTime}ms`);
-      console.log('📋 Gemini Result:', JSON.stringify(geminiResult, null, 2));
-      
       const vehicleInfo = { ...geminiResult, confidence: 'HIGH', source: 'Gemini 2.5-flash' };
       
-      // Check carte grise-based upload limit (3 per month per immatriculation)
+      // Check carte grise limit
       if (vehicleInfo.immatriculation) {
-        const carteGriseUploadCount = await this.getMonthlyCarteGriseUploadCount(vehicleInfo.immatriculation);
-        console.log(`📊 Upload count for carte grise ${vehicleInfo.immatriculation}: ${carteGriseUploadCount}/3 this month`);
-        
-        if (carteGriseUploadCount >= 3) {
-          console.log('❌ Carte grise upload limit exceeded');
+        const carteGriseCount = await this.getMonthlyCarteGriseUploadCount(vehicleInfo.immatriculation);
+        if (carteGriseCount >= 3) {
           return {
             success: false,
-            message: `Cette carte grise (${vehicleInfo.immatriculation}) a déjà été téléchargée 3 fois ce mois-ci. Limite mensuelle atteinte.`,
-            uploadCount: carteGriseUploadCount,
+            message: `Cette carte grise (${vehicleInfo.immatriculation}) a déjà été téléchargée 3 fois ce mois-ci.`,
+            uploadCount: carteGriseCount,
             limitReached: true,
             limitType: 'carte_grise'
           };
         }
       }
       
-      console.log(`⏱️  Total OCR completed in ${geminiTime}ms`);
-      console.log('✅ EXTRACTION SUCCESS:');
-      console.log('📋 Final Vehicle Info:', JSON.stringify(vehicleInfo, null, 2));
+      // Track upload (non-blocking)
+      if (userIp) this.trackUpload(userIp, vehicleInfo).catch(() => {});
       
-      // Track successful upload (both IP and carte grise)
-      if (userIp) {
-        await this.trackUpload(userIp, vehicleInfo);
-        const newIpCount = await this.getMonthlyUploadCount(userIp);
-        const newCarteGriseCount = vehicleInfo.immatriculation 
-          ? await this.getMonthlyCarteGriseUploadCount(vehicleInfo.immatriculation)
-          : 0;
-        console.log(`📊 New upload counts - IP: ${newIpCount}/3, Carte grise: ${newCarteGriseCount}/3`);
-      }
-      
-      console.log('========== VERIFICATION END ==========\n');
+      const processingTime = Date.now() - startTime;
       
       return {
         success: true,
         vehicleInfo,
-        uploadCount: userIp ? await this.getMonthlyUploadCount(userIp) : 0,
+        uploadCount: ipUploadCount + 1,
         debug: {
-          processingTime: `${geminiTime}ms`,
-          geminiTime: `${geminiTime}ms`,
+          processingTime: `${processingTime}ms`,
           fileSize: `${(file.size / 1024).toFixed(2)} KB`,
           confidence: vehicleInfo.confidence,
           model: 'Gemini 2.5-flash'
@@ -106,23 +66,13 @@ export class VerificationService {
       };
       
     } catch (error) {
-      const processingTime = Date.now();
-      console.log('❌ EXTRACTION FAILED:');
-      console.log('Error Type:', error.message);
-      console.log('Error Details:', error);
-      console.log('========== VERIFICATION END ==========\n');
-      
       return {
         success: false,
         message: error.message === 'INVALID_BRAND' 
           ? 'Seules les cartes grises Suzuki sont acceptées.'
           : error.message === 'OCR_FAILED'
           ? 'Impossible de lire le document. Veuillez utiliser une image plus claire.'
-          : 'Erreur lors de la vérification. Veuillez réessayer.',
-        debug: {
-          errorType: error.message,
-          fileSize: `${(file.size / 1024).toFixed(2)} KB`
-        }
+          : 'Erreur lors de la vérification. Veuillez réessayer.'
       };
     }
   }
