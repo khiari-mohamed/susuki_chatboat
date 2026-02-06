@@ -63,6 +63,22 @@ export class ClarificationService {
 
     const lower = message.toLowerCase();
     
+    // CRITICAL: Detect generic queries
+    const genericPatterns = [
+      /pi[èe]ces?\s+pour\s+(?:ma|mon)?\s*suzuki/i,
+      /je\s+cherche\s+des\s+pi[èe]ces/i,
+      /besoin\s+de\s+pi[èe]ces/i,
+      /quelles?\s+pi[èe]ces/i
+    ];
+    
+    if (genericPatterns.some(p => p.test(message))) {
+      return { 
+        needed: true, 
+        variants: ['Filtre', 'Plaquettes frein', 'Amortisseur', 'Batterie', 'Phare'],
+        dimension: 'type' 
+      };
+    }
+    
     // Brake pads: ALWAYS ask position if not specified
     if (lower.includes('plaquette') && lower.includes('frein')) {
       if (/\b(avant|arrière|arriere|av|ar)\b/i.test(message)) return { needed: false, variants: [], dimension: '' };

@@ -332,13 +332,24 @@ export class AdvancedSearchService {
   private calculateContentMatches(part: any, context: SearchContext): number {
     let score = 0;
     const designation = this.normalize(part.designation);
-    const designationTokens = this.tokenize(designation);
+    
+    // CRITICAL: Heavy penalty if part type doesn't match query
+    if (context.mainPartType && !designation.includes(context.mainPartType)) {
+      score -= 1000;
+    }
+    
+    // CRITICAL: Big bonus for exact part type match
+    if (context.mainPartType && designation.includes(context.mainPartType)) {
+      score += 500;
+    }
+    
     const allTokensPresent = context.rawTokens.every(token => 
       designation.includes(token) || part.reference.toLowerCase().includes(token)
     );
     if (allTokensPresent) {
       score += 220;
     }
+    
     for (const [type, weight] of Object.entries(this.typeWeights)) {
       if (designation.includes(type)) {
         const baseScore = type === context.mainPartType ? 150 : 15;

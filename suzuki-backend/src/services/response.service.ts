@@ -19,20 +19,24 @@ export class ResponseService {
   buildPriceResponse(products: any[], query: string, vehicle: any, lastTopic: string): string {
     const available = products.filter(p => typeof p.stock === 'number' && p.stock > 0 && p.prixHt !== undefined && p.prixHt !== null);
     
+    // Parse quantity
+    const quantityMatch = query.match(/(\d+)\s*(?:jeux?|sets?|paires?)/i);
+    const quantity = quantityMatch ? parseInt(quantityMatch[1]) : 1;
+    
     if (lastTopic === 'plaquettes frein' || lastTopic === 'frein') {
       const brakePads = available.filter(p => p.designation.toLowerCase().includes('plaquette') || p.designation.toLowerCase().includes('jeu de plaquettes'));
       
       if (brakePads.length > 0) {
-        let response = 'Bonjour! Voici les prix pour les plaquettes de frein:\n\nPRODUITS DISPONIBLES:\n';
+        let response = `Bonjour! Voici les prix pour ${quantity > 1 ? quantity + ' jeux de' : 'les'} plaquettes de frein:\n\nPRODUITS DISPONIBLES:\n`;
         brakePads.slice(0, 3).forEach(p => response += `• ${p.designation} — ${p.prixHt} TND\n`);
         
         const front = brakePads.find(p => p.designation.toLowerCase().includes('av'));
         const rear = brakePads.find(p => p.designation.toLowerCase().includes('ar'));
         
         if (front && rear) {
-          const total = parseFloat(front.prixHt) + parseFloat(rear.prixHt);
-          response += `\n💰 PRIX TOTAL (avant + arrière): ${total.toFixed(2)} TND\n`;
-          response += `\n📊 DÉTAIL:\n• Plaquettes avant: ${front.prixHt} TND\n• Plaquettes arrière: ${rear.prixHt} TND`;
+          const total = (parseFloat(front.prixHt) + parseFloat(rear.prixHt)) * quantity;
+          response += `\n💰 PRIX TOTAL (avant + arrière${quantity > 1 ? ' x ' + quantity : ''}): ${total.toFixed(2)} TND\n`;
+          response += `\n📊 DÉTAIL:\n• Plaquettes avant: ${front.prixHt} TND${quantity > 1 ? ' x ' + quantity + ' = ' + (parseFloat(front.prixHt) * quantity).toFixed(2) + ' TND' : ''}\n• Plaquettes arrière: ${rear.prixHt} TND${quantity > 1 ? ' x ' + quantity + ' = ' + (parseFloat(rear.prixHt) * quantity).toFixed(2) + ' TND' : ''}`;
         }
         
         response += '\n\n📦 STOCK:\nVérification disponibilité en cours\n';
