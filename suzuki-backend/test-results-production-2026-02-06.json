@@ -1,7 +1,7 @@
 {
   "total": 14,
-  "passed": 13,
-  "failed": 1,
+  "passed": 11,
+  "failed": 3,
   "details": [
     {
       "name": "Test 1: Tunisian air filter search",
@@ -13,7 +13,7 @@
         "tnd"
       ],
       "passed": true,
-      "botResponse": "Bonjour, Merci de préciser la position : avant ou arrière ?\n\nPRODUITS TROUVÉS:\n• SUPPORT FILTRE A HUILE (Réf: 11241M68K00)\n• FILTRE A HUILE (Réf: 16510M65L10)\n• FILTRE A AIR (Réf: 13780M62S00)\n• FILTRE A CARBURANT (Réf: 15140M62S00)\n• CIRCLIP D'ARBRE INTERMÉDIAIRE (Réf: 24391M76M00)\n\n---\nVERSION FRANÇAISE:\nMerci de préciser la position : avant ou arrière ?\n\n\nPRODUITS DISPONIBLES:\n• SUPPORT FILTRE A HUILE (Réf: 11241M68K00) — 10.31 TND\n• FILTRE A HUILE (Réf: 16510M65L10) — 25.605 TND\n• FILTRE A AIR (Réf: 13780M62S00) — 53.763 TND\n\n💡 Si vous avez besoin de plus de détails, nos spécialistes CarPro sont disponibles."
+      "botResponse": "Bonjour, voici les produits disponibles :\n\nPRODUITS DISPONIBLES:\n• SUPPORT FILTRE A HUILE (Réf: 11241M68K00) — Prix: 10.31 TND\n• FILTRE A HUILE (Réf: 16510M65L10) — Prix: 25.605 TND\n• FILTRE A AIR (Réf: 13780M62S00) — Prix: 53.763 TND\n\nSi vous voulez réserver une pièce, indiquez la référence.\n\n💡 Si vous avez besoin de plus de détails, nos spécialistes CarPro sont disponibles."
     },
     {
       "name": "Test 2a: Ask for shock absorber",
@@ -52,8 +52,8 @@
         "position"
       ],
       "passed": false,
-      "error": "Missing: \"position\"",
-      "botResponse": "Bonjour, voici les produits disponibles :\n\nPRODUITS DISPONIBLES:\n• JEU DE PLAQUETTES DE FREIN (Réf: 55810M62S10) — Prix: 265.012 TND\n• DISQUE DE FREIN AV (Réf: 55311M66R00) — Prix: 142.353 TND\n\nSi vous voulez réserver une pièce, indiquez la référence."
+      "error": "Missing: \"plaquettes\", Missing: \"frein\"",
+      "botResponse": "Merci pour votre demande concernant cette pièce.\n\nAfin d'identifier précisément la pièce compatible, merci de préciser la position :\n• Avant\n• Arrière\n\nDès confirmation, je pourrai vous communiquer la référence et le prix."
     },
     {
       "name": "Test 3b: Rear brake pads",
@@ -66,8 +66,9 @@
       "shouldNotContain": [
         "amortisseur"
       ],
-      "passed": true,
-      "botResponse": "Bonjour! Concernant les plaquettes de frein pour votre véhicule:\n\n🔍 CONTEXTE: Plaquettes de frein arrière\n\nPRODUITS DISPONIBLES:\n• JEU DE PLAQUETTES DE FREIN (Réf: 55810M62S10) — 265.012 TND\n\n💰 PRIX:\n• Plaquette frein: 265.012 TND\n\n📦 STOCK:\n• Plaquettes frein disponibles: 1\n\n💡 RECOMMANDATIONS:\n🔹 Remplacement plaquettes frein recommandé\n🔹 Vérification disques de frein conseillée\n🔹 Contactez CarPro au ☎️ 70 603 500"
+      "passed": false,
+      "error": "Missing: \"arrière\"",
+      "botResponse": "Bonjour, voici les produits disponibles :\n\nPRODUITS DISPONIBLES:\n• JEU DE PLAQUETTES DE FREIN (Réf: 55810M62S10) — Prix: 265.012 TND\n\nSi vous voulez réserver une pièce, indiquez la référence.\n\n💡 Si vous avez besoin de plus de détails, nos spécialistes CarPro sont disponibles."
     },
     {
       "name": "Test 4: Exact reference",
@@ -92,8 +93,9 @@
       "shouldNotContain": [
         "disque de frein av"
       ],
-      "passed": true,
-      "botResponse": "Bonjour! Voici les prix pour les plaquettes de frein:\n\nPRODUITS DISPONIBLES:\n• JEU DE PLAQUETTES DE FREIN — 265.012 TND\n\n📦 STOCK:\nVérification disponibilité en cours\n\n💡 RECOMMANDATIONS:\n🔹 Remplacement plaquettes frein recommandé\n🔹 Vérification disques de frein conseillée\n🔹 Contactez CarPro au ☎️ 70 603 500"
+      "passed": false,
+      "error": "Missing: \"plaquettes\", Missing: \"tnd\"",
+      "botResponse": "Merci pour votre demande concernant cette pièce.\n\nAfin d'identifier précisément la pièce compatible, merci de préciser la position :\n• Avant\n• Arrière\n\nDès confirmation, je pourrai vous communiquer la référence et le prix."
     },
     {
       "name": "Test 6: Gibberish",
@@ -113,7 +115,7 @@
         "pièce"
       ],
       "passed": true,
-      "botResponse": "Pourriez-vous préciser votre demande ? Par exemple, indiquez le type de pièce recherchée (filtre, plaquettes, amortisseur, etc.) et votre modèle Suzuki."
+      "botResponse": "Merci de préciser le type de pièce que vous recherchez, par exemple :\n- Filtre (air, huile, carburant)\n- Amortisseur\n- Plaquettes de frein\n- Autre\n\nCela m'aidera à identifier la pièce compatible pour votre véhicule.\n\n⚠️ ATTENTION: Cette réponse est basée sur des informations limitées. Pour une aide personnalisée, contactez CarPro au ☎️ 70 603 500"
     },
     {
       "name": "Test 8: Greeting",
@@ -144,7 +146,7 @@
         "disponible"
       ],
       "passed": true,
-      "botResponse": "Bonjour, voici les produits disponibles :\n\nPRODUITS DISPONIBLES:\n• SUPPORT FILTRE A HUILE (Réf: 11241M68K00) — Prix: 10.31 TND\n• FILTRE A HUILE (Réf: 16510M65L10) — Prix: 25.605 TND\n• FILTRE A AIR (Réf: 13780M62S00) — Prix: 53.763 TND\n\nSi vous voulez réserver une pièce, indiquez la référence."
+      "botResponse": "PRODUITS DISPONIBLES:\n• SUPPORT FILTRE A HUILE (Réf: 11241M68K00) — 10.31 TND\n• FILTRE A HUILE (Réf: 16510M65L10) — 25.605 TND\n• FILTRE A AIR (Réf: 13780M62S00) — 53.763 TND\n\nBonjour, voici les produits disponibles :\n\n• FILTRE A AIR (Réf: 13780M62S00) — Prix: 53.763 TND\n\nStock disponible : 62 unités.\n\nSi vous souhaitez réserver cette pièce, merci de l'indiquer."
     },
     {
       "name": "Test 11: Direct position",
@@ -157,7 +159,7 @@
         "préciser la position"
       ],
       "passed": true,
-      "botResponse": "Bonjour! Concernant les plaquettes de frein pour votre véhicule:\n\n🔍 CONTEXTE: Plaquettes de frein arrière\n\nPRODUITS DISPONIBLES:\n• JEU DE PLAQUETTES DE FREIN (Réf: 55810M62S10) — 265.012 TND\n\n💰 PRIX:\n• Plaquette frein: 265.012 TND\n\n📦 STOCK:\n• Plaquettes frein disponibles: 1\n\n💡 RECOMMANDATIONS:\n🔹 Remplacement plaquettes frein recommandé\n🔹 Vérification disques de frein conseillée\n🔹 Contactez CarPro au ☎️ 70 603 500"
+      "botResponse": "Bonjour, voici les produits disponibles :\n\nPRODUITS DISPONIBLES:\n• JEU DE PLAQUETTES DE FREIN (Réf: 55810M62S10) — Prix: 265.012 TND\n\nSi vous voulez réserver une pièce, indiquez la référence.\n\n💡 Si vous avez besoin de plus de détails, nos spécialistes CarPro sont disponibles."
     },
     {
       "name": "Test 12: Mixed language",
@@ -172,6 +174,6 @@
       "botResponse": "Bonjour, voici les produits disponibles :\n\nPRODUITS DISPONIBLES:\n• SUPPORT FILTRE A HUILE (Réf: 11241M68K00) — Prix: 10.31 TND\n• FILTRE A HUILE (Réf: 16510M65L10) — Prix: 25.605 TND\n• FILTRE A AIR (Réf: 13780M62S00) — Prix: 53.763 TND\n\nSi vous voulez réserver une pièce, indiquez la référence."
     }
   ],
-  "startTime": "2026-02-06T11:55:13.836Z",
-  "sessionId": "194d747c-bab2-4bd8-823e-2f85ff68bff5"
+  "startTime": "2026-02-06T12:03:54.532Z",
+  "sessionId": "95e237a4-0b01-436a-978b-2b091aafe825"
 }
