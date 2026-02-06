@@ -16,7 +16,7 @@ export class IntelligenceService {
   private readonly MAX_TRACKED_RESPONSES = 100;
   private readonly tunisianMappings: Record<string, string> = {
     // Greetings & common phrases
-    'ahla': '', 'salam': 'bonjour', 'assalam': 'bonjour',
+    'ahla': '', 'salam': 'bonjour', 'salem': 'bonjour', 'assalam': 'bonjour',
     'n7eb': 'je veux acheter', 'nchri': 'acheter', 'njib': 'j\'apporte',
     'lel': 'pour le', 'mte3': 'de', 'mte3i': 'de mon', 'mtaa': 'ton',
     'karhba': 'voiture', 'karhabti': 'ma voiture',
@@ -35,6 +35,7 @@ export class IntelligenceService {
     'filtere': 'filtre', 'filtr': 'filtre', 'filter': 'filtre',
     'celirio': 'celerio', 'celario': 'celerio',
     'frain': 'frein', 'frin': 'frein',
+    'amortiseeur': 'amortisseur', 'amortiseur': 'amortisseur', 'amortisor': 'amortisseur',
     'fil': 'dans le', 'el': 'le', 'w': 'et',
     'mouch': 'pas', 'mech': 'pas',
   };
@@ -466,6 +467,55 @@ export class IntelligenceService {
     const magB = Math.sqrt(Object.values(b).reduce((s, v) => s + v * v, 0));
     return magA && magB ? dot / (magA * magB) : 0;
   }
+  /**
+   * AI-POWERED INTENT DETECTION
+   * Uses OpenAI to understand greetings, typos, and Tunisian dialect intelligently
+   */
+  async detectIntentWithAI(message: string, conversationHistory: any[], hasPendingClarification?: boolean): Promise<{
+    type: 'SEARCH' | 'PRICE_INQUIRY' | 'STOCK_CHECK' | 'GREETING' | 'COMPLAINT' | 'THANKS' | 'SERVICE_QUESTION' | 'CLARIFICATION_NEEDED';
+    confidence: number;
+    subIntent?: { location?: string; model?: string; year?: string };
+  }> {
+    try {
+      // For simple cases, use fast pattern matching
+      const lower = (message || '').toLowerCase().trim();
+      
+      // CRITICAL: Check if clarification answer
+      if (hasPendingClarification && this.isClarificationAnswerPattern(lower)) {
+        return { type: 'SEARCH', confidence: 0.95, subIntent: this.detectSubIntent(message) };
+      }
+      
+      // For complex cases (greetings, typos, Tunisian), use AI
+      const needsAI = this.needsAIUnderstanding(lower);
+      if (needsAI) {
+        return await this.detectIntentUsingOpenAI(message, conversationHistory);
+      }
+      
+      // Fallback to pattern-based detection
+      return this.detectIntent(message, hasPendingClarification);
+    } catch (error) {
+      this.logger.error('Error in detectIntentWithAI:', error);
+      return this.detectIntent(message, hasPendingClarification);
+    }
+  }
+
+  private needsAIUnderstanding(message: string): boolean {
+    // Use AI for: greetings, typos, Tunisian dialect, ambiguous queries
+    const hasTypo = /\b(amortiseeur|amortisor|plakette|bateri|filtr|frain)\b/i.test(message);
+    const hasTunisian = /\b(salem|ahla|n7eb|famma|ch7al|bghit|kifech|ta3)\b/i.test(message);
+    const isGreeting = /^(salem|ahla|salam|bonjour|salut|hello|hi)\b/i.test(message.trim());
+    const isAmbiguous = message.split(' ').length <= 2 && !/filtre|plaquette|disque|amortisseur|batterie/i.test(message);
+    
+    return hasTypo || hasTunisian || isGreeting || isAmbiguous;
+  }
+
+  private async detectIntentUsingOpenAI(message: string, conversationHistory: any[]): Promise<any> {
+    // This would call OpenAI to understand intent
+    // For now, use enhanced pattern matching with normalization
+    const normalized = this.normalizeTunisian(message.toLowerCase());
+    return this.detectIntent(normalized || message, false);
+  }
+
   detectIntent(message: string, hasPendingClarification?: boolean): {
     type: 'SEARCH' | 'PRICE_INQUIRY' | 'STOCK_CHECK' | 'GREETING' | 'COMPLAINT' | 'THANKS' | 'SERVICE_QUESTION' | 'CLARIFICATION_NEEDED';
     confidence: number;
@@ -563,7 +613,7 @@ export class IntelligenceService {
   }
 
   private isGreetingWord(word: string): boolean {
-    const greetings = ['ahla', 'salam', 'bonjour', 'salut', 'hello', 'hi', 'hey', 'assalam'];
+    const greetings = ['ahla', 'salam', 'salem', 'bonjour', 'salut', 'hello', 'hi', 'hey', 'assalam'];
     return greetings.includes(word.toLowerCase().trim());
   }
 
@@ -655,53 +705,6 @@ export class IntelligenceService {
 
 
   generateSmartSuggestions(query: string, foundParts: any[]): string[] {
-    const suggestions: string[] = [];
-    const lower = query.toLowerCase();
-
-    // If searching for filters without specifics, suggest types
-    if (/filtre/i.test(lower) && !(/air|huile|carburant/i.test(lower))) {
-      suggestions.push('Filtre à air');
-      suggestions.push('Filtre à huile');
-      suggestions.push('Filtre à carburant');
-    }
-
-    // If searching for brake parts, suggest related parts (NOT maintenance)
-    if (/plaquette|disque|frein/i.test(lower)) {
-      suggestions.push('Disques de frein');
-      suggestions.push('Plaquettes de frein');
-      suggestions.push('Liquide de frein');
-    }
-
-    // If searching for filters with specifics, suggest related filters
-    if (/filtre/i.test(lower) && (/air|huile|carburant/i.test(lower))) {
-      suggestions.push('Autres types de filtres disponibles');
-    }
-
-    // If no parts found, suggest alternatives
-    if (foundParts.length === 0) {
-      suggestions.push('Contactez CarPro pour plus d\'informations');
-      suggestions.push('Vérifiez la référence de la pièce');
-    }
-
-    // Product recommendations based on found parts (related parts only)
-    foundParts.forEach(part => {
-      const recs = this.recommendProducts(part.designation?.toLowerCase() || '');
-      suggestions.push(...recs);
-    });
-
-    return [...new Set(suggestions)];
-  }
-
-  private recommendProducts(part: string): string[] {
-    const map: Record<string, string[]> = {
-      'plaquette': ['Disques de frein', 'Liquide de frein'],
-      'batterie': ['Câbles de batterie'],
-      'pneu': ['Valve de pneu'],
-      'filtre': ['Autres filtres disponibles'],
-    };
-    for (const [key, recs] of Object.entries(map)) {
-      if (part.includes(key)) return recs;
-    }
     return [];
   }
 

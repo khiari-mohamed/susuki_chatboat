@@ -31,7 +31,7 @@ async function bootstrap() {
   console.log(`🚀 Backend running on port ${process.env.PORT ?? 8000}`);
   console.log(`📡 CORS enabled for: ${allowedOrigins.join(', ')}`);
   console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`📷 Max file upload: 20MB`);
+  console.log(`📷 Max file upload: 25MB`);
   console.log(`📝 Supported formats: PNG, JPG, JPEG, WEBP, GIF, BMP, TIFF, SVG, HEIC, PDF`);
 }
 bootstrap();

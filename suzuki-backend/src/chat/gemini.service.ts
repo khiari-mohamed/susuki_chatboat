@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import { GEMINI_CHAT_PROMPT, GEMINI_OCR_PROMPT } from './prompt-templates';
+import { SUZUKI_MODELS } from '../constants/vehicle-models';
 
 @Injectable()
 export class GeminiService {
@@ -82,21 +83,20 @@ export class GeminiService {
       const modeleRaw = (parsed.modele || '').toString().trim();
       const modeleNorm = modeleRaw.toUpperCase().replace(/\s+/g, '').replace(/\./g, '').replace(/-/g, '');
       
-      const suzukiModels: Record<string, string> = {
-        'CELERIO': 'CELERIO', 'SPRESSO': 'S-PRESSO', 'SWIFT': 'SWIFT',
-        'VITARA': 'VITARA', 'JIMNY': 'JIMNY', 'BALENO': 'BALENO',
-        'IGNIS': 'IGNIS', 'ALTO': 'ALTO', 'ERTIGA': 'ERTIGA',
-        'DZIRE': 'DZIRE', 'CIAZ': 'CIAZ', 'SCROSS': 'S-CROSS',
-        'WAGON': 'WAGON R', 'WAGONR': 'WAGON R'
-      };
-      
+      // Normalize extracted model against centralized SUZUKI_MODELS list
       let modeleCanon = modeleRaw.toUpperCase();
-      for (const [key, value] of Object.entries(suzukiModels)) {
-        if (modeleNorm.includes(key)) {
-          modeleCanon = value;
+      for (const model of SUZUKI_MODELS) {
+        const modelNorm = model.replace(/\s+/g, '').replace(/-/g, '');
+        if (modeleNorm.includes(modelNorm)) {
+          modeleCanon = model;
           break;
         }
       }
+      
+      // Special cases for common variations
+      if (modeleNorm.includes('SPRESSO')) modeleCanon = 'S-PRESSO';
+      if (modeleNorm.includes('SCROSS')) modeleCanon = 'S-CROSS';
+      if (modeleNorm.includes('WAGON')) modeleCanon = 'WAGON R';
 
       return {
         immatriculation: parsed.immatriculation?.trim().toUpperCase() || null,

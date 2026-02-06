@@ -5,7 +5,6 @@ import { IntelligenceService } from './intelligence.service';
 import { GeminiService } from './gemini.service';
 import { OpenAIService } from './openai.service';
 import { AdvancedSearchService } from './advanced-search.service';
-import { TunisianNlpService } from './tunisian-nlp.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
@@ -16,8 +15,8 @@ import { ContextService } from '../services/context.service';
 import { ResponseService } from '../services/response.service';
 import { SearchService } from '../services/search.service';
 import { ChatOrchestratorService } from '../services/chat-orchestrator.service';
-import { TunisianNormalizerService } from '../services/tunisian-normalizer.service';
 import { SearchValidatorService } from '../services/search-validator.service';
+import { AIQueryNormalizerService } from '../services/ai-query-normalizer.service';
 
 @Module({
   imports: [ConfigModule, ScheduleModule.forRoot()],
@@ -28,7 +27,6 @@ import { SearchValidatorService } from '../services/search-validator.service';
     GeminiService,
     OpenAIService,
     AdvancedSearchService,
-    TunisianNlpService,
     PrismaService,
     LearningSchedulerService,
     SessionService,
@@ -37,8 +35,8 @@ import { SearchValidatorService } from '../services/search-validator.service';
     ResponseService,
     SearchService,
     ChatOrchestratorService,
-    TunisianNormalizerService,
-    SearchValidatorService
+    SearchValidatorService,
+    AIQueryNormalizerService
   ],
   exports: [GeminiService, OpenAIService],
 })

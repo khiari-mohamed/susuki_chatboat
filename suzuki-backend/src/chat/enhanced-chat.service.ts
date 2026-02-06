@@ -164,11 +164,48 @@ export class EnhancedChatService {
   }
 
   async analyzeAndLearnFromConversations(): Promise<void> {
-    this.logger.log('Learning cycle triggered');
+    this.logger.log('🧠 Learning cycle triggered - analyzing conversations...');
+    
+    try {
+      // Get recent sessions with feedback
+      const recentSessions = await this.prisma.chatSession.findMany({
+        where: {
+          messages: {
+            some: {
+              feedback: { isNot: null }
+            }
+          }
+        },
+        include: {
+          messages: {
+            include: { feedback: true },
+            orderBy: { timestamp: 'asc' }
+          }
+        },
+        take: 50,
+        orderBy: { startedAt: 'desc' }
+      });
+      
+      this.logger.log(`📊 Analyzing ${recentSessions.length} sessions with feedback`);
+      
+      for (const session of recentSessions) {
+        await this.intelligence.learnFromFeedback(session.id);
+      }
+      
+      this.logger.log('✅ Learning cycle completed successfully');
+    } catch (error) {
+      this.logger.error('❌ Learning cycle failed:', error);
+    }
   }
 
   async triggerLearningFromSession(sessionId: string): Promise<void> {
-    this.logger.log(`Learning triggered for session ${sessionId}`);
+    this.logger.log(`🎯 Learning triggered for session ${sessionId}`);
+    try {
+      await this.intelligence.learnFromFeedback(sessionId);
+      this.logger.log(`✅ Session ${sessionId} learning completed`);
+    } catch (error) {
+      this.logger.error(`❌ Session ${sessionId} learning failed:`, error);
+    }
   }
 
   private checkRateLimit(ip: string): boolean {

@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { SUZUKI_MODELS } from '../constants/vehicle-models';
 
 // Add missing interfaces at the top
 interface PositionRequirements {
@@ -174,12 +175,12 @@ export class AdvancedSearchService {
 
   // normalized synonym lookup for robust matching
   private normalizedSynonymLookup: Record<string, string> = {};
-
+  
   constructor(private prisma: PrismaService) {
     this.buildNormalizedSynonymIndex();
   }
 
-  async searchParts(query: string): Promise<any[]> {
+  async searchParts(query: string, vehicle?: any): Promise<any[]> {
     if (!query || query.trim().length < 2) {
       return [];
     }
@@ -202,7 +203,7 @@ export class AdvancedSearchService {
         const reference = refMatch[1] || refMatch[0];
         if (/[A-Z]/.test(reference) && /[0-9]/.test(reference) && reference.length >= 8) {
           console.log(`[SEARCH] Reference pattern detected: "${reference}"`);
-          const refResults = await this.searchByReference(reference);
+          const refResults = await this.searchByReference(reference, vehicle);
           console.log(`[SEARCH] Reference search returned ${refResults.length} results`);
           // Always return reference search results (even if empty) to indicate reference was processed
           return refResults;
@@ -230,14 +231,33 @@ export class AdvancedSearchService {
     const positionInfo = this.detectPositionRequirements(positionTokens, expandedTerms);
     console.log(`[SEARCH] Position info - avant: ${positionInfo.avant}, arrière: ${positionInfo.arriere}, gauche: ${positionInfo.gauche}, droite: ${positionInfo.droite}`);
     const searchConditions = this.buildSearchConditions(rawTokens, expandedTerms);
-    const whereCondition = searchConditions.length > 0 ? { OR: searchConditions } : {};
+    
+    // CRITICAL: Add vehicle model filter to WHERE condition
+    let whereCondition: any;
+    if (vehicle?.modele && searchConditions.length > 0) {
+      const modelUpper = vehicle.modele.toUpperCase();
+      whereCondition = {
+        AND: [
+          { OR: searchConditions },
+          {
+            OR: [
+              ...SUZUKI_MODELS.map(model => ({ NOT: { designation: { contains: model } } })),
+              { designation: { contains: modelUpper } }
+            ]
+          }
+        ]
+      };
+    } else {
+      whereCondition = searchConditions.length > 0 ? { OR: searchConditions } : {};
+    }
+    
     const parts = await this.prisma.piecesRechange.findMany({
       where: whereCondition,
       take: 100
     });
     console.log(`[SEARCH] Database returned ${parts.length} raw results`);
     if (parts.length > 0) {
-      console.log(`[SEARCH] Sample DB results: ${parts.slice(0, 3).map(p => `"${p.designation}"`).join(', ')}`);
+      console.log(`[SEARCH] Sample DB results: ${parts.slice(0, 1).map(p => `"${p.designation}"`).join(', ')}`);
     }
     const mainPartType = rawTokens.find(token => Object.keys(this.typeWeights).includes(token));
     const context: SearchContext = {
@@ -253,9 +273,11 @@ export class AdvancedSearchService {
       const score = this.calculatePartScore(part, context);
       return { ...part, score };
     });
-    const filtered = scored
+    
+    let filtered = scored
       .filter(p => p.score >= this.getMinimumScore(context))
       .sort((a, b) => b.score - a.score || b.stock - a.stock);
+    
     console.log(`[SEARCH] After scoring/filtering: ${filtered.length} qualified results (minScore: ${this.getMinimumScore(context)})`);
     const TOP_N = this.calculateOptimalResultLimit(context, filtered.length);
     const results = filtered.slice(0, TOP_N);
@@ -334,23 +356,52 @@ export class AdvancedSearchService {
     const designation = this.normalize(part.designation);
     const ref = this.normalize(part.reference);
     
-    // CRITICAL: Part type MUST match if specified in query
-    if (context.mainPartType) {
-      if (designation.includes(context.mainPartType)) {
-        score += 2000; // Massive bonus for correct part type
-      } else {
-        score -= 2000; // Massive penalty for wrong part type
+    // CRITICAL: Exact word match bonus - "air" in query should prioritize "AIR" over "HUILE"
+    for (const token of context.rawTokens) {
+      if (token.length >= 3) {
+        const exactWordMatch = new RegExp(`\\b${token}\\b`, 'i').test(designation);
+        if (exactWordMatch) {
+          score += 1000; // Strong bonus for exact word match
+        }
       }
     }
     
-    // Reference exact match (lower priority than part type)
+    // CRITICAL: Part type MUST match if specified in query
+    if (context.mainPartType) {
+      const partTypeVariants = this.synonyms[context.mainPartType] || [context.mainPartType];
+      const hasPartType = partTypeVariants.some(variant => designation.includes(variant));
+      
+      if (hasPartType) {
+        score += 2500;
+      } else {
+        score -= 4000; // Very strong penalty for wrong part type
+      }
+    }
+    
+    // CRITICAL: Exact part name match - BATTERIE must rank higher than SANGLE BATTERIE
+    if (context.mainPartType) {
+      const exactMatch = new RegExp(`\\b${context.mainPartType}\\b`, 'i').test(designation);
+      const isAccessory = /support|sangle|cable|causse|fixation|adhesif|clip|vis|boulon|pare|boue/i.test(designation);
+      const startsWithPart = designation.toLowerCase().startsWith(context.mainPartType);
+      const isExactPartOnly = new RegExp(`^${context.mainPartType}\\s*$`, 'i').test(designation.trim());
+      
+      if (isExactPartOnly) {
+        score += 5000; // Highest priority for exact part name only (e.g., "BATTERIE")
+      } else if (startsWithPart && !isAccessory) {
+        score += 3000; // Strong bonus for part name at start without accessory
+      } else if (exactMatch && !isAccessory) {
+        score += 2000; // Bonus for exact part (not accessory)
+      } else if (isAccessory) {
+        score -= 3500; // Very strong penalty for accessories
+      }
+    }
+    
     if (ref === context.normalizedQuery) {
       score += 400;
     } else if (ref.includes(context.normalizedQuery)) {
       score += 200;
     }
     
-    // All tokens present
     const allTokensPresent = context.rawTokens.every(token => 
       designation.includes(token) || ref.includes(token)
     );
@@ -358,7 +409,6 @@ export class AdvancedSearchService {
       score += 150;
     }
     
-    // Type weights (only if part type matches)
     if (context.mainPartType && designation.includes(context.mainPartType)) {
       for (const [type, weight] of Object.entries(this.typeWeights)) {
         if (designation.includes(type)) {
@@ -449,7 +499,7 @@ export class AdvancedSearchService {
         
         const relevantSynonyms = this.synonyms[primaryCategory]
           .filter(syn => syn !== token)
-          .slice(0, 3);
+          .slice(0, 1);
         
         relevantSynonyms.forEach(syn => expanded.add(syn));
       }
@@ -514,9 +564,17 @@ export class AdvancedSearchService {
     return tokens.some(t => positions.includes(t));
   }
 
+  private filterByVehicleModel(products: any[], model: string): any[] {
+    const modelUpper = model.toUpperCase();
+    return products.filter(p => {
+      const designation = p.designation.toUpperCase();
+      const hasModelInName = designation.includes('CELERIO') || designation.includes('S-PRESSO') || 
+                             designation.includes('SWIFT') || designation.includes('VITARA');
+      return !hasModelInName || designation.includes(modelUpper);
+    });
+  }
 
-
-  private async searchByReference(reference: string): Promise<any[]> {
+  private async searchByReference(reference: string, vehicle?: any): Promise<any[]> {
     const cleanRef = reference.replace(/[^A-Z0-9]/gi, '').toUpperCase();
     const originalRef = reference.toUpperCase();
     
@@ -535,13 +593,31 @@ export class AdvancedSearchService {
     
     // If no exact match, try partial matches
     if (results.length === 0) {
-      results = await this.prisma.piecesRechange.findMany({
-        where: {
-          OR: [
-            { reference: { contains: cleanRef, mode: 'insensitive' } },
-            { reference: { contains: originalRef, mode: 'insensitive' } }
+      let partialWhere: any = {
+        OR: [
+          { reference: { contains: cleanRef, mode: 'insensitive' } },
+          { reference: { contains: originalRef, mode: 'insensitive' } }
+        ]
+      };
+      
+      // Add vehicle model filter
+      if (vehicle?.modele) {
+        const modelUpper = vehicle.modele.toUpperCase();
+        partialWhere = {
+          AND: [
+            partialWhere,
+            {
+              OR: [
+                ...SUZUKI_MODELS.map(model => ({ NOT: { designation: { contains: model } } })),
+                { designation: { contains: modelUpper } }
+              ]
+            }
           ]
-        },
+        };
+      }
+      
+      results = await this.prisma.piecesRechange.findMany({
+        where: partialWhere,
         take: 10
       });
     }

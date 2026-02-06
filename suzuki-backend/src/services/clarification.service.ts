@@ -63,23 +63,22 @@ export class ClarificationService {
   }
 
   checkNeeded(products: any[], message: string): { needed: boolean; variants: string[]; dimension: string } {
-    if (!products || products.length <= 1) return { needed: false, variants: [], dimension: '' };
-
     const lower = message.toLowerCase();
     
-    // CRITICAL: Detect generic queries FIRST (before any other checks)
+    // Brake pads & discs: ALWAYS ask position if not specified (BEFORE checking product count)
+    if ((lower.includes('plaquette') && lower.includes('frein')) || (lower.includes('disque') && lower.includes('frein'))) {
+      if (/\b(avant|arrière|arriere|av|ar)\b/i.test(message)) return { needed: false, variants: [], dimension: '' };
+      return { needed: true, variants: ['avant', 'arrière'], dimension: 'position' };
+    }
+
+    if (!products || products.length <= 1) return { needed: false, variants: [], dimension: '' };
+    
     if (this.isGenericQuery(lower)) {
       return { 
         needed: true, 
         variants: ['Filtre à air', 'Plaquettes frein', 'Amortisseur', 'Batterie', 'Phare'],
         dimension: 'type' 
       };
-    }
-    
-    // Brake pads: ALWAYS ask position if not specified
-    if (lower.includes('plaquette') && lower.includes('frein')) {
-      if (/\b(avant|arrière|arriere|av|ar)\b/i.test(message)) return { needed: false, variants: [], dimension: '' };
-      return { needed: true, variants: ['avant', 'arrière'], dimension: 'position' };
     }
 
     const filtered = this.filterBySpec(products, message);
@@ -90,15 +89,18 @@ export class ClarificationService {
     const hasSide = /\b(gauche|droite|g|d|droit|gosh)\b/i.test(message);
     const dims = this.extractDimensions(toAnalyze);
     
-    // CRITICAL: Ask ONLY position if multiple positions exist
-    if (!hasPos && dims.positions.length > 1) return { needed: true, variants: dims.positions, dimension: 'position' };
+    // CRITICAL: Only ask position if >5 products AND multiple positions exist
+    if (!hasPos && dims.positions.length > 1 && toAnalyze.length > 5) {
+      return { needed: true, variants: dims.positions, dimension: 'position' };
+    }
     
-    // CRITICAL: Ask side ONLY if position already specified AND part is bilateral
     if (hasPos && !hasSide && dims.sides.length > 1 && this.isBilateralPart(toAnalyze)) {
       return { needed: true, variants: dims.sides, dimension: 'side' };
     }
     
-    if (dims.types.length > 1) return { needed: true, variants: dims.types, dimension: 'type' };
+    if (dims.types.length > 1 && toAnalyze.length > 8) {
+      return { needed: true, variants: dims.types, dimension: 'type' };
+    }
 
     return { needed: false, variants: [], dimension: '' };
   }
@@ -118,7 +120,7 @@ export class ClarificationService {
 
   private isBilateralPart(products: any[]): boolean {
     // Parts that ALWAYS come in left/right pairs
-    const bilateral = ['retroviseur', 'feu', 'phare', 'aile'];
+    const bilateral = ['retroviseur', 'feu', 'phare', 'aile', 'amortisseur', 'amorto', 'porte', 'clignotant', 'essuie', 'vitre', 'poignee', 'poignée'];
     return products.some(p => {
       const d = (p.designation || '').toLowerCase();
       return bilateral.some(part => d.includes(part));
@@ -133,13 +135,38 @@ export class ClarificationService {
 
   extractPartName(query: string): string {
     const lower = query.toLowerCase();
-    if (lower.includes('amortisseur')) return 'amortisseur';
+    
+    // CRITICAL: Check compound terms FIRST (most specific to least specific)
     if (lower.includes('plaquette') && lower.includes('frein')) return 'plaquettes frein';
+    if (lower.includes('disque') && lower.includes('frein')) return 'disque frein';
     if (lower.includes('filtre') && lower.includes('air')) return 'filtre air';
     if (lower.includes('filtre') && lower.includes('huile')) return 'filtre huile';
-    if (lower.includes('disque') && lower.includes('frein')) return 'disque frein';
+    if (lower.includes('filtre') && lower.includes('carburant')) return 'filtre carburant';
+    if (lower.includes('filtre') && lower.includes('habitacle')) return 'filtre habitacle';
+    if (lower.includes('essuie') && lower.includes('glace')) return 'essuie-glace';
+    if (lower.includes('pare') && lower.includes('choc')) return 'pare-choc';
+    
+    // Then check single terms
+    if (lower.includes('amortisseur')) return 'amortisseur';
+    if (lower.includes('batterie')) return 'batterie';
+    if (lower.includes('phare')) return 'phare';
+    if (lower.includes('courroie')) return 'courroie';
+    if (lower.includes('bougie')) return 'bougie';
+    if (lower.includes('alternateur')) return 'alternateur';
+    if (lower.includes('demarreur') || lower.includes('démarreur')) return 'démarreur';
+    if (lower.includes('retroviseur') || lower.includes('rétroviseur')) return 'rétroviseur';
+    if (lower.includes('porte')) return 'porte';
+    if (lower.includes('clignotant')) return 'clignotant';
+    if (lower.includes('vitre')) return 'vitre';
+    if (lower.includes('radiateur')) return 'radiateur';
+    if (lower.includes('echappement') || lower.includes('échappement')) return 'échappement';
+    if (lower.includes('capot')) return 'capot';
+    if (lower.includes('hayon')) return 'hayon';
+    
+    // Fallback: return first significant word
     const parts = ['amortisseur', 'plaquette', 'disque', 'filtre', 'phare', 'batterie'];
     for (const p of parts) if (lower.includes(p)) return p;
+    
     return query;
   }
 

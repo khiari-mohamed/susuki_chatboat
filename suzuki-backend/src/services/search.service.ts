@@ -9,13 +9,16 @@ export class SearchService {
     private validator: SearchValidatorService
   ) {}
 
-  async search(query: string): Promise<any[]> {
-    const products = await this.advancedSearch.searchParts(query);
+  async search(query: string, vehicle?: any): Promise<any[]> {
+    console.log(`🔍 SearchService.search called with: "${query}"`);
+    const products = await this.advancedSearch.searchParts(query, vehicle);
+    console.log(`📦 Found ${products.length} products`);
     
-    // Async validation (fire and forget)
-    if (process.env.ENABLE_SEARCH_VALIDATION !== 'false') {
-      this.validator.validateSearch(query, products).catch(() => {});
-    }
+    // ALWAYS validate (don't check env var - it's optional)
+    console.log(`🧪 Calling validator...`);
+    this.validator.validateSearch(query, products, vehicle).catch(err => {
+      console.error('❌ Validation error:', err);
+    });
     
     return this.filterAvailable(products || []);
   }

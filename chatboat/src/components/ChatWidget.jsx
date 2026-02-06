@@ -25,6 +25,7 @@ const ChatWidget = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [vehicleInfo, setVehicleInfo] = useState(null);
   const [showVehicleCard, setShowVehicleCard] = useState(false);
+  const [sessionId, setSessionId] = useState(null); // Track session ID
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
 
@@ -199,13 +200,19 @@ const ChatWidget = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: inputValue,
-          vehicle: vehicleInfo
+          vehicle: vehicleInfo,
+          sessionId: sessionId // Send existing sessionId
         })
       });
       
       console.log('✅ Chat response status:', response.status);
       const data = await response.json();
       console.log('📊 Chat response data:', data);
+      
+      // Store sessionId from response for next message
+      if (data.sessionId && !sessionId) {
+        setSessionId(data.sessionId);
+      }
       const botResponse = {
         id: Date.now() + 1,
         text: data.response || data.message || data.text || 'Réponse reçue',
