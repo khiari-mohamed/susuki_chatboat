@@ -36,16 +36,20 @@ export class OpenAIService {
     this.logger.log('✅ OpenAIService initialized with gpt-4o-mini');
   }
 
-  async chat(message: string, conversationHistory: Array<{ role: string; content: string }>, context?: string): Promise<string> {
+  async chat(message: string, conversationHistory: Array<{ role: string; content: string }>, context?: string, hasPendingClarification?: boolean): Promise<string> {
     this.metrics.totalCalls++;
 
     const { message: sanitizedMessage, conversationHistory: sanitizedHistory } = this.validateAndSanitizeInput(message, conversationHistory);
 
     await this.enforceRateLimit();
 
-    const systemPrompt = `${GEMINI_CHAT_PROMPT}\n\nCONTEXTE: ${context || 'Aucun véhicule détecté'}`;
+    let systemPrompt = `${GEMINI_CHAT_PROMPT}\n\nCONTEXTE: ${context || 'Aucun véhicule détecté'}`;
+    
+    if (hasPendingClarification) {
+      systemPrompt += `\n\nIMPORTANT: L'utilisateur répond à une question de clarification précédente (position/côté). Traitez cette réponse comme une clarification, pas comme une nouvelle requête.`;
+    }
 
-    const cacheKey = this.generateCacheKey(sanitizedMessage, context, sanitizedHistory);
+    const cacheKey = this.generateCacheKey(sanitizedMessage, context, sanitizedHistory, hasPendingClarification);
     const cached = this.getCachedResponse(cacheKey);
     if (cached) {
       this.metrics.cacheHits++;
@@ -114,9 +118,9 @@ export class OpenAIService {
     return resp.data.choices?.[0]?.message?.content || "Désolé, je n'ai pas pu générer de réponse.";
   }
 
-  private generateCacheKey(message: string, context?: string, history?: Array<{ role: string; content: string }>): string {
+  private generateCacheKey(message: string, context?: string, history?: Array<{ role: string; content: string }>, hasPendingClarification?: boolean): string {
     const hist = (history || []).slice(-3).map(h => `${h.role}:${h.content}`).join('|');
-    return `${message}::${context || ''}::${hist}`;
+    return `${message}::${context || ''}::${hist}::${hasPendingClarification ? 'pending' : 'no-pending'}`;
   }
 
   private getCachedResponse(key: string): string | null {

@@ -466,7 +466,7 @@ export class IntelligenceService {
     const magB = Math.sqrt(Object.values(b).reduce((s, v) => s + v * v, 0));
     return magA && magB ? dot / (magA * magB) : 0;
   }
-  detectIntent(message: string): {
+  detectIntent(message: string, hasPendingClarification?: boolean): {
     type: 'SEARCH' | 'PRICE_INQUIRY' | 'STOCK_CHECK' | 'GREETING' | 'COMPLAINT' | 'THANKS' | 'SERVICE_QUESTION' | 'CLARIFICATION_NEEDED';
     confidence: number;
     subIntent?: { location?: string; model?: string; year?: string };
@@ -475,6 +475,15 @@ export class IntelligenceService {
       const lower = (message || '').toLowerCase().trim();
       const normalized = this.normalizeTunisian(lower);
       const combinedText = normalized || lower;
+
+      // CRITICAL: Check if this is a clarification answer (position/side)
+      if (hasPendingClarification && this.isClarificationAnswerPattern(lower)) {
+        return { 
+          type: 'SEARCH', 
+          confidence: 0.95,
+          subIntent: this.detectSubIntent(message)
+        };
+      }
 
       // GREETING - prioritize polite greetings with help requests
       if (/^(bonjour|salut|hello|hi|salam|assalam)/i.test(message) && 
@@ -545,6 +554,16 @@ export class IntelligenceService {
       this.logger.error('Error in detectIntent:', error);
       return { type: 'SEARCH', confidence: 0.5 };
     }
+  }
+
+  private isClarificationAnswerPattern(text: string): boolean {
+    const patterns = [
+      /^(avant|arriere|arrière|gauche|droite|av|ar|g|d|gosh|droit)$/i,
+      /^(avant|arriere|arrière|av|ar)\s+(gauche|droite|g|d|gosh|droit)$/i,
+      /^(gauche|droite|g|d|gosh|droit)\s+(avant|arriere|arrière|av|ar)$/i
+    ];
+    
+    return patterns.some(pattern => pattern.test(text.trim()));
   }
 
   private detectSubIntent(message: string) {

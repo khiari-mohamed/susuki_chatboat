@@ -165,7 +165,8 @@ export class EnhancedChatService {
       }
 
       // ✅ STRUCTURED INTENT DETECTION WITH CACHING
-      let intent = await this.detectIntentWithCaching(message);
+      const hasPendingClarification = !!this.pendingClarifications.get(session.id);
+      let intent = await this.detectIntentWithCaching(message, hasPendingClarification);
 
       // Diagnostic feature removed - AI should not diagnose car problems
 
@@ -184,15 +185,33 @@ export class EnhancedChatService {
         return await this.handleNonSearchIntent(session.id, message, intent);
       }
 
-      // ✅ HANDLE REFERENCE QUERIES FIRST (before vague query check)
+      // ✅ CHECK FOR PENDING CLARIFICATION FIRST (BEFORE VAGUE QUERY CHECK)
+      const pendingContext = this.pendingClarifications.get(session.id);
+      if (pendingContext && this.isClarificationAnswer(message, pendingContext)) {
+        const combinedQuery = `${pendingContext.originalQuery} ${message}`;
+        this.pendingClarifications.delete(session.id);
+        
+        this.logger.debug(`Clarification answer detected: "${message}" for original query: "${pendingContext.originalQuery}"`);
+        
+        const clarifiedProducts = await this.searchPartsWithFallback(combinedQuery);
+        const filteredProducts = this.filterAvailableProducts(clarifiedProducts);
+        
+        if (filteredProducts.length > 0) {
+          return await this.processClarifiedResults(session.id, combinedQuery, filteredProducts, vehicle, startTime);
+        } else {
+          return await this.handleNoResultsAfterClarification(session.id, combinedQuery, vehicle);
+        }
+      }
+
+      // ✅ HANDLE REFERENCE QUERIES
       const isReferenceSearch = this.isReferenceQuery(message);
       if (isReferenceSearch) {
         let refProducts = await this.searchPartsWithFallback(message);
         return await this.handleReferenceSearchResult(session.id, message, refProducts, vehicle);
       }
 
-      // ✅ HANDLE VAGUE QUERIES
-      if (this.isVagueQuery(message)) {
+      // ✅ HANDLE VAGUE QUERIES (AFTER CLARIFICATION CHECK)
+      if (this.isVagueQuery(message, hasPendingClarification)) {
         return this.handleVagueQuery(session.id, message);
       }
 
@@ -201,6 +220,13 @@ export class EnhancedChatService {
         this.getConversationHistoryWithTimeout(session.id, 5000),
         this.intelligence.trackContext(session.id),
       ]);
+
+      // ✅ BUILD ENHANCED CONTEXT
+      const enhancedContext = {
+        conversationHistory,
+        intelligenceContext: context,
+        hasPendingClarification: !!this.pendingClarifications.get(session.id)
+      };
 
       // ✅ CONTEXTUAL SEARCH WITH VALIDATION
       const searchQuery = this.buildSmartSearchQuery(
@@ -213,30 +239,6 @@ export class EnhancedChatService {
       
       // ✅ CRITICAL: Filter products - ONLY show available with stock AND price
       products = this.filterAvailableProducts(products);
-      
-      // ✅ CHECK FOR PENDING CLARIFICATION CONTEXT
-      const pendingContext = this.pendingClarifications.get(session.id);
-      if (pendingContext && this.isClarificationAnswer(message, pendingContext)) {
-        // User is answering a clarification question
-        const combinedQuery = `${pendingContext.originalQuery} ${message}`;
-        this.pendingClarifications.delete(session.id); // Clear context
-        
-        this.logger.debug(`Clarification answer detected: "${message}" for original query: "${pendingContext.originalQuery}"`);
-        this.logger.debug(`Combined query: "${combinedQuery}"`);
-        
-        // Re-search with combined query
-        const clarifiedProducts = await this.searchPartsWithFallback(combinedQuery);
-        const filteredProducts = this.filterAvailableProducts(clarifiedProducts);
-        
-        this.logger.debug(`Clarified search found ${filteredProducts.length} products`);
-        
-        if (filteredProducts.length > 0) {
-          products = filteredProducts;
-        } else {
-          // No results with clarification - return helpful message
-          return await this.handleNoResultsAfterClarification(session.id, combinedQuery, vehicle);
-        }
-      } else {
 
       // ✅ FILTER OUT UNAVAILABLE PARTS (skip for reference searches)
       if (!isReferenceSearch && this.isPartNotInDatabase(message)) {
@@ -265,7 +267,6 @@ export class EnhancedChatService {
           conversationHistory,
           clarificationNeeded.dimension
         );
-      }
       }
 
       // ✅ INTELLIGENT ANALYSIS
@@ -522,6 +523,67 @@ export class EnhancedChatService {
     };
   }
 
+  private async processClarifiedResults(
+    sessionId: string,
+    query: string,
+    products: any[],
+    vehicle: any,
+    startTime: number
+  ): Promise<ProcessMessageResponse> {
+    const conversationHistory = await this.getConversationHistory(sessionId);
+    const queryClarity = this.intelligence.analyzeQueryClarity(query);
+    const userFeedback = await this.getUserFeedbackScore(sessionId);
+    
+    const confidence = this.intelligence.calculateConfidence({
+      productsFound: products.length,
+      exactMatch: products.some(p => p.score > 500),
+      conversationContext: conversationHistory.length,
+      userFeedbackHistory: userFeedback,
+      queryClarity,
+    });
+    
+    const response = await this.generateOptimalResponse(
+      query,
+      products,
+      vehicle,
+      conversationHistory,
+      { type: 'PARTS_SEARCH' },
+      confidence,
+      []
+    );
+    
+    await this.saveResponseAtomic(sessionId, response, {
+      confidence: confidence.level,
+      intent: 'PARTS_SEARCH',
+      productsFound: products.length,
+      duration: Date.now() - startTime,
+    });
+    
+    const sanitizedProducts = products.map(p => ({
+      id: p.id,
+      designation: p.designation,
+      reference: p.reference,
+      prixHt: p.prixHt !== undefined && p.prixHt !== null ? String(p.prixHt) : null,
+      stock: typeof p.stock === 'number' ? p.stock : (p.stock ? Number(p.stock) : 0),
+      score: p.score || 0,
+    }));
+    
+    return {
+      response,
+      sessionId,
+      products: sanitizedProducts.slice(0, 3),
+      confidence: confidence.level,
+      confidenceScore: confidence.score,
+      intent: 'PARTS_SEARCH',
+      metadata: {
+        productsFound: sanitizedProducts.length,
+        conversationLength: conversationHistory.length,
+        queryClarity,
+        duration: Date.now() - startTime,
+      },
+    };
+  }
+
   private validateMessageInput(message: string): void {
     if (typeof message !== 'string') {
       throw new Error('Body must include a non-empty `message` string');
@@ -642,8 +704,8 @@ export class EnhancedChatService {
     return ['GREETING', 'THANKS', 'COMPLAINT', 'SERVICE_QUESTION'].includes(intentType);
   }
 
-  private async detectIntentWithCaching(message: string): Promise<any> {
-    const cacheKey = `intent:${message}`;
+  private async detectIntentWithCaching(message: string, hasPendingClarification?: boolean): Promise<any> {
+    const cacheKey = `intent:${message}:${hasPendingClarification}`;
     const cached = this.responseCache.get(cacheKey);
 
     if (
@@ -653,7 +715,7 @@ export class EnhancedChatService {
       return cached.data;
     }
 
-    const intent = this.intelligence.detectIntent(message);
+    const intent = this.intelligence.detectIntent(message, hasPendingClarification);
     this.responseCache.set(cacheKey, {
       data: intent,
       timestamp: Date.now(),
@@ -1205,7 +1267,7 @@ Erreur technique: ${errorMessage}`;
       }
 
       // ✅ BUILD STRUCTURED CONTEXT
-      const context = this.buildContextObject({
+      const contextString = this.buildContextObject({
         vehicle,
         products,
         confidence,
@@ -1216,7 +1278,8 @@ Erreur technique: ${errorMessage}`;
       const response = await this.callGeminiWithRetry(
         message,
         conversationHistory,
-        context
+        contextString,
+        false
       );
 
       // ✅ VALIDATE RESPONSE
@@ -1448,7 +1511,8 @@ Erreur technique: ${errorMessage}`;
   private async callGeminiWithRetry(
     message: string,
     conversationHistory: any[],
-    context: string
+    context: string,
+    hasPendingClarification?: boolean
   ): Promise<string> {
     let lastError: Error | null = null;
     const REDUCED_TIMEOUT = 10000; // Reduce timeout to 10 seconds
@@ -1457,7 +1521,7 @@ Erreur technique: ${errorMessage}`;
       try {
         const start = Date.now();
         const response = await Promise.race([
-          this.openai.chat(message, conversationHistory, context),
+          this.openai.chat(message, conversationHistory, context, hasPendingClarification),
           this.delay(REDUCED_TIMEOUT).then(() => {
             throw new Error('OpenAI API timeout');
           }),
@@ -2190,8 +2254,21 @@ POUR LES QUESTIONS DE SERVICE (heures, livraison, garantie, localisation): Dire 
 
   // ===== VALIDATION HELPERS =====
 
-  private isVagueQuery(message: string): boolean {
+  private isVagueQuery(message: string, hasPendingClarification?: boolean): boolean {
     const lowerMessage = message.toLowerCase();
+
+    // CRITICAL: If we have pending clarification, this is NOT vague
+    if (hasPendingClarification) {
+      return false;
+    }
+
+    // CRITICAL: Don't treat position/side answers as vague
+    const isPositionAnswer = /^\s*(avant|arriere|arrière|gauche|droite|av|ar|g|d)\s*$/i.test(message.trim());
+    const isPositionSideCombo = /^\s*(avant|arriere|arrière|av|ar)\s+(gauche|droite|g|d)\s*$/i.test(message.trim());
+    
+    if (isPositionAnswer || isPositionSideCombo) {
+      return false; // These are clarification answers, NOT vague
+    }
 
     // CRITICAL: Don't treat specific part + position queries as vague
     const hasSpecificPart = /filtre|plaquette|disque|amortisseur|phare|batterie|courroie|bougie|alternateur|démarreur|capteur|pneu|joint|durite|radiateur|pompe|injecteur|embrayage|roulement/i.test(message);
@@ -2251,8 +2328,8 @@ POUR LES QUESTIONS DE SERVICE (heures, livraison, garantie, localisation): Dire 
 
     // ✅ CHECK FOR ACTUAL SPECIFICITY
     const wordCount = lowerMessage.split(/\s+/).length;
-    if (wordCount < 3 && !hasSpecificPart) {
-      return true; // Too short, likely vague (unless it's a specific part)
+    if (wordCount < 3 && !hasSpecificPart && !isPositionAnswer && !isPositionSideCombo) {
+      return true; // Too short, likely vague
     }
 
     return false;
