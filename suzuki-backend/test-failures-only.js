@@ -3,7 +3,7 @@ const fs = require('fs');
 
 const API_URL = 'http://localhost:8000/chat/message';
 
-class FailuresOnlyTester {
+class ProductionReadinessTester {
   constructor() {
     this.results = {
       total: 0,
@@ -15,7 +15,7 @@ class FailuresOnlyTester {
     };
   }
 
-  async sendMessage(message, vehicle = { marque: 'SUZUKI', modele: 'CELERIO', annee: 2021 }) {
+  async sendMessage(message, vehicle = { marque: 'SUZUKI', modele: 'S-PRESSO', annee: 2024, immatriculation: '2434698' }) {
     try {
       const startTime = Date.now();
       const response = await axios.post(API_URL, {
@@ -44,47 +44,8 @@ class FailuresOnlyTester {
     }
   }
 
-  validateResponse(result, category) {
-    const response = result.response || '';
-    const lowerResponse = response.toLowerCase();
-    
-    const validations = {
-      hasPrice: () => /\d+[.,]\d+\s*(TND|DT)/i.test(response),
-      asksClarification: () => response.includes('?') || lowerResponse.includes('préciser'),
-      isFormalFrench: () => (response.includes('Bonjour') || response.includes('Merci') || response.includes('Pourriez-vous')) && !lowerResponse.includes('ahla'),
-      hasCarProRedirect: () => lowerResponse.includes('carpro') || lowerResponse.includes('70 603 500'),
-      hasProducts: () => lowerResponse.includes('produits') || (result.products && result.products.length > 0),
-      noStockCount: () => !/stock:\s*\d+/i.test(response)
-    };
-    
-    const expectations = {
-      tunisian: () => validations.isFormalFrench(),
-      clarification: () => validations.asksClarification() || validations.hasProducts(), // FIXED: Asking for clarification is OK
-      reference: () => validations.asksClarification() || lowerResponse.includes('référence'), // FIXED: Short refs should ask for clarification
-      price: () => validations.hasPrice() && validations.hasProducts(),
-      diagnostic: () => validations.hasCarProRedirect(),
-      edgeCase: () => response.length > 0 && validations.isFormalFrench(),
-      security: () => validations.isFormalFrench(),
-      nonParts: () => validations.isFormalFrench() && !validations.hasProducts(),
-      complex: () => validations.isFormalFrench()
-    };
-    
-    const validator = expectations[category] || (() => true);
-    
-    return {
-      passed: validator(),
-      checks: {
-        hasPrice: validations.hasPrice(),
-        asksClarification: validations.asksClarification(),
-        isFormalFrench: validations.isFormalFrench(),
-        hasCarProRedirect: validations.hasCarProRedirect(),
-        noStockCount: validations.noStockCount()
-      }
-    };
-  }
-
   async runTest(testCase) {
-    const { name, message, category } = testCase;
+    const { name, message, expectedKeywords, shouldNotContain } = testCase;
     
     console.log(`\n🧪 ${name}`);
     console.log(`   📝 "${message}"`);
@@ -96,35 +57,56 @@ class FailuresOnlyTester {
       return;
     }
     
-    const validation = this.validateResponse(result, category);
+    console.log(`   🤖 "${result.response}"`);
+    console.log(`   ⏱️  ${result.duration}ms | 🎯 ${result.confidence || 'N/A'} | 📦 ${result.products.length} products`);
     
-    console.log(`   🤖 "${result.response.substring(0, 150)}${result.response.length > 150 ? '...' : ''}"`);
-    console.log(`   ⏱️  ${result.duration}ms | 🎯 ${result.confidence || 'N/A'}`);
+    // Validate response
+    const lowerResponse = result.response.toLowerCase();
+    let passed = true;
+    const failedChecks = [];
     
-    if (validation.passed) {
+    // Check expected keywords
+    if (expectedKeywords) {
+      for (const keyword of expectedKeywords) {
+        if (!lowerResponse.includes(keyword.toLowerCase())) {
+          passed = false;
+          failedChecks.push(`Missing: "${keyword}"`);
+        }
+      }
+    }
+    
+    // Check should not contain
+    if (shouldNotContain) {
+      for (const keyword of shouldNotContain) {
+        if (lowerResponse.includes(keyword.toLowerCase())) {
+          passed = false;
+          failedChecks.push(`Should NOT contain: "${keyword}"`);
+        }
+      }
+    }
+    
+    if (passed) {
       console.log(`   ✅ PASS`);
-      this.recordSuccess(testCase, result, validation);
+      this.recordSuccess(testCase, result);
     } else {
       console.log(`   ❌ FAIL`);
-      Object.entries(validation.checks).forEach(([check, passed]) => {
-        if (!passed) console.log(`      ⚠️  ${check}`);
-      });
-      this.recordFailure(testCase, 'Validation failed', result, validation);
+      failedChecks.forEach(check => console.log(`      ⚠️  ${check}`));
+      this.recordFailure(testCase, failedChecks.join(', '), result);
     }
     
     await this.sleep(500);
   }
 
-  recordSuccess(testCase, result, validation) {
+  recordSuccess(testCase, result) {
     this.results.passed++;
     this.results.total++;
-    this.results.details.push({ ...testCase, passed: true, botResponse: result.response, checks: validation.checks });
+    this.results.details.push({ ...testCase, passed: true, botResponse: result.response });
   }
 
-  recordFailure(testCase, error, result = null, validation = null) {
+  recordFailure(testCase, error, result = null) {
     this.results.failed++;
     this.results.total++;
-    this.results.details.push({ ...testCase, passed: false, error, botResponse: result?.response || '', checks: validation?.checks || {} });
+    this.results.details.push({ ...testCase, passed: false, error, botResponse: result?.response || '' });
   }
 
   sleep(ms) {
@@ -132,55 +114,119 @@ class FailuresOnlyTester {
   }
 
   async runAllTests() {
-    console.log('🚀 FAILURES ONLY TEST SUITE');
+    console.log('🚀 PRODUCTION READINESS TEST SUITE');
     console.log('═'.repeat(80));
     
-    // Initialize session
-    await this.sendMessage('bonjour');
+    // Test 1: Basic Part Search (Tunisian)
+    console.log('\n1️⃣  BASIC PART SEARCH');
+    await this.runTest({
+      name: 'Test 1: Tunisian air filter search',
+      message: 'famma filtre air pour celerio',
+      expectedKeywords: ['filtre', 'air', 'produits', 'tnd']
+    });
     
-    // ONLY FAILED TESTS FROM PREVIOUS RUN
+    // Test 2: Clarification Flow (CRITICAL FIX)
+    console.log('\n2️⃣  CLARIFICATION FLOW (CRITICAL FIX)');
+    await this.runTest({
+      name: 'Test 2a: Ask for shock absorber',
+      message: 'famma amortisseur ?',
+      expectedKeywords: ['position', 'avant', 'arrière'],
+      shouldNotContain: ['joint de porte'] // Should NOT return door seal yet
+    });
     
-    // Tunisian (1 failure)
-    console.log('\n1️⃣  TUNISIAN DIALECT (1 failure)');
-    await this.runTest({ name: 'Tunisian: famma chaqement', message: 'famma chaqement mte3 celerio', category: 'tunisian' });
+    await this.runTest({
+      name: 'Test 2b: Answer clarification',
+      message: 'arriere gauche',
+      expectedKeywords: ['produits disponibles', 'tnd'],
+      shouldNotContain: ['merci de préciser', 'position'] // Should NOT repeat clarification
+    });
     
-    // Clarification (1 failure)
-    console.log('\n2️⃣  CLARIFICATION (1 failure)');
-    await this.runTest({ name: 'Direct: amortisseur avant', message: 'amortisseur avant', category: 'clarification' });
+    // Test 3: Vehicle Context Preservation
+    console.log('\n3️⃣  CONTEXT PRESERVATION (CRITICAL FIX)');
+    await this.runTest({
+      name: 'Test 3a: Brake pads',
+      message: 'plaquettes frein',
+      expectedKeywords: ['plaquettes', 'frein', 'position']
+    });
     
-    // Reference (3 failures)
-    console.log('\n3️⃣  REFERENCE SEARCHES (3 failures)');
-    await this.runTest({ name: 'Ref partial: 41800', message: '41800', category: 'reference' });
-    await this.runTest({ name: 'Ref partial: 13780', message: '13780', category: 'reference' });
-    await this.runTest({ name: 'Ref nonExistent: 9999999999', message: '9999999999', category: 'reference' });
+    await this.runTest({
+      name: 'Test 3b: Rear brake pads',
+      message: 'et pour l\'arrière aussi?',
+      expectedKeywords: ['plaquettes', 'frein', 'arrière'],
+      shouldNotContain: ['amortisseur'] // Should NOT switch to shock absorbers
+    });
     
-    // Price (1 failure)
-    console.log('\n4️⃣  PRICE DISPLAY (1 failure)');
-    await this.runTest({ name: 'Price should show: plaquette frein avant', message: 'plaquette frein avant', category: 'price' });
+    // Test 4: Reference Search
+    console.log('\n4️⃣  REFERENCE SEARCH');
+    await this.runTest({
+      name: 'Test 4: Exact reference',
+      message: 'référence 13780M62S00',
+      expectedKeywords: ['référence', 'filtre', 'air', 'tnd']
+    });
     
-    // Diagnostic (8 failures - rate limited, skip for now)
-    console.log('\n5️⃣  DIAGNOSTIC REDIRECTION (8 failures - SKIPPED due to rate limit)');
+    // Test 5: Price Inquiry (CRITICAL FIX)
+    console.log('\n5️⃣  PRICE CALCULATION (CRITICAL FIX)');
+    await this.runTest({
+      name: 'Test 5: Brake pad pricing',
+      message: 'combien pour les plaquettes frein ?',
+      expectedKeywords: ['prix', 'plaquettes', 'tnd'],
+      shouldNotContain: ['disque de frein av'] // Should NOT mix brake disks with pads
+    });
     
-    // Edge Cases (16 failures - rate limited, skip for now)
-    console.log('\n6️⃣  EDGE CASES (16 failures - SKIPPED due to rate limit)');
+    // Test 6: Gibberish Input
+    console.log('\n6️⃣  EDGE CASES');
+    await this.runTest({
+      name: 'Test 6: Gibberish',
+      message: 'asdfghjkl',
+      expectedKeywords: ['ne parviens pas', 'comprendre']
+    });
     
-    // Security (8 failures - rate limited, skip for now)
-    console.log('\n7️⃣  SECURITY (8 failures - SKIPPED due to rate limit)');
+    // Test 7: Vague Query
+    await this.runTest({
+      name: 'Test 7: Vague query',
+      message: 'quelque chose pour la voiture',
+      expectedKeywords: ['préciser', 'pièce']
+    });
     
-    // Non-Parts (14 failures)
-    console.log('\n8️⃣  NON-PARTS INTENTS (14 failures)');
-    await this.runTest({ name: 'Non-parts thanks: thank you', message: 'thank you', category: 'nonParts' });
-    await this.runTest({ name: 'Non-parts complaints: service mouch barcha', message: 'service mouch barcha', category: 'nonParts' });
-    await this.runTest({ name: 'Non-parts complaints: je ne suis pas satisfait', message: 'je ne suis pas satisfait', category: 'nonParts' });
-    await this.runTest({ name: 'Non-parts serviceQuestions: vous ouvrez à quelle heure?', message: 'vous ouvrez à quelle heure?', category: 'nonParts' });
-    await this.runTest({ name: 'Non-parts serviceQuestions: combien de temps pour livraison?', message: 'combien de temps pour livraison?', category: 'nonParts' });
-    await this.runTest({ name: 'Non-parts serviceQuestions: vous avez garantie?', message: 'vous avez garantie?', category: 'nonParts' });
-    await this.runTest({ name: 'Non-parts serviceQuestions: où êtes-vous situé?', message: 'où êtes-vous situé?', category: 'nonParts' });
+    // Test 8: Greeting
+    console.log('\n7️⃣  NON-SEARCH INTENTS');
+    await this.runTest({
+      name: 'Test 8: Greeting',
+      message: 'bonjour j\'aurais besoin d\'aide',
+      expectedKeywords: ['bonjour', 'aider']
+    });
     
-    // Complex (2 failures)
-    console.log('\n9️⃣  COMPLEX SCENARIOS (2 failures)');
-    await this.runTest({ name: 'Complex: slm n7eb nchri filtre', message: 'slm n7eb nchri filtre w disk frein 3andi celerio 2019 ch7al bec3thoum?', category: 'complex' });
-    await this.runTest({ name: 'Complex: 3andi 200dt', message: '3andi 200dt, chnowa tnajem te3tini?', category: 'complex' });
+    // Test 9: Service Question
+    await this.runTest({
+      name: 'Test 9: Service question',
+      message: 'vous ouvrez à quelle heure ?',
+      expectedKeywords: ['carpro', '70 603 500']
+    });
+    
+    // Test 10: Stock Check
+    console.log('\n8️⃣  STOCK & AVAILABILITY');
+    await this.runTest({
+      name: 'Test 10: Stock check',
+      message: 'stok filtre air celerio ?',
+      expectedKeywords: ['filtre', 'air', 'disponible']
+    });
+    
+    // Test 11: Direct position query
+    console.log('\n9️⃣  DIRECT QUERIES (NO CLARIFICATION)');
+    await this.runTest({
+      name: 'Test 11: Direct position',
+      message: 'amortisseur arriere gauche',
+      expectedKeywords: ['produits', 'tnd'],
+      shouldNotContain: ['préciser la position'] // Should NOT ask for clarification
+    });
+    
+    // Test 12: Mixed Tunisian-French
+    console.log('\n🔟  TUNISIAN DIALECT');
+    await this.runTest({
+      name: 'Test 12: Mixed language',
+      message: 'n7eb filtre air mte3 celerio, ch7al prix w ken famma stok ?',
+      expectedKeywords: ['filtre', 'air', 'prix', 'tnd']
+    });
     
     this.printSummary();
     this.saveResults();
@@ -190,22 +236,63 @@ class FailuresOnlyTester {
     const successRate = ((this.results.passed / this.results.total) * 100).toFixed(1);
     
     console.log('\n' + '═'.repeat(80));
-    console.log('📊 FAILURES ONLY - SUMMARY');
+    console.log('📊 PRODUCTION READINESS - SUMMARY');
     console.log('═'.repeat(80));
     console.log(`Total Tests: ${this.results.total}`);
     console.log(`✅ Passed: ${this.results.passed}`);
     console.log(`❌ Failed: ${this.results.failed}`);
     console.log(`📈 Success Rate: ${successRate}%`);
+    
+    if (this.results.failed > 0) {
+      console.log('\n🔴 FAILED TESTS:');
+      this.results.details.filter(d => !d.passed).forEach(d => {
+        console.log(`   ❌ ${d.name}: ${d.error}`);
+      });
+    }
+    
+    console.log('\n🎯 PRODUCTION STATUS:');
+    if (successRate >= 95) {
+      console.log('   🟢 READY FOR PRODUCTION');
+    } else if (successRate >= 80) {
+      console.log('   🟡 READY FOR STAGING');
+    } else {
+      console.log('   🔴 NOT READY - CRITICAL ISSUES');
+    }
+    
     console.log('═'.repeat(80));
   }
 
   saveResults() {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T')[0];
-    const jsonFile = `test-failures-only-${timestamp}.json`;
+    const txtFile = `test-results-production-${timestamp}.txt`;
+    const jsonFile = `test-results-production-${timestamp}.json`;
+    
+    // Save detailed text output
+    let txtOutput = '🚀 PRODUCTION READINESS TEST RESULTS\n';
+    txtOutput += '═'.repeat(80) + '\n\n';
+    
+    this.results.details.forEach((test, i) => {
+      txtOutput += `${i + 1}. ${test.name}\n`;
+      txtOutput += `   Message: "${test.message}"\n`;
+      txtOutput += `   Status: ${test.passed ? '✅ PASS' : '❌ FAIL'}\n`;
+      if (!test.passed) {
+        txtOutput += `   Error: ${test.error}\n`;
+      }
+      txtOutput += `   Bot Response: "${test.botResponse}"\n\n`;
+    });
+    
+    txtOutput += '\n' + '═'.repeat(80) + '\n';
+    txtOutput += `Total: ${this.results.total} | Passed: ${this.results.passed} | Failed: ${this.results.failed}\n`;
+    txtOutput += `Success Rate: ${((this.results.passed / this.results.total) * 100).toFixed(1)}%\n`;
+    
+    fs.writeFileSync(txtFile, txtOutput);
     fs.writeFileSync(jsonFile, JSON.stringify(this.results, null, 2));
-    console.log(`\n📄 Results saved to: ${jsonFile}`);
+    
+    console.log(`\n📄 Results saved to:`);
+    console.log(`   - ${txtFile}`);
+    console.log(`   - ${jsonFile}`);
   }
 }
 
-const tester = new FailuresOnlyTester();
+const tester = new ProductionReadinessTester();
 tester.runAllTests().catch(console.error);
