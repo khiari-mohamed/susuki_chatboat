@@ -32,6 +32,17 @@ export class ClarificationService {
 
   isAnswer(message: string, context: ClarificationContext): boolean {
     const lower = message.toLowerCase().trim();
+    
+    // Check for contextual queries that reference previous topic
+    const isContextualQuery = /\b(et pour|aussi|egalement|également|pareil|même chose)\b/i.test(lower);
+    if (isContextualQuery) {
+      // Extract position/side from contextual query
+      const hasPosition = /\b(avant|arriere|arrière|av|ar)\b/i.test(lower);
+      const hasSide = /\b(gauche|droite|g|d|droit|gosh)\b/i.test(lower);
+      return hasPosition || hasSide;
+    }
+    
+    // Direct position/side answers
     const hasPosition = /\b(avant|arriere|arrière|av|ar)\b/i.test(lower);
     const hasSide = /\b(gauche|droite|g|d|droit|gosh)\b/i.test(lower);
     
@@ -51,6 +62,8 @@ export class ClarificationService {
     if (!products || products.length <= 1) return { needed: false, variants: [], dimension: '' };
 
     const lower = message.toLowerCase();
+    
+    // Brake pads: ALWAYS ask position if not specified
     if (lower.includes('plaquette') && lower.includes('frein')) {
       if (/\b(avant|arrière|arriere|av|ar)\b/i.test(message)) return { needed: false, variants: [], dimension: '' };
       return { needed: true, variants: ['avant', 'arrière'], dimension: 'position' };
@@ -64,11 +77,26 @@ export class ClarificationService {
     const hasSide = /\b(gauche|droite|g|d|droit|gosh)\b/i.test(message);
     const dims = this.extractDimensions(toAnalyze);
     
+    // CRITICAL: Ask ONLY position if multiple positions exist
     if (!hasPos && dims.positions.length > 1) return { needed: true, variants: dims.positions, dimension: 'position' };
-    if (!hasSide && dims.sides.length > 1) return { needed: true, variants: dims.sides, dimension: 'side' };
+    
+    // CRITICAL: Ask side ONLY if position already specified AND part is bilateral
+    if (hasPos && !hasSide && dims.sides.length > 1 && this.isBilateralPart(toAnalyze)) {
+      return { needed: true, variants: dims.sides, dimension: 'side' };
+    }
+    
     if (dims.types.length > 1) return { needed: true, variants: dims.types, dimension: 'type' };
 
     return { needed: false, variants: [], dimension: '' };
+  }
+
+  private isBilateralPart(products: any[]): boolean {
+    // Parts that ALWAYS come in left/right pairs
+    const bilateral = ['retroviseur', 'feu', 'phare', 'aile'];
+    return products.some(p => {
+      const d = (p.designation || '').toLowerCase();
+      return bilateral.some(part => d.includes(part));
+    });
   }
 
   buildQuestion(partName: string, variants: string[], dimension: string): string {

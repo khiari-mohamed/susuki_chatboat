@@ -36,7 +36,13 @@ export class OpenAIService {
     this.metrics.totalCalls++;
     const { message: sanitizedMessage, conversationHistory: sanitizedHistory } = this.validateAndSanitizeInput(message, conversationHistory);
     await this.enforceRateLimit();
-    let systemPrompt = `${GEMINI_CHAT_PROMPT}\n\nCONTEXTE: ${context || 'Aucun véhicule détecté'}`;
+    
+    // For simple greetings/thanks, use simple context
+    const isSimpleConversation = context && (context.includes('greeting') || context.includes('acknowledgment'));
+    let systemPrompt = isSimpleConversation 
+      ? context 
+      : `${GEMINI_CHAT_PROMPT}\n\nCONTEXTE: ${context || 'Aucun véhicule détecté'}`;
+    
     if (hasPendingClarification) {
       systemPrompt += `\n\nIMPORTANT: L'utilisateur répond à une question de clarification précédente (position/côté). Traitez cette réponse comme une clarification, pas comme une nouvelle requête.`;
     }
