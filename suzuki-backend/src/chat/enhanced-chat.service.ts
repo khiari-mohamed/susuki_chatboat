@@ -531,8 +531,11 @@ export class EnhancedChatService {
     startTime: number
   ): Promise<ProcessMessageResponse> {
     const conversationHistory = await this.getConversationHistory(sessionId);
-    const queryClarity = this.intelligence.analyzeQueryClarity(query);
-    const userFeedback = await this.getUserFeedbackScore(sessionId);
+    const [similarQueries, queryClarity, userFeedback] = await Promise.all([
+      this.intelligence.findSimilarQueries(query),
+      this.intelligence.analyzeQueryClarity(query),
+      this.getUserFeedbackScore(sessionId),
+    ]);
     
     const confidence = this.intelligence.calculateConfidence({
       productsFound: products.length,
@@ -542,6 +545,8 @@ export class EnhancedChatService {
       queryClarity,
     });
     
+    const suggestions = this.intelligence.generateSmartSuggestions(query, products);
+    
     const response = await this.generateOptimalResponse(
       query,
       products,
@@ -549,7 +554,7 @@ export class EnhancedChatService {
       conversationHistory,
       { type: 'PARTS_SEARCH' },
       confidence,
-      []
+      similarQueries
     );
     
     await this.saveResponseAtomic(sessionId, response, {
@@ -574,6 +579,7 @@ export class EnhancedChatService {
       products: sanitizedProducts.slice(0, 3),
       confidence: confidence.level,
       confidenceScore: confidence.score,
+      suggestions,
       intent: 'PARTS_SEARCH',
       metadata: {
         productsFound: sanitizedProducts.length,

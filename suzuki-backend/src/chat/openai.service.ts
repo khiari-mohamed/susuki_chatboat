@@ -8,15 +8,11 @@ export class OpenAIService {
   private readonly logger = new Logger(OpenAIService.name);
   private readonly apiKey: string;
   private readonly apiUrl = 'https://api.openai.com/v1/chat/completions';
-  private readonly model = 'gpt-4o-mini'; // Best model for your use case
-
-  // Rate limiting
-  private readonly RATE_LIMIT_DELAY = 500; // ms between calls
+  private readonly model = 'gpt-4o-mini'; 
+  private readonly RATE_LIMIT_DELAY = 500;
   private lastCallTime = 0;
-
-  // Simple in-memory cache
   private readonly responseCache: Map<string, { response: string; timestamp: number }> = new Map();
-  private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+  private readonly CACHE_TTL = 5 * 60 * 1000; 
 
   // Metrics
   private metrics = {
@@ -38,17 +34,12 @@ export class OpenAIService {
 
   async chat(message: string, conversationHistory: Array<{ role: string; content: string }>, context?: string, hasPendingClarification?: boolean): Promise<string> {
     this.metrics.totalCalls++;
-
     const { message: sanitizedMessage, conversationHistory: sanitizedHistory } = this.validateAndSanitizeInput(message, conversationHistory);
-
     await this.enforceRateLimit();
-
     let systemPrompt = `${GEMINI_CHAT_PROMPT}\n\nCONTEXTE: ${context || 'Aucun véhicule détecté'}`;
-    
     if (hasPendingClarification) {
       systemPrompt += `\n\nIMPORTANT: L'utilisateur répond à une question de clarification précédente (position/côté). Traitez cette réponse comme une clarification, pas comme une nouvelle requête.`;
     }
-
     const cacheKey = this.generateCacheKey(sanitizedMessage, context, sanitizedHistory, hasPendingClarification);
     const cached = this.getCachedResponse(cacheKey);
     if (cached) {
@@ -56,7 +47,6 @@ export class OpenAIService {
       this.logger.log('Returning cached OpenAI response');
       return cached;
     }
-
     const start = Date.now();
     try {
       const response = await this.callWithRetry(systemPrompt, sanitizedMessage, sanitizedHistory);
@@ -64,11 +54,9 @@ export class OpenAIService {
       if (response && !response.includes("Désolé, je n'ai pas pu générer de réponse.")) {
         this.cacheResponse(cacheKey, response);
       }
-
       const duration = Date.now() - start;
       this.metrics.successfulCalls++;
       this.metrics.averageResponseTime = (this.metrics.averageResponseTime * (this.metrics.successfulCalls - 1) + duration) / this.metrics.successfulCalls;
-
       return response;
     } catch (error: any) {
       this.metrics.failedCalls++;
