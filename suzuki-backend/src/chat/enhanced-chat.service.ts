@@ -875,6 +875,16 @@ export class EnhancedChatService {
     const normalizedMessage = this.normalizeTunisian(message);
     const lowerMessage = (normalizedMessage || message).toLowerCase();
     
+    // CRITICAL FIX: If current query is specific (has part name + position), use IT, not last topic
+    const hasSpecificPart = /\b(amortisseur|plaquette|disque|filtre|phare|batterie|courroie|bougie)\b/i.test(message);
+    const hasPosition = /\b(avant|arrière|arriere|gauche|droite|av|ar|g|d)\b/i.test(message);
+    
+    if (hasSpecificPart && hasPosition) {
+      // User specified BOTH part and position - use the current query directly
+      this.logger.debug(`Specific query detected (part + position), using current: "${message}"`);
+      return (normalizedMessage || message).trim();
+    }
+    
     // Get the last few user messages to understand context better
     const lastUserMessages = conversationHistory
       .filter(m => m.role === 'user')
@@ -1931,18 +1941,20 @@ POUR LES QUESTIONS DE SERVICE (heures, livraison, garantie, localisation): Dire 
       return { needed: false, variants: [], dimension: '' };
     }
 
-    // CRITICAL: Brake pads are sold as SETS - never ask for left/right
+    // CRITICAL: Brake pads are sold as SETS - ALWAYS ask for position
     const lowerMessage = message.toLowerCase();
     if (lowerMessage.includes('plaquette') && lowerMessage.includes('frein')) {
       const hasPositionSpecified = /\b(avant|arrière|arriere|av|ar)\b/i.test(message);
       if (hasPositionSpecified) {
         return { needed: false, variants: [], dimension: '' };
       }
-      const dimensions = this.extractDiscriminantDimensions(products);
-      if (dimensions.positions.length > 1) {
-        return { needed: true, variants: dimensions.positions, dimension: 'position' };
-      }
-      return { needed: false, variants: [], dimension: '' };
+      // CRITICAL FIX: ALWAYS ask for position for brake pads (front/rear)
+      // Brake pads are ALWAYS sold as sets for specific positions
+      return { 
+        needed: true, 
+        variants: ['avant', 'arrière'], 
+        dimension: 'position' 
+      };
     }
 
     // CRITICAL: Filter by user's specifications FIRST
