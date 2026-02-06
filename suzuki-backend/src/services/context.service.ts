@@ -1,12 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { TunisianNormalizerService } from './tunisian-normalizer.service';
 
 @Injectable()
 export class ContextService {
   private cache = new Map<string, { data: any; timestamp: number }>();
   private readonly TTL = 300000;
 
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private tunisianNormalizer: TunisianNormalizerService) {}
 
   async get(sessionId: string) {
     const cached = this.cache.get(sessionId);
@@ -35,7 +36,7 @@ export class ContextService {
   }
 
   buildSearchQuery(message: string, context: any, vehicle?: any): string {
-    const normalized = this.normalizeTunisian(message) || message;
+    const normalized = this.tunisianNormalizer.normalize(message) || message;
     const lower = normalized.toLowerCase();
     const hasSpecificPart = /\b(amortisseur|plaquette|disque|filtre|phare|batterie|courroie|bougie)\b/i.test(message);
     const hasPosition = /\b(avant|arrière|arriere|gauche|droite|av|ar|g|d)\b/i.test(message);
@@ -78,7 +79,7 @@ export class ContextService {
       'optique': ['phare', 'feu', 'ampoule']
     };
     const lower = message.toLowerCase();
-    const normalized = this.normalizeTunisian(lower) || lower;
+    const normalized = this.tunisianNormalizer.normalize(lower) || lower;
     if (lower.includes('plaquette') || lower.includes('plakete') || normalized.includes('plaquette')) return 'plaquettes frein';
     if (lower.includes('frein') || lower.includes('frain') || normalized.includes('frein')) {
       if (lower.includes('plaquette') || lower.includes('plakete') || normalized.includes('plaquette')) return 'plaquettes frein';
@@ -88,24 +89,5 @@ export class ContextService {
       if (keywords.some(k => lower.includes(k) || normalized.includes(k))) return topic;
     }
     return 'général';
-  }
-
-  private normalizeTunisian(query: string): string {
-    let normalized = query.toLowerCase();
-    const mappings: Record<string, string> = {
-      'ahla': 'bonjour', 'n7eb': 'je veux acheter', 'nchri': 'acheter', 'filtere': 'filtre', 'filtr': 'filtre', 'filter': 'filtre',
-      'lel': 'pour le', 'mte3': 'de', 'mte3i': 'de mon', 'karhba': 'voiture', 'karhabti': 'ma voiture',
-      't9allek': 'fait du bruit', 't9alet': 'cassé', 'mkasra': 'fait du bruit', 'famma': 'disponible stock',
-      'chnowa': 'quel', 'chneya': 'quoi', 'wach': 'est-ce que', 'barcha': 'beaucoup', '9ad': 'combien',
-      'stok': 'stock disponible', 'dispo': 'disponible stock', 'mawjoud': 'disponible stock',
-      'prix': 'prix', 'pris': 'prix', 'choufli': 'regarder prix', 'gosh': 'gauche', 'avent': 'avant',
-      'celirio': 'celerio', 'celario': 'celerio', 'plakete': 'plaquette', 'plaq': 'plaquette',
-      'frain': 'frein', 'frin': 'frein', 'combein': 'combien', 'cout': 'coût'
-    };
-    for (const [tunisian, french] of Object.entries(mappings)) {
-      const regex = new RegExp(`\\b${tunisian}\\b`, 'gi');
-      normalized = normalized.replace(regex, french);
-    }
-    return normalized !== query.toLowerCase() ? normalized : '';
   }
 }

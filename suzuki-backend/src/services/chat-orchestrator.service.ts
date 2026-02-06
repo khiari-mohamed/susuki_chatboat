@@ -5,6 +5,7 @@ import { ContextService } from './context.service';
 import { ResponseService } from './response.service';
 import { SearchService } from './search.service';
 import { IntelligenceService } from '../chat/intelligence.service';
+import { OpenAIService } from '../chat/openai.service';
 
 export interface ProcessMessageResponse {
   response: string;
@@ -33,7 +34,8 @@ export class ChatOrchestratorService {
     private contextService: ContextService,
     private responseService: ResponseService,
     private searchService: SearchService,
-    private intelligenceService: IntelligenceService
+    private intelligenceService: IntelligenceService,
+    private openaiService: OpenAIService
   ) {
     setInterval(() => this.clarificationService.cleanup(), 300000);
   }
@@ -85,16 +87,14 @@ export class ChatOrchestratorService {
     // 4. Detect intent
     const intent = this.intelligenceService.detectIntent(message, !!pendingClarification);
 
-    // 5. Handle non-search intents
-    if (intent.type === 'GREETING') {
-      const response = this.responseService.buildGreetingResponse(message);
-      await this.sessionService.saveBotResponse(session.id, response, { intent: 'GREETING' });
-      return { response, sessionId: session.id, products: [], confidence: 'HIGH', intent: 'GREETING', metadata: { productsFound: 0, conversationLength: conversationHistory.length, queryClarity: 0 } };
-    }
-    if (intent.type === 'THANKS') {
-      const response = this.responseService.buildThanksResponse();
-      await this.sessionService.saveBotResponse(session.id, response, { intent: 'THANKS' });
-      return { response, sessionId: session.id, products: [], confidence: 'HIGH', intent: 'THANKS', metadata: { productsFound: 0, conversationLength: conversationHistory.length, queryClarity: 0 } };
+    // 5. Handle non-search intents (use OpenAI for natural conversation)
+    if (intent.type === 'GREETING' || intent.type === 'THANKS') {
+      const contextPrompt = intent.type === 'GREETING' 
+        ? 'Respond with a friendly greeting in formal French. Keep it brief and professional.'
+        : 'Respond with a polite acknowledgment in formal French. Keep it brief.';
+      const response = await this.openaiService.chat(message, conversationHistory, contextPrompt);
+      await this.sessionService.saveBotResponse(session.id, response, { intent: intent.type });
+      return { response, sessionId: session.id, products: [], confidence: 'HIGH', intent: intent.type, metadata: { productsFound: 0, conversationLength: conversationHistory.length, queryClarity: 0 } };
     }
     if (intent.type === 'COMPLAINT') {
       const response = this.responseService.buildComplaintResponse();
