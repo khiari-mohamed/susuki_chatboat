@@ -198,9 +198,13 @@ export class EnhancedChatService {
         const partName = this.extractPartNameFromQuery(pendingContext.originalQuery);
         const fixedCombinedQuery = `${partName} ${message}`;
         
-        this.logger.debug(`Fixed combined query: "${fixedCombinedQuery}"`);
+        this.logger.log(`🔧 FIX APPLIED - Part name: "${partName}", Fixed query: "${fixedCombinedQuery}"`);
         
         const clarifiedProducts = await this.searchPartsWithFallback(fixedCombinedQuery);
+        this.logger.log(`🔍 Search results for "${fixedCombinedQuery}": ${clarifiedProducts.length} products found`);
+        if (clarifiedProducts.length > 0) {
+          this.logger.log(`📦 First result: ${clarifiedProducts[0].designation}`);
+        }
         const filteredProducts = this.filterAvailableProducts(clarifiedProducts);
         
         if (filteredProducts.length > 0) {
@@ -554,15 +558,8 @@ export class EnhancedChatService {
     
     const suggestions = this.intelligence.generateSmartSuggestions(query, products);
     
-    const response = await this.generateOptimalResponse(
-      query,
-      products,
-      vehicle,
-      conversationHistory,
-      { type: 'PARTS_SEARCH' },
-      confidence,
-      similarQueries
-    );
+    // CRITICAL FIX: Use deterministic response for clarified results (NO AI)
+    const response = this.buildDeterministicClarifiedResponse(query, products, vehicle);
     
     await this.saveResponseAtomic(sessionId, response, {
       confidence: confidence.level,
@@ -595,6 +592,31 @@ export class EnhancedChatService {
         duration: Date.now() - startTime,
       },
     };
+  }
+
+  private buildDeterministicClarifiedResponse(query: string, products: any[], vehicle: any): string {
+    const availableProducts = this.filterAvailableProducts(products);
+    
+    if (availableProducts.length === 0) {
+      return `Désolé, je n'ai pas trouvé de pièce correspondant à "${query}" pour votre ${vehicle?.marque || 'véhicule'} ${vehicle?.modele || ''}.\n\nPour une recherche manuelle, contactez CarPro au ☎️ 70 603 500.`;
+    }
+    
+    const lines: string[] = ['Bonjour, voici les produits disponibles :'];
+    lines.push('\nPRODUITS DISPONIBLES:');
+    
+    availableProducts.slice(0, 3).forEach(p => {
+      const price = `${p.prixHt} TND`;
+      lines.push(`• ${p.designation} (Réf: ${p.reference}) — Prix: ${price}`);
+    });
+    
+    if (availableProducts.length > 3) {
+      lines.push(`\n... et ${availableProducts.length - 3} autres produits disponibles.`);
+    }
+    
+    lines.push('\nSi vous voulez réserver une pièce, indiquez la référence.');
+    lines.push('\n💡 Si vous avez besoin de plus de détails, nos spécialistes CarPro sont disponibles.');
+    
+    return lines.join('\n');
   }
 
   private validateMessageInput(message: string): void {
