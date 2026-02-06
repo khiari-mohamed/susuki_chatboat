@@ -192,14 +192,21 @@ export class EnhancedChatService {
         this.pendingClarifications.delete(session.id);
         
         this.logger.debug(`Clarification answer detected: "${message}" for original query: "${pendingContext.originalQuery}"`);
+        this.logger.debug(`Combined query: "${combinedQuery}"`);
         
-        const clarifiedProducts = await this.searchPartsWithFallback(combinedQuery);
+        // FIX: Extract part name from original query instead of using full query
+        const partName = this.extractPartNameFromQuery(pendingContext.originalQuery);
+        const fixedCombinedQuery = `${partName} ${message}`;
+        
+        this.logger.debug(`Fixed combined query: "${fixedCombinedQuery}"`);
+        
+        const clarifiedProducts = await this.searchPartsWithFallback(fixedCombinedQuery);
         const filteredProducts = this.filterAvailableProducts(clarifiedProducts);
         
         if (filteredProducts.length > 0) {
-          return await this.processClarifiedResults(session.id, combinedQuery, filteredProducts, vehicle, startTime);
+          return await this.processClarifiedResults(session.id, fixedCombinedQuery, filteredProducts, vehicle, startTime);
         } else {
-          return await this.handleNoResultsAfterClarification(session.id, combinedQuery, vehicle);
+          return await this.handleNoResultsAfterClarification(session.id, fixedCombinedQuery, vehicle);
         }
       }
 
@@ -2082,6 +2089,24 @@ POUR LES QUESTIONS DE SERVICE (heures, livraison, garantie, localisation): Dire 
     return 'cette pièce';
   }
 
+  private extractPartNameFromQuery(query: string): string {
+    const lower = query.toLowerCase();
+    
+    if (lower.includes('amortisseur')) return 'amortisseur';
+    if (lower.includes('plaquette') && lower.includes('frein')) return 'plaquettes frein';
+    if (lower.includes('filtre') && lower.includes('air')) return 'filtre air';
+    if (lower.includes('filtre') && lower.includes('huile')) return 'filtre huile';
+    if (lower.includes('disque') && lower.includes('frein')) return 'disque frein';
+    
+    // Extract main part keyword
+    const partKeywords = ['amortisseur', 'plaquette', 'disque', 'filtre', 'phare', 'batterie'];
+    for (const keyword of partKeywords) {
+      if (lower.includes(keyword)) return keyword;
+    }
+    
+    return query;
+  }
+
   // ===== ANALYTICS =====
 
   async getAnalytics(options: {
@@ -2572,49 +2597,73 @@ POUR LES QUESTIONS DE SERVICE (heures, livraison, garantie, localisation): Dire 
     // CRITICAL: Filter to available products only
     const availableProducts = this.filterAvailableProducts(products);
     
-    let response = 'Bonjour! Voici les informations de prix pour votre demande:\n\n';
+    let response = 'Bonjour! Voici les prix pour les plaquettes de frein:\n\n';
     
-    if (lastTopic === 'plaquettes frein' || lastTopic === 'frein' || lastTopic.includes('frein')) {
-      response += '🔍 CONTEXTE: Prix pour plaquettes de frein (avant + arrière)\n\n';
+    // FIX: Filter to only brake pads for price calculation
+    if (lastTopic === 'plaquettes frein' || lastTopic === 'frein') {
+      const brakePadsOnly = availableProducts.filter(p => 
+        p.designation.toLowerCase().includes('plaquette') || 
+        p.designation.toLowerCase().includes('jeu de plaquettes')
+      );
       
-      if (availableProducts.length > 0) {
+      if (brakePadsOnly.length > 0) {
+        response = 'Bonjour! Voici les prix pour les plaquettes de frein:\n\n';
         response += 'PRODUITS DISPONIBLES:\n';
-        availableProducts.slice(0, 3).forEach(p => {
-          const price = `${p.prixHt} TND`;
-          const designation = p.designation.toLowerCase().includes('plaquette') ? p.designation : `Plaquette de frein - ${p.designation}`;
-          response += `• ${designation} — ${price}\n`;
-        });
-        
-        const validPrices = availableProducts.filter(p => p.prixHt !== undefined && p.prixHt !== null);
-        if (validPrices.length >= 2) {
-          const total = validPrices.slice(0, 2).reduce((sum, p) => sum + parseFloat(p.prixHt), 0);
-          response += `\n💰 PRIX TOTAL plaquettes frein (2 jeux): ${total.toFixed(2)} TND\n`;
-        } else {
-          response += `\n💰 PRIX plaquettes frein: Voir détails ci-dessus\n`;
-        }
-      } else {
-        response += '⚠️ Aucun produit disponible actuellement.\n\n';
-        response += '💰 PRIX:\nTarifs plaquettes frein disponibles sur demande\n';
-      }
-      
-      response += '\n📦 STOCK:\nVérification disponibilité plaquettes frein pour les deux positions\n';
-      response += '\n💡 RECOMMANDATIONS:\n🔹 Remplacement simultané plaquettes frein recommandé\n🔹 Vérification disques de frein conseillée\n🔹 Contactez CarPro au ☎️ 70 603 500';
-    } else {
-      response += `🔍 CONTEXTE: Prix pour ${lastTopic}\n\n`;
-      
-      if (availableProducts.length > 0) {
-        response += 'PRODUITS DISPONIBLES:\n';
-        availableProducts.slice(0, 3).forEach(p => {
+        brakePadsOnly.slice(0, 3).forEach(p => {
           response += `• ${p.designation} — ${p.prixHt} TND\n`;
         });
+        
+        // Calculate proper sets (2 sets for both sides)
+        const frontSets = brakePadsOnly.filter(p => p.designation.toLowerCase().includes('av'));
+        const rearSets = brakePadsOnly.filter(p => p.designation.toLowerCase().includes('ar'));
+        
+        let total = 0;
+        let breakdown = '';
+        
+        if (frontSets.length > 0) {
+          const frontPrice = parseFloat(frontSets[0].prixHt) || 0;
+          total += frontPrice;
+          breakdown += `• Plaquettes avant: ${frontPrice} TND\n`;
+        }
+        
+        if (rearSets.length > 0) {
+          const rearPrice = parseFloat(rearSets[0].prixHt) || 0;
+          total += rearPrice;
+          breakdown += `• Plaquettes arrière: ${rearPrice} TND\n`;
+        }
+        
+        if (total > 0) {
+          response += `\n💰 PRIX TOTAL (avant + arrière): ${total.toFixed(2)} TND\n`;
+          response += `\n📊 DÉTAIL:\n${breakdown}`;
+        }
       } else {
-        response += '⚠️ Aucun produit disponible actuellement.\n';
+        response = 'Bonjour! Voici les informations de prix pour votre demande:\n\n';
+        response += '⚠️ Aucun jeu de plaquettes de frein disponible actuellement.\n\n';
+        response += '💰 PRIX:\nTarifs disponibles sur demande\n';
       }
       
-      response += '\n💰 PRIX:\nTarifs détaillés disponibles sur demande\n';
       response += '\n📦 STOCK:\nVérification disponibilité en cours\n';
-      response += '\n💡 Pour plus d\'informations, contactez CarPro au ☎️ 70 603 500';
+      response += '\n💡 RECOMMANDATIONS:\n🔹 Remplacement plaquettes frein recommandé\n🔹 Vérification disques de frein conseillée\n🔹 Contactez CarPro au ☎️ 70 603 500';
+      
+      return response;
     }
+    
+    // Generic price response for other topics
+    response = `Bonjour! Voici les informations de prix pour votre demande:\n\n`;
+    response += `🔍 CONTEXTE: Prix pour ${lastTopic}\n\n`;
+    
+    if (availableProducts.length > 0) {
+      response += 'PRODUITS DISPONIBLES:\n';
+      availableProducts.slice(0, 3).forEach(p => {
+        response += `• ${p.designation} — ${p.prixHt} TND\n`;
+      });
+    } else {
+      response += '⚠️ Aucun produit disponible actuellement.\n';
+    }
+    
+    response += '\n💰 PRIX:\nTarifs détaillés disponibles sur demande\n';
+    response += '\n📦 STOCK:\nVérification disponibilité en cours\n';
+    response += '\n💡 Pour plus d\'informations, contactez CarPro au ☎️ 70 603 500';
     
     return response;
   }

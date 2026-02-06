@@ -594,6 +594,9 @@ export class IntelligenceService {
     topicFlow: string[];
     userPreferences: Record<string, any>;
     conversationStage: 'INITIAL' | 'ENGAGED' | 'CLOSING';
+    lastSpecificQuery?: string;
+    lastSpecificTopic?: string;
+    lastVehicle?: any;
   }> {
     const cached = this.contextCache.get(sessionId);
     if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
@@ -615,7 +618,25 @@ export class IntelligenceService {
 
     const userPreferences = this.extractPreferences(messages);
 
-    const result = { topicFlow, userPreferences, conversationStage };
+    // Add last specific topic
+    let lastSpecificTopic: string | undefined;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const msg = messages[i];
+      if (msg.sender === 'user') {
+        const topic = this.extractTopic(msg.message);
+        if (topic !== 'général') {
+          lastSpecificTopic = topic;
+          break;
+        }
+      }
+    }
+
+    const result = { 
+      topicFlow, 
+      userPreferences, 
+      conversationStage,
+      lastSpecificTopic
+    };
     this.contextCache.set(sessionId, { data: result, timestamp: Date.now() });
 
     return result;
