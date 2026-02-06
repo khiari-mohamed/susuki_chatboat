@@ -55,7 +55,8 @@ export class ChatOrchestratorService {
     const pendingClarification = this.clarificationService.getPending(session.id);
     if (pendingClarification && this.clarificationService.isAnswer(message, pendingClarification)) {
       const partName = this.clarificationService.extractPartName(pendingClarification.originalQuery);
-      const combinedQuery = `${partName} ${message}`;
+      const combinedQuery = `${partName} ${message} ${vehicle?.modele || 'S-PRESSO'}`;
+      this.logger.log(`Clarification answer: "${message}" + original: "${pendingClarification.originalQuery}" = "${combinedQuery}"`);
       this.clarificationService.clearPending(session.id);
       const products = await this.searchService.search(combinedQuery);
       

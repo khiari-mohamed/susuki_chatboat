@@ -30,8 +30,9 @@ export class TunisianNormalizerService {
     
     // CRITICAL: Handle phrases FIRST (before individual words)
     for (const [phrase, translation] of Object.entries(this.phrases)) {
-      if (normalized.includes(phrase)) {
-        normalized = normalized.replace(new RegExp(phrase, 'gi'), translation);
+      const regex = new RegExp(phrase.replace(/\s+/g, '\\s+'), 'gi');
+      if (regex.test(normalized)) {
+        normalized = normalized.replace(regex, translation);
       }
     }
     
