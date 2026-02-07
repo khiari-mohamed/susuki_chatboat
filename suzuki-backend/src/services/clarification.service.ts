@@ -162,6 +162,17 @@ export class ClarificationService {
     if (lower.includes('echappement') || lower.includes('échappement')) return 'échappement';
     if (lower.includes('capot')) return 'capot';
     if (lower.includes('hayon')) return 'hayon';
+    if (lower.includes('aile')) return 'aile';
+    if (lower.includes('etrier') || lower.includes('étrier')) return 'etrier';
+    if (lower.includes('enjoliveur')) return 'enjoliveur';
+    if (lower.includes('rotule')) return 'rotule';
+    if (lower.includes('charniere') || lower.includes('charnière')) return 'charniere';
+    if (lower.includes('serrure')) return 'serrure';
+    if (lower.includes('joint')) return 'joint';
+    if (lower.includes('adhesif') || lower.includes('adhésif')) return 'adhesif';
+    if (lower.includes('moulure')) return 'moulure';
+    if (lower.includes('grille')) return 'grille';
+    if (lower.includes('support')) return 'support';
     
     // Fallback: return first significant word
     const parts = ['amortisseur', 'plaquette', 'disque', 'filtre', 'phare', 'batterie'];

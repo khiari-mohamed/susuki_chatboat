@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { TUNISIAN_FALLBACK } from '../constants/tunisian-fallback';
 
 interface CacheEntry<T> {
   data: T;
@@ -14,31 +15,7 @@ export class IntelligenceService {
   private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
   private responseTimeTracker: number[] = [];
   private readonly MAX_TRACKED_RESPONSES = 100;
-  private readonly tunisianMappings: Record<string, string> = {
-    // Greetings & common phrases
-    'ahla': '', 'salam': 'bonjour', 'salem': 'bonjour', 'assalam': 'bonjour',
-    'n7eb': 'je veux acheter', 'nchri': 'acheter', 'njib': 'j\'apporte',
-    'lel': 'pour le', 'mte3': 'de', 'mte3i': 'de mon', 'mtaa': 'ton',
-    'karhba': 'voiture', 'karhabti': 'ma voiture',
-    'mkasra': 'fait du bruit', 't9alet': 'cassé', 't9ala9': 'défectueux', 't9allek': 'fait du bruit',
-    'famma': 'disponible stock', 'famech': 'il n\'y a pas', 'ken famma': 'si disponible stock',
-    'chnowa': 'quel', 'chneya': 'quoi', 'wach': 'est-ce que',
-    'zebi': 'beau', 'barcha': 'beaucoup', '9ad': 'combien',
-    'stok': 'stock disponible', 'dispo': 'disponible stock', 'mawjoud': 'disponible stock',
-    'pris': 'prix', 'ch7al': 'combien', 'choufli': 'regarder prix',
-    'gosh': 'gauche', 'droit': 'droite',
-    'avent': 'avant', 'arrière': 'arriere',
-    'ya khoya': '', 'behi': 'génial', 'marbou9': 'fâché',
-    'ken': 'si', 'chouf': 'regarde',
-    'maareftech': 'je ne sais pas où', 'win': 'où', 'nlaqa': 'trouver',
-    'zeda': 'aussi', 'ya3tik': 'merci',
-    'filtere': 'filtre', 'filtr': 'filtre', 'filter': 'filtre',
-    'celirio': 'celerio', 'celario': 'celerio',
-    'frain': 'frein', 'frin': 'frein',
-    'amortiseeur': 'amortisseur', 'amortiseur': 'amortisseur', 'amortisor': 'amortisseur',
-    'fil': 'dans le', 'el': 'le', 'w': 'et',
-    'mouch': 'pas', 'mech': 'pas',
-  };
+  private readonly tunisianMappings: Record<string, string> = TUNISIAN_FALLBACK;
 
   constructor(private prisma: PrismaService) {
     this.logger.log('✅ IntelligenceService initialized');
@@ -182,32 +159,20 @@ export class IntelligenceService {
 
   /**
    * 🇹🇳 NORMALIZE TUNISIAN DIALECT TO FRENCH
-   * Enhanced with more comprehensive mappings
+   * FALLBACK ONLY - AI handles everything automatically
    */
   private normalizeTunisian(query: string): string {
     let normalized = query.toLowerCase();
     
-    // 🚨 AGGRESSIVE REPLACEMENT - order matters!
+    // Minimal fallback replacements
     for (const [tunisian, french] of Object.entries(this.tunisianMappings)) {
-      if (french) { // Only replace if there's a French equivalent
+      if (french) {
         const regex = new RegExp(`\\b${tunisian}\\b`, 'gi');
         normalized = normalized.replace(regex, french);
-      } else {
-        // Remove greetings/filler words
-        const regex = new RegExp(`\\b${tunisian}\\b`, 'gi');
-        normalized = normalized.replace(regex, '');
       }
     }
     
-    // Additional number-based Tunisian patterns
-    normalized = normalized.replace(/7/g, 'h'); // 7 → h (خ sound)
-    normalized = normalized.replace(/9/g, 'k'); // 9 → k (ق sound)
-    normalized = normalized.replace(/3/g, ''); // 3 → glottal stop (remove)
-    
-    // Clean up extra spaces
-    normalized = normalized.replace(/\s+/g, ' ').trim();
-    
-    return normalized;
+    return normalized.replace(/\s+/g, ' ').trim();
   }
 
   /**
@@ -500,13 +465,9 @@ export class IntelligenceService {
   }
 
   private needsAIUnderstanding(message: string): boolean {
-    // Use AI for: greetings, typos, Tunisian dialect, ambiguous queries
-    const hasTypo = /\b(amortiseeur|amortisor|plakette|bateri|filtr|frain)\b/i.test(message);
-    const hasTunisian = /\b(salem|ahla|n7eb|famma|ch7al|bghit|kifech|ta3)\b/i.test(message);
-    const isGreeting = /^(salem|ahla|salam|bonjour|salut|hello|hi)\b/i.test(message.trim());
-    const isAmbiguous = message.split(' ').length <= 2 && !/filtre|plaquette|disque|amortisseur|batterie/i.test(message);
-    
-    return hasTypo || hasTunisian || isGreeting || isAmbiguous;
+    // Always use AI for Tunisian - it understands everything
+    const hasTunisian = /\b[a-z]*[0-9]+[a-z]*\b|\b(salem|ahla|n7eb|famma|ch7al|bghit|kifech|ta3|mte3|chouf|behi|yezzi|karhba|9ad|3aychek|barcha|ken|wach|zeda|mouch|mech)\b/i.test(message);
+    return hasTunisian;
   }
 
   private async detectIntentUsingOpenAI(message: string, conversationHistory: any[]): Promise<any> {
@@ -524,11 +485,6 @@ export class IntelligenceService {
     try {
       const lower = (message || '').toLowerCase().trim();
       
-      // CRITICAL FIX: Check greeting BEFORE normalization
-      if (!hasPendingClarification && this.isGreetingWord(lower)) {
-        return { type: 'GREETING', confidence: 0.95 };
-      }
-      
       const normalized = this.normalizeTunisian(lower);
       const combinedText = normalized || lower;
 
@@ -541,15 +497,22 @@ export class IntelligenceService {
         };
       }
 
-      // GREETING - prioritize polite greetings with help requests
-      if (/^(bonjour|salut|hello|hi|salam|assalam)/i.test(message) && 
-          /aide|help|assistance|trouver.*pièces|j'aurais besoin/i.test(lower)) {
+      // CRITICAL: Check for position-related queries ("show me front", "choufli l'avant")
+      // These should be SEARCH, not GREETING
+      if (/\b(montre|montrer|chouf|choufli|voir|regarde|affiche|afficher)\b.*\b(avant|arriere|arrière|gauche|droite|av|ar|g|d)\b/i.test(combinedText)) {
+        return { type: 'SEARCH', confidence: 0.90, subIntent: this.detectSubIntent(message) };
+      }
+      
+      // GREETING - only pure greetings without any search context
+      if (!hasPendingClarification && this.isGreetingWord(lower) && 
+          !/filtre|plaquette|disque|frein|amortisseur|batterie|pneu|phare|courroie|bougie|capteur|radiateur|pompe|nchri|acheter|cherche|besoin|n7eb|stock|prix|disponible|famma|choufli|montre|voir|avant|arriere|arrière|gauche|droite/i.test(combinedText)) {
         return { type: 'GREETING', confidence: 0.95 };
       }
       
-      // Simple greeting without search intent
-      if (/^(bonjour|salut|hello|hi|salam|assalam)\b/i.test(message) && 
-          !/filtre|plaquette|disque|frein|amortisseur|batterie|pneu|phare|courroie|bougie|capteur|radiateur|pompe|nchri|acheter|cherche|besoin|n7eb|stock|prix|disponible|famma|choufli/i.test(combinedText)) {
+      // GREETING - prioritize polite greetings with help requests
+      if (/^(bonjour|salut|hello|hi|salam|assalam)/i.test(message) && 
+          /aide|help|assistance|trouver.*pièces|j'aurais besoin/i.test(lower) &&
+          !/filtre|plaquette|disque|frein|amortisseur|batterie|pneu|phare|courroie|bougie|capteur|radiateur|pompe|avant|arriere|arrière|gauche|droite/i.test(combinedText)) {
         return { type: 'GREETING', confidence: 0.95 };
       }
 

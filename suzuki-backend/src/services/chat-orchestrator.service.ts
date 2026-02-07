@@ -63,18 +63,23 @@ export class ChatOrchestratorService {
 
     // Handle greetings/thanks detected by AI
     if (normalized.isGreeting || normalized.isThanks) {
-      const response = normalized.isGreeting 
-        ? this.responseService.buildGreetingResponse() 
-        : this.responseService.buildThanksResponse();
-      await this.sessionService.saveBotResponse(session.id, response, { intent: normalized.isGreeting ? 'GREETING' : 'THANKS' });
-      return { 
-        response, 
-        sessionId: session.id, 
-        products: [], 
-        confidence: 'HIGH', 
-        intent: normalized.isGreeting ? 'GREETING' : 'THANKS', 
-        metadata: { productsFound: 0, conversationLength: conversationHistory.length, queryClarity: 0 } 
-      };
+      // CRITICAL: Double-check if it contains position/action keywords
+      const hasPositionOrAction = /\b(avant|arrière|arriere|gauche|droite|av|ar|g|d|chouf|choufli|montre|voir|regarde|wri)\b/i.test(processedMessage);
+      
+      if (!hasPositionOrAction) {
+        const response = normalized.isGreeting 
+          ? this.responseService.buildGreetingResponse() 
+          : this.responseService.buildThanksResponse();
+        await this.sessionService.saveBotResponse(session.id, response, { intent: normalized.isGreeting ? 'GREETING' : 'THANKS' });
+        return { 
+          response, 
+          sessionId: session.id, 
+          products: [], 
+          confidence: 'HIGH', 
+          intent: normalized.isGreeting ? 'GREETING' : 'THANKS', 
+          metadata: { productsFound: 0, conversationLength: conversationHistory.length, queryClarity: 0 } 
+        };
+      }
     }
 
     // 3. Check for clarification answer FIRST
@@ -86,7 +91,8 @@ export class ChatOrchestratorService {
       
       this.contextService.setLastPart(session.id, partName);
       
-      const isPositionAnswer = /^(avant|arriere|arrière|av|ar|gauche|droite|g|d|droit|gosh)\s*(avant|arriere|arrière|av|ar|gauche|droite|g|d|droit|gosh)?$/i.test(processedMessage.trim());
+      const isPositionAnswer = /^\s*(avant|arriere|arrière|av|ar|gauche|droite|g|d|droit|gosh)\s*(avant|arriere|arrière|av|ar|gauche|droite|g|d|droit|gosh)?\s*$/i.test(message.trim());
+      this.logger.log(`isPositionAnswer check: "${message.trim()}" → ${isPositionAnswer}`);
       
       let products: any[];
       let finalQuery = `${partName} ${processedMessage.trim()}`;
@@ -152,7 +158,8 @@ export class ChatOrchestratorService {
           };
         }
       } else {
-        finalQuery = this.contextService.buildSearchQuery(processedMessage, context, vehicle);
+        // Not a simple position answer - still combine with part name from clarification
+        finalQuery = `${partName} ${processedMessage.trim()}`;
         products = this.filterByVehicleModel(await this.searchService.search(finalQuery, vehicle), vehicle);
         
         // Check if still needs clarification
@@ -207,11 +214,16 @@ export class ChatOrchestratorService {
 
     // 5. Handle non-search intents
     if (intent.type === 'GREETING' || intent.type === 'THANKS') {
-      const response = intent.type === 'GREETING' 
-        ? this.responseService.buildGreetingResponse() 
-        : this.responseService.buildThanksResponse();
-      await this.sessionService.saveBotResponse(session.id, response, { intent: intent.type });
-      return { response, sessionId: session.id, products: [], confidence: 'HIGH', intent: intent.type, metadata: { productsFound: 0, conversationLength: conversationHistory.length, queryClarity: 0 } };
+      // CRITICAL: Final check - don't treat position queries as greetings
+      const hasPositionOrAction = /\b(avant|arrière|arriere|gauche|droite|av|ar|g|d|chouf|choufli|montre|voir|regarde|wri)\b/i.test(processedMessage);
+      
+      if (!hasPositionOrAction) {
+        const response = intent.type === 'GREETING' 
+          ? this.responseService.buildGreetingResponse() 
+          : this.responseService.buildThanksResponse();
+        await this.sessionService.saveBotResponse(session.id, response, { intent: intent.type });
+        return { response, sessionId: session.id, products: [], confidence: 'HIGH', intent: intent.type, metadata: { productsFound: 0, conversationLength: conversationHistory.length, queryClarity: 0 } };
+      }
     }
     
     // Handle availability check with context
@@ -268,8 +280,8 @@ export class ChatOrchestratorService {
       }
     }
 
-    // 7. Build search query with context
-    const searchQuery = this.contextService.buildSearchQuery(processedMessage, context, vehicle);
+    // 7. Build search query with context - USE ORIGINAL MESSAGE for better context detection
+    const searchQuery = this.contextService.buildSearchQuery(message, context, vehicle);
     
     // CRITICAL: Check if user is asking about a different model
     if (vehicle?.modele) {
@@ -371,7 +383,27 @@ export class ChatOrchestratorService {
     if (lower.includes('disque') && lower.includes('frein')) return 'disque frein';
     if (lower.includes('filtre') && lower.includes('air')) return 'filtre air';
     if (lower.includes('filtre') && lower.includes('huile')) return 'filtre huile';
+    if (lower.includes('essuie') && lower.includes('glace')) return 'essuie-glace';
+    if (lower.includes('pare') && lower.includes('choc')) return 'pare-choc';
     if (lower.includes('amortisseur')) return 'amortisseur';
+    if (lower.includes('retroviseur') || lower.includes('rétroviseur')) return 'rétroviseur';
+    if (lower.includes('aile')) return 'aile';
+    if (lower.includes('porte')) return 'porte';
+    if (lower.includes('clignotant')) return 'clignotant';
+    if (lower.includes('vitre')) return 'vitre';
+    if (lower.includes('radiateur')) return 'radiateur';
+    if (lower.includes('capot')) return 'capot';
+    if (lower.includes('hayon')) return 'hayon';
+    if (lower.includes('etrier') || lower.includes('étrier')) return 'etrier';
+    if (lower.includes('enjoliveur')) return 'enjoliveur';
+    if (lower.includes('rotule')) return 'rotule';
+    if (lower.includes('charniere') || lower.includes('charnière')) return 'charniere';
+    if (lower.includes('serrure')) return 'serrure';
+    if (lower.includes('joint')) return 'joint';
+    if (lower.includes('adhesif') || lower.includes('adhésif')) return 'adhesif';
+    if (lower.includes('moulure')) return 'moulure';
+    if (lower.includes('grille')) return 'grille';
+    if (lower.includes('support')) return 'support';
     if (lower.includes('batterie')) return 'batterie';
     if (lower.includes('phare')) return 'phare';
     if (lower.includes('plaquette')) return 'plaquettes frein';

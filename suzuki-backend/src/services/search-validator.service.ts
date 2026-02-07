@@ -24,14 +24,16 @@ export class SearchValidatorService {
     gauche: ['gauche', 'g', 'conducteur', 'gosh'],
     droite: ['droite', 'd', 'passager', 'droit'],
     amortisseur: ['amortisseur', 'amorto', 'amort', 'suspension'],
-    amortiseur: ['amortisseur', 'amorto', 'amort', 'suspension'], // Typo variant
+    amortiseur: ['amortisseur', 'amorto', 'amort', 'suspension'],
     plaquette: ['plaquette', 'plaquettes', 'plaq', 'pad', 'pads'],
     disque: ['disque', 'disques', 'disc', 'disk'],
     frein: ['frein', 'freinage', 'brake', 'frain'],
     filtre: ['filtre', 'filter', 'filtr', 'filtere'],
     air: ['air', 'admission', 'intake'],
     huile: ['huile', 'oil'],
-    disponible: ['disponible', 'stock', 'availability'], // Add disponible synonym
+    disponible: ['disponible', 'stock', 'availability'],
+    retroviseur: ['retroviseur', 'rétroviseur', 'miroir', 'mirroir', 'retro', 'rétro', 'mirwar', 'miray'],
+    batterie: ['batterie', 'battery', 'batri', 'bateri', 'bataria', 'accumulator', 'accu'],
   };
 
   constructor(private prisma: PrismaService) {}

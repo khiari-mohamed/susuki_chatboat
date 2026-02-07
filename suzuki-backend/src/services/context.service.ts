@@ -59,12 +59,23 @@ export class ContextService {
     if (lower.includes('pare') && lower.includes('choc')) return 'pare-choc';
     if (lower.includes('amortisseur')) return 'amortisseur';
     if (lower.includes('retroviseur') || lower.includes('rétroviseur')) return 'rétroviseur';
+    if (lower.includes('aile')) return 'aile';
     if (lower.includes('porte')) return 'porte';
     if (lower.includes('clignotant')) return 'clignotant';
     if (lower.includes('vitre')) return 'vitre';
     if (lower.includes('radiateur')) return 'radiateur';
     if (lower.includes('capot')) return 'capot';
     if (lower.includes('hayon')) return 'hayon';
+    if (lower.includes('etrier') || lower.includes('étrier')) return 'etrier';
+    if (lower.includes('enjoliveur')) return 'enjoliveur';
+    if (lower.includes('rotule')) return 'rotule';
+    if (lower.includes('charniere') || lower.includes('charnière')) return 'charniere';
+    if (lower.includes('serrure')) return 'serrure';
+    if (lower.includes('joint')) return 'joint';
+    if (lower.includes('adhesif') || lower.includes('adhésif')) return 'adhesif';
+    if (lower.includes('moulure')) return 'moulure';
+    if (lower.includes('grille')) return 'grille';
+    if (lower.includes('support')) return 'support';
     const parts = ['filtre', 'plaquette', 'disque', 'phare', 'batterie', 'courroie', 'bougie'];
     for (const p of parts) if (lower.includes(p)) return p;
     return '';
@@ -79,15 +90,34 @@ export class ContextService {
 
   buildSearchQuery(message: string, context: any, vehicle?: any): string {
     const lower = message.toLowerCase();
-    const hasSpecificPart = /\b(amortisseur|plaquette|disque|filtre|phare|batterie|courroie|bougie|porte|retroviseur|rétroviseur|clignotant|vitre|radiateur|capot|hayon)\b/i.test(message);
+    const hasSpecificPart = /\b(amortisseur|plaquette|disque|filtre|phare|batterie|courroie|bougie|porte|retroviseur|rétroviseur|clignotant|vitre|radiateur|capot|hayon|aile|etrier|étrier|enjoliveur|rotule|charniere|charnière|serrure|joint|adhesif|adhésif|moulure|grille|support|pare-choc|essuie-glace)\b/i.test(message);
     const hasPosition = /\b(avant|arrière|arriere|gauche|droite|av|ar|g|d)\b/i.test(message);
     
     if (hasSpecificPart && hasPosition) return message.trim();
 
-    const isPositionOnly = /^(avant|arriere|arrière|av|ar)\s*(gauche|droite|g|d)?$/i.test(message.trim()) ||
-                          /^(gauche|droite|g|d)\s*(avant|arriere|arrière|av|ar)?$/i.test(message.trim());
+    const isPositionOnly = /^\s*(avant|arriere|arrière|av|ar)\s*(gauche|droite|g|d)?\s*$/i.test(message.trim()) ||
+                          /^\s*(gauche|droite|g|d)\s*(avant|arriere|arrière|av|ar)?\s*$/i.test(message.trim());
     if (isPositionOnly && context.lastPart) {
-      return `${context.lastPart} ${message.trim()} ${vehicle?.modele || 'S-PRESSO'}`;
+      console.log(`[CONTEXT] Position-only clarification: "${message}" + lastPart: "${context.lastPart}"`);
+      return `${context.lastPart} ${message.trim()}`;
+    }
+
+    // CRITICAL: Detect follow-up for same part FIRST ("behi choufli l'avant", "ok l'avant", "d'accord montre-moi l'avant")
+    const isFollowUpSamePart = /\b(behi|ok|yezzi|montre|regarde|voir|chouf|choufli|wri|d'accord|bien)\b/i.test(message);
+    if (isFollowUpSamePart && !hasSpecificPart && hasPosition && context.lastPart) {
+      // Follow-up for same part with different position
+      const posMatch = message.match(/\b(avant|arrière|arriere|gauche|droite|av|ar|g|d)\b/gi);
+      if (posMatch) {
+        return `${context.lastPart} ${posMatch.join(' ')}`;
+      }
+      return `${context.lastPart} ${message.trim()}`;
+    }
+
+    // CRITICAL: Detect new part requests ("je veux aile droite", "maintenant je veux aile droite")
+    const isNewPartRequest = /\b(je veux|n7eb|bghit|nchri|maintenant.*\b(aile|porte|capot|phare))\b/i.test(message);
+    if (isNewPartRequest && hasSpecificPart) {
+      // New part request - don't use context.lastPart
+      return message.trim();
     }
 
     const isFollowUp = /\b(et\s+pour|aussi|egalement|également|pareil|même\s+chose|pour\s+le|pour\s+la)\b/i.test(message);

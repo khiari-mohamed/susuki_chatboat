@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { SUZUKI_MODELS } from '../constants/vehicle-models';
+import { applyTunisianFallback } from '../constants/tunisian-fallback';
 
 // Add missing interfaces at the top
 interface PositionRequirements {
@@ -48,18 +49,20 @@ export class AdvancedSearchService {
     levevitre: ['leve vitre', 'lève vitre', 'leve-vitre', 'lève-vitre', 'lèvevitre', 'levevitre', 'mecanisme vitre', 'mécanisme vitre', 'commande vitre'],
     porte: ['porte', 'portière', 'portieres', 'door', 'portier', 'bab'],
     parebrise: ['parebrise', 'pare-brise', 'pare brise', 'windshield', 'parabrize', 'brise', 'vitre avant'],
-    retroviseur: ['retroviseur', 'rétroviseur', 'miroir', 'mirroir', 'retro', 'rétro', 'mirwar'],
+    retroviseur: ['retroviseur', 'rétroviseur', 'miroir', 'mirroir', 'retro', 'rétro', 'mirwar', 'miray'],
     lunette: ['lunette', 'vitre arriere', 'vitre arrière', 'glace arriere', 'glace arrière'],
 
     // Suspension & direction
     amortisseur: ['amortisseur', 'amorto', 'amort', 'suspension', 'amor', 'amortisseure', 'amortiseur', 'amor'],
     biellette: ['biellette', 'biellette de direction', 'tirant', 'bielette', 'bielle direction', 'biel'],
     rotule: ['rotule', 'rotule de direction', 'rot', 'rotul', 'boule direction'],
-    triangle: ['triangle', 'bras', 'bras de suspension', 'triangl'],
+    triangle: ['triangle', 'triangl', 'bras suspension'],
+    bras: ['bras', 'bras de suspension', 'bras direction'],
     cremaillere: ['cremaillere', 'crémaillère', 'direction', 'steering', 'crem'],
     cardans: ['cardan', 'transmission', 'arbre de transmission', 'drive shaft', 'trans'],
     roulement: ['roulement', 'bearing', 'roul', 'rulman', 'roulman'],
-    suspension: ['suspension', 'susp', 'ressort', 'spring'],
+    ressort: ['ressort', 'spring', 'suspension', 'susp'],
+    suspension: ['suspension', 'susp', 'amortissement'],
 
     // Freinage
     disque: ['disque', 'disques', 'disc', 'disk', 'disq', 'frein avant', 'brake disc', 'brake disk', 'brake discs'],
@@ -78,7 +81,7 @@ export class AdvancedSearchService {
     optique: ['optique', 'bloc optique', 'bloc phare', 'lighthouse'],
 
     // Electricité
-    batterie: ['batterie', 'battery', 'batri', 'bateri', 'accumulator', 'accu'],
+    batterie: ['batterie', 'battery', 'batri', 'bateri', 'bataria', 'accumulator', 'accu'],
     alternateur: ['alternateur', 'alternator', 'alter', 'alterno', 'alternato'],
     demarreur: ['demarreur', 'démarreur', 'starter', 'start', 'demar', 'démar'],
     capteur: ['capteur', 'sensor', 'sonde', 'detecteur', 'détecteur', 'capt'],
@@ -308,8 +311,17 @@ export class AdvancedSearchService {
       return [];
     }
     
-    allTerms.slice(0, 10).forEach(term => {
-      if (term.length >= 2) {
+    // CRITICAL: Expand position terms to include abbreviations
+    const expandedWithAbbreviations = new Set(allTerms);
+    allTerms.forEach(term => {
+      if (term === 'avant') expandedWithAbbreviations.add('av');
+      if (term === 'arriere' || term === 'arrière') expandedWithAbbreviations.add('ar');
+      if (term === 'gauche') expandedWithAbbreviations.add('g');
+      if (term === 'droite') expandedWithAbbreviations.add('d');
+    });
+    
+    Array.from(expandedWithAbbreviations).slice(0, 10).forEach(term => {
+      if (term.length >= 1) { // Allow single-char abbreviations like 'g', 'd', 'ar'
         conditions.push({
           OR: [
             { designation: { contains: term, mode: 'insensitive' } },
@@ -454,6 +466,15 @@ export class AdvancedSearchService {
   }
 
   private getMinimumScore(context: SearchContext): number {
+    // CRITICAL: If query is ONLY a position word (avant/arrière/gauche/droite), lower threshold
+    const isOnlyPosition = context.rawTokens.length === 1 && 
+                          (context.positionInfo.avant || context.positionInfo.arriere || 
+                           context.positionInfo.gauche || context.positionInfo.droite);
+    
+    if (isOnlyPosition) {
+      return 0; // Allow any match when searching by position only
+    }
+    
     return context.hasTunisianDialect ? 5 : 8;
   }
 
@@ -473,7 +494,7 @@ export class AdvancedSearchService {
     return text
       .toLowerCase()
       .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[\u0300-\u036f]/g, '') // Remove accents: é→e, è→e, à→a
       .replace(/[^a-z0-9\s-]/g, ' ')
       .replace(/\s+/g, ' ')
       .trim();
@@ -517,29 +538,8 @@ export class AdvancedSearchService {
   }
 
   private normalizeTunisian(query: string): string {
-    let normalized = query.toLowerCase();
-    
-    const tunisianMappings: Record<string, string> = {
-      'ahla': 'bonjour', 'n7eb': 'je veux', 'nchri': 'acheter',
-      'filtere': 'filtre', 'filtr': 'filtre', 'filter': 'filtre',
-      'lel': 'pour', 'mte3': 'de', 'mte3i': 'mon',
-      'karhba': 'voiture', 'karhabti': 'ma voiture', 
-      't9allek': 'fait du bruit', 't9alet': 'cassé',
-      'famma': 'il y a', 'famech': 'il n y a pas',
-      'chnowa': 'quel', 'chneya': 'quoi', 'wach': 'est-ce que',
-      'zebi': 'beau', 'barcha': 'beaucoup', '9ad': 'combien',
-      'stok': 'stock', 'dispo': 'disponible', 'mawjoud': 'disponible',
-      'prix': 'prix', 'pris': 'prix', 'combien': 'prix',
-      'avant': 'avant', 'avent': 'avant', 'gosh': 'gauche',
-      'droit': 'droite', 'arrière': 'arriere'
-    };
-    
-    for (const [tunisian, french] of Object.entries(tunisianMappings)) {
-      const regex = new RegExp(`\\b${tunisian}\\b`, 'gi');
-      normalized = normalized.replace(regex, french);
-    }
-    
-    return normalized !== query ? normalized : '';
+    // MINIMAL FALLBACK - AI handles everything
+    return applyTunisianFallback(query);
   }
 
   private buildNormalizedSynonymIndex(): void {
