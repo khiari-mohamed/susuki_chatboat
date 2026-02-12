@@ -57,10 +57,10 @@ export class SearchService {
   }
 
   private filterAvailable(products: any[]): any[] {
-    return products.filter(p => {
-      const hasStock = typeof p.stock === 'number' && p.stock > 0;
-      const hasPrice = p.prixHt !== undefined && p.prixHt !== null;
-      return hasStock && hasPrice;
-    });
+    // Return all products but mark those without stock
+    return products.map(p => ({
+      ...p,
+      available: typeof p.stock === 'number' && p.stock > 0 && p.prixHt !== undefined && p.prixHt !== null
+    }));
   }
 }

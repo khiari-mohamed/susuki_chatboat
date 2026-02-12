@@ -1,0 +1,6930 @@
+[
+  {
+    "query": "garafe feu ar",
+    "expected": "AGRAFE FEU AR",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "agraffe",
+    "expected": "AGRAFFE",
+    "found": true,
+    "topResult": "AGRAFE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "agraffé",
+    "expected": "AGRAFFE",
+    "found": true,
+    "topResult": "AGRAFE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "àgràffe",
+    "expected": "AGRAFFE",
+    "found": true,
+    "topResult": "AGRAFE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "graffe",
+    "expected": "AGRAFFE",
+    "found": true,
+    "topResult": "AGRAFE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "garaffe",
+    "expected": "AGRAFFE",
+    "found": true,
+    "topResult": "AGRAFE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "agraffes feu ar",
+    "expected": "AGRAFFES FEU AR",
+    "found": true,
+    "topResult": "AGRAFE FEU AR",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "agraffesfeuar",
+    "expected": "AGRAFFES FEU AR",
+    "found": true,
+    "topResult": "AGRAFE FEU AR",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "ar feu agraffes",
+    "expected": "AGRAFFES FEU AR",
+    "found": true,
+    "topResult": "AGRAFE FEU AR",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "agraffés féu ar",
+    "expected": "AGRAFFES FEU AR",
+    "found": true,
+    "topResult": "AGRAFE FEU AR",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "àgràffes feu àr",
+    "expected": "AGRAFFES FEU AR",
+    "found": true,
+    "topResult": "AGRAFE FEU AR",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "graffes feu ar",
+    "expected": "AGRAFFES FEU AR",
+    "found": true,
+    "topResult": "AGRAFE FEU AR",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "garaffes feu ar",
+    "expected": "AGRAFFES FEU AR",
+    "found": true,
+    "topResult": "FEU AR G",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "agraphe para soleil",
+    "expected": "AGRAPHE PARA SOLEIL",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "agrapheparasoleil",
+    "expected": "AGRAPHE PARA SOLEIL",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "soleil para agraphe",
+    "expected": "AGRAPHE PARA SOLEIL",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "agraphé para soléil",
+    "expected": "AGRAPHE PARA SOLEIL",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "àgràphe pàrà soleil",
+    "expected": "AGRAPHE PARA SOLEIL",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "graphe para soleil",
+    "expected": "AGRAPHE PARA SOLEIL",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "garaphe para soleil",
+    "expected": "AGRAPHE PARA SOLEIL",
+    "found": true,
+    "topResult": "GRILLE DE PARE CHOC",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "papareil monte glace ar d",
+    "expected": "APPAREIL MONTE GLACE AR D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "ppareil monte glace ar g",
+    "expected": "APPAREIL MONTE GLACE AR G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "papareil monte glace ar g",
+    "expected": "APPAREIL MONTE GLACE AR G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "d av glace monte appareil",
+    "expected": "APPAREIL MONTE GLACE AV D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "papareil monte glace av d",
+    "expected": "APPAREIL MONTE GLACE AV D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "papareil monte glace av g",
+    "expected": "APPAREIL MONTE GLACE AV G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "vitesse me 5 synchro bague",
+    "expected": "BAGUE SYNCHRO 5ÈME VITESSE",
+    "found": true,
+    "topResult": "CIRCLIP MOYEU SYNCHRO BAS VITESSE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "baguesynchroboitevitesse",
+    "expected": "BAGUE SYNCHRO BOITE VITESSE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "vitesse boite synchro bague",
+    "expected": "BAGUE SYNCHRO BOITE VITESSE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "bagué synchro boité vitéssé",
+    "expected": "BAGUE SYNCHRO BOITE VITESSE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "ague synchro boite vitesse",
+    "expected": "BAGUE SYNCHRO BOITE VITESSE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "abgue synchro boite vitesse",
+    "expected": "BAGUE SYNCHRO BOITE VITESSE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "g toit de baguette",
+    "expected": "BAGUETTE DE TOIT G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "abguette de toit g",
+    "expected": "BAGUETTE DE TOIT G",
+    "found": true,
+    "topResult": "JOINT TIGE DE SOUPAPE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "baguettejointdevitreg",
+    "expected": "BAGUETTE JOINT DE VITRE G",
+    "found": true,
+    "topResult": "BAGUETTE JOINT DE VITRE DROIT",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "g vitre de joint baguette",
+    "expected": "BAGUETTE JOINT DE VITRE G",
+    "found": true,
+    "topResult": "BAGUETTE JOINT DE VITRE DROIT",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "bas de caisse d",
+    "expected": "BAS DE CAISSE D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "basdecaissed",
+    "expected": "BAS DE CAISSE D",
+    "found": true,
+    "topResult": "BAGUETTE DE VITRE AR D",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "d caisse de bas",
+    "expected": "BAS DE CAISSE D",
+    "found": true,
+    "topResult": "VITRE AV D",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "bas dé caissé d",
+    "expected": "BAS DE CAISSE D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "bàs de càisse d",
+    "expected": "BAS DE CAISSE D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "as de caisse d",
+    "expected": "BAS DE CAISSE D",
+    "found": true,
+    "topResult": "JOINT DE VITRE INTERRIEUR",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "abs de caisse d",
+    "expected": "BAS DE CAISSE D",
+    "found": true,
+    "topResult": "VITRE AV D",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "bas de caisse g",
+    "expected": "BAS DE CAISSE G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "basdecaisseg",
+    "expected": "BAS DE CAISSE G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "g caisse de bas",
+    "expected": "BAS DE CAISSE G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "bas dé caissé g",
+    "expected": "BAS DE CAISSE G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "bàs de càisse g",
+    "expected": "BAS DE CAISSE G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "as de caisse g",
+    "expected": "BAS DE CAISSE G",
+    "found": true,
+    "topResult": "JOINT DE VITRE INTERRIEUR",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "abs de caisse g",
+    "expected": "BAS DE CAISSE G",
+    "found": true,
+    "topResult": "VITRE AV G",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "bodysocket",
+    "expected": "BODY, SOCKET",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "outils a boite",
+    "expected": "BOITE A OUTILS",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "oite a outils",
+    "expected": "BOITE A OUTILS",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "vitesse boite bouchon",
+    "expected": "BOUCHON BOITE VITESSE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "bouchon boité vitéssé",
+    "expected": "BOUCHON BOITE VITESSE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "ouchon boite vitesse",
+    "expected": "BOUCHON BOITE VITESSE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "obuchon boite vitesse",
+    "expected": "BOUCHON BOITE VITESSE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "ouchon cable embrayage",
+    "expected": "BOUCHON CABLE EMBRAYAGE",
+    "found": true,
+    "topResult": "AILE AV D",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "oulon",
+    "expected": "BOULON",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "oulon",
+    "expected": "BOULON",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "bouton",
+    "expected": "BOUTON",
+    "found": true,
+    "topResult": "BOULON",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "bouton feu de detresse",
+    "expected": "BOUTON FEU DE DETRESSE",
+    "found": true,
+    "topResult": "GOUJON CHAINE DE DISTRIBUTION",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "boutonfeudedetresse",
+    "expected": "BOUTON FEU DE DETRESSE",
+    "found": true,
+    "topResult": "GOUJON CHAINE DE DISTRIBUTION",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "detresse de feu bouton",
+    "expected": "BOUTON FEU DE DETRESSE",
+    "found": true,
+    "topResult": "GOUJON CHAINE DE DISTRIBUTION",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "outon feu de detresse",
+    "expected": "BOUTON FEU DE DETRESSE",
+    "found": true,
+    "topResult": "GOUJON CHAINE DE DISTRIBUTION",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "obuton feu de detresse",
+    "expected": "BOUTON FEU DE DETRESSE",
+    "found": true,
+    "topResult": "GOUJON CHAINE DE DISTRIBUTION",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "ras balai essuie glace",
+    "expected": "BRAS BALAI ESSUIE GLACE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "ras balai essuie glace",
+    "expected": "BRAS BALAI ESSUIE GLACE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "use d eau essuie glasse",
+    "expected": "BUSE D'EAU ESSUIE GLASSE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "butte",
+    "expected": "BUTTE",
+    "found": true,
+    "topResult": "BUTEE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "butté",
+    "expected": "BUTTE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "able capot",
+    "expected": "CABLE CAPOT",
+    "found": true,
+    "topResult": "CALLE CAPOT",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "cableembrayage",
+    "expected": "CABLE EMBRAYAGE",
+    "found": true,
+    "topResult": "AILE AV D",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "cablé émbrayagé",
+    "expected": "CABLE EMBRAYAGE",
+    "found": true,
+    "topResult": "AILE AV D",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "cache bas de caisse d",
+    "expected": "CACHE BAS DE CAISSE D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "cachebasdecaissed",
+    "expected": "CACHE BAS DE CAISSE D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "d caisse de bas cache",
+    "expected": "CACHE BAS DE CAISSE D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "càche bàs de càisse d",
+    "expected": "CACHE BAS DE CAISSE D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "ache bas de caisse d",
+    "expected": "CACHE BAS DE CAISSE D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "acche bas de caisse d",
+    "expected": "CACHE BAS DE CAISSE D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "cache bas de caisse g",
+    "expected": "CACHE BAS DE CAISSE G",
+    "found": true,
+    "topResult": "BAGUETTE DE VITRE AR G",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "cachebasdecaisseg",
+    "expected": "CACHE BAS DE CAISSE G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "g caisse de bas cache",
+    "expected": "CACHE BAS DE CAISSE G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "càche bàs de càisse g",
+    "expected": "CACHE BAS DE CAISSE G",
+    "found": true,
+    "topResult": "BAGUETTE DE VITRE AR G",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "ache bas de caisse g",
+    "expected": "CACHE BAS DE CAISSE G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "acche bas de caisse g",
+    "expected": "CACHE BAS DE CAISSE G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "fusible boite cache",
+    "expected": "CACHE BOITE FUSIBLE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "ache boite fusible",
+    "expected": "CACHE BOITE FUSIBLE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "acche boite fusible",
+    "expected": "CACHE BOITE FUSIBLE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "acche moteur d",
+    "expected": "CACHE MOTEUR D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "g moteur cache",
+    "expected": "CACHE MOTEUR G",
+    "found": true,
+    "topResult": "SUPPORT MOTEUR G",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "ache moteur g",
+    "expected": "CACHE MOTEUR G",
+    "found": true,
+    "topResult": "MOYEU AV",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "acche moteur g",
+    "expected": "CACHE MOTEUR G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "caché poussiéré",
+    "expected": "CACHE POUSSIERE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "ache radiateur d",
+    "expected": "CACHE RADIATEUR D",
+    "found": true,
+    "topResult": "DURITE RADIATEUR",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "acche radiateur d",
+    "expected": "CACHE RADIATEUR D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "acche remorquage",
+    "expected": "CACHE REMORQUAGE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "càlculàteur",
+    "expected": "CALCULATEUR",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "aclculateur ensemble epi",
+    "expected": "CALCULATEUR ENSEMBLE EPI",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "ale poigne leve vitre",
+    "expected": "CALE POIGNE LEVE VITRE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "dale p de caoutchouc",
+    "expected": "CAOUTCHOUC DE PÉDALE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "caoutchouc dé p dalé",
+    "expected": "CAOUTCHOUC DE PÉDALE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "aprteur pression d huile",
+    "expected": "CAPRTEUR PRESSION D'HUILE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "acpteur",
+    "expected": "CAPTEUR",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "capteurabsard",
+    "expected": "CAPTEUR ABS AR D",
+    "found": true,
+    "topResult": "CAPTEUR MARCHE AR",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "g ar abs capteur",
+    "expected": "CAPTEUR ABS AR G",
+    "found": true,
+    "topResult": "CAPTEUR MARCHE AR",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "capteur dembrayage",
+    "expected": "CAPTEUR DEMBRAYAGE",
+    "found": true,
+    "topResult": "CAPTEUR DE RECULE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "capteurdembrayage",
+    "expected": "CAPTEUR DEMBRAYAGE",
+    "found": true,
+    "topResult": "CAPTEUR DE RECULE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "càpteur dembràyàge",
+    "expected": "CAPTEUR DEMBRAYAGE",
+    "found": true,
+    "topResult": "CAPTEUR DE RECULE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "apteur dembrayage",
+    "expected": "CAPTEUR DEMBRAYAGE",
+    "found": true,
+    "topResult": "CAPTEUR DE RECULE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "acpteur dembrayage",
+    "expected": "CAPTEUR DEMBRAYAGE",
+    "found": true,
+    "topResult": "CAPTEUR DE RECULE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "capteur pression d air",
+    "expected": "CAPTEUR PRESSION D'AIR",
+    "found": true,
+    "topResult": "CAPRTEUR PRESSION D'HUILE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "capteurpressiondair",
+    "expected": "CAPTEUR PRESSION D'AIR",
+    "found": true,
+    "topResult": "CAPRTEUR PRESSION D'HUILE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "air d pression capteur",
+    "expected": "CAPTEUR PRESSION D'AIR",
+    "found": true,
+    "topResult": "CAPRTEUR PRESSION D'HUILE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "captéur préssion d air",
+    "expected": "CAPTEUR PRESSION D'AIR",
+    "found": true,
+    "topResult": "CAPRTEUR PRESSION D'HUILE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "càpteur pression d àir",
+    "expected": "CAPTEUR PRESSION D'AIR",
+    "found": true,
+    "topResult": "CAPRTEUR PRESSION D'HUILE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "apteur pression d air",
+    "expected": "CAPTEUR PRESSION D'AIR",
+    "found": true,
+    "topResult": "CAPRTEUR PRESSION D'HUILE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "acpteur pression d air",
+    "expected": "CAPTEUR PRESSION D'AIR",
+    "found": true,
+    "topResult": "CAPRTEUR PRESSION D'HUILE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "temperature capteur",
+    "expected": "CAPTEUR TEMPERATURE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "cardan av d",
+    "expected": "CARDAN AV D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "cardanavd",
+    "expected": "CARDAN AV D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "d av cardan",
+    "expected": "CARDAN AV D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "càrdàn àv d",
+    "expected": "CARDAN AV D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "ardan av d",
+    "expected": "CARDAN AV D",
+    "found": true,
+    "topResult": "DURITE DE RADIATEUR",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "cardan av g",
+    "expected": "CARDAN AV G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "cardanavg",
+    "expected": "CARDAN AV G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "g av cardan",
+    "expected": "CARDAN AV G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "càrdàn àv g",
+    "expected": "CARDAN AV G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "ardan av g",
+    "expected": "CARDAN AV G",
+    "found": true,
+    "topResult": "CACHE MOTEUR G",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "arter",
+    "expected": "CARTER",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "arter huile",
+    "expected": "CARTER HUILE",
+    "found": true,
+    "topResult": "PARA HUILE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "acusse batterie",
+    "expected": "CAUSSE BATTERIE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "ceinture ar",
+    "expected": "CEINTURE AR",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "ceinturear",
+    "expected": "CEINTURE AR",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "ar ceinture",
+    "expected": "CEINTURE AR",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "ceinture àr",
+    "expected": "CEINTURE AR",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "einture ar",
+    "expected": "CEINTURE AR",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "ecinture ar",
+    "expected": "CEINTURE AR",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "ceinture av d",
+    "expected": "CEINTURE AV D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "ceintureavd",
+    "expected": "CEINTURE AV D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "d av ceinture",
+    "expected": "CEINTURE AV D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "ceinture àv d",
+    "expected": "CEINTURE AV D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "einture av d",
+    "expected": "CEINTURE AV D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "ecinture av d",
+    "expected": "CEINTURE AV D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "ceinture av g",
+    "expected": "CEINTURE AV G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "ceintureavg",
+    "expected": "CEINTURE AV G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "g av ceinture",
+    "expected": "CEINTURE AV G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "ceinture àv g",
+    "expected": "CEINTURE AV G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "einture av g",
+    "expected": "CEINTURE AV G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "ecinture av g",
+    "expected": "CEINTURE AV G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "ecrclip injecteur",
+    "expected": "CERCLIP INJECTEUR",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "d capot charniere",
+    "expected": "CHARNIERE CAPOT D",
+    "found": true,
+    "topResult": "CHARNIERE CAPOT G",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "charniere de porte ar b",
+    "expected": "CHARNIERE DE PORTE AR B",
+    "found": true,
+    "topResult": "RENFORT CHARNIERE AR D",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "charnieredeportearb",
+    "expected": "CHARNIERE DE PORTE AR B",
+    "found": true,
+    "topResult": "RENFORT CHARNIERE AR D",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "b ar porte de charniere",
+    "expected": "CHARNIERE DE PORTE AR B",
+    "found": true,
+    "topResult": "CHARNIERE DE PORTE AR D",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "charniéré dé porté ar b",
+    "expected": "CHARNIERE DE PORTE AR B",
+    "found": true,
+    "topResult": "RENFORT CHARNIERE AR D",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "chàrniere de porte àr b",
+    "expected": "CHARNIERE DE PORTE AR B",
+    "found": true,
+    "topResult": "CHARNIERE DE PORTE AR D",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "harniere de porte ar b",
+    "expected": "CHARNIERE DE PORTE AR B",
+    "found": true,
+    "topResult": "CHARNIERE DE PORTE AR D",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "hcarniere de porte ar b",
+    "expected": "CHARNIERE DE PORTE AR B",
+    "found": true,
+    "topResult": "RENFORT CHARNIERE AR D",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "charniere de porte av g b",
+    "expected": "CHARNIERE DE PORTE AV G  B",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "charniere de porte av g h",
+    "expected": "CHARNIERE DE PORTE AV G  H",
+    "found": true,
+    "topResult": "CHARNIERE DE PORTE AV G  B",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "charnieredeporteavgh",
+    "expected": "CHARNIERE DE PORTE AV G  H",
+    "found": true,
+    "topResult": "CHARNIERE DE PORTE AV G  B",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "h g av porte de charniere",
+    "expected": "CHARNIERE DE PORTE AV G  H",
+    "found": true,
+    "topResult": "CHARNIERE DE PORTE AV G  B",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "charniéré dé porté av g h",
+    "expected": "CHARNIERE DE PORTE AV G  H",
+    "found": true,
+    "topResult": "CHARNIERE DE PORTE AV G  B",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "chàrniere de porte àv g h",
+    "expected": "CHARNIERE DE PORTE AV G  H",
+    "found": true,
+    "topResult": "CHARNIERE DE PORTE AV G  B",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "harniere de porte av g h",
+    "expected": "CHARNIERE DE PORTE AV G  H",
+    "found": true,
+    "topResult": "CHARNIERE DE PORTE AV G  B",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "hcarniere de porte av g h",
+    "expected": "CHARNIERE DE PORTE AV G  H",
+    "found": true,
+    "topResult": "CHARNIERE DE PORTE AV G  B",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "charni re porte av d",
+    "expected": "CHARNIÈRE PORTE AV D",
+    "found": true,
+    "topResult": "CHARNIERE  PORTE AV D",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "charnireporteavd",
+    "expected": "CHARNIÈRE PORTE AV D",
+    "found": true,
+    "topResult": "CHARNIERE  PORTE AV D",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "d av porte re charni",
+    "expected": "CHARNIÈRE PORTE AV D",
+    "found": true,
+    "topResult": "CHARNIERE H PORTE AV D",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "charni ré porté av d",
+    "expected": "CHARNIÈRE PORTE AV D",
+    "found": true,
+    "topResult": "CHARNIERE  PORTE AV D",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "chàrni re porte àv d",
+    "expected": "CHARNIÈRE PORTE AV D",
+    "found": true,
+    "topResult": "CHARNIERE  PORTE AV D",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "harni re porte av d",
+    "expected": "CHARNIÈRE PORTE AV D",
+    "found": true,
+    "topResult": "CHARNIERE H PORTE AV D",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "hcarni re porte av d",
+    "expected": "CHARNIÈRE PORTE AV D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "icrclip arbre de contre 5 me vitesse t2 30",
+    "expected": "CIRCLIP ARBRE DE CONTRE 5ÈME VITESSE T2.30",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "circlip arbre de contre 5 me vitesse t2 35",
+    "expected": "CIRCLIP ARBRE DE CONTRE 5ÈME VITESSE T2.35",
+    "found": true,
+    "topResult": "CIRCLIP ARBRE DE CONTRE 5ÈME VITESSE T2.30",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "circliparbredecontre5mevitesset235",
+    "expected": "CIRCLIP ARBRE DE CONTRE 5ÈME VITESSE T2.35",
+    "found": true,
+    "topResult": "CIRCLIP ARBRE DE CONTRE 5ÈME VITESSE T2.30",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "35 t2 vitesse me 5 contre de arbre circlip",
+    "expected": "CIRCLIP ARBRE DE CONTRE 5ÈME VITESSE T2.35",
+    "found": true,
+    "topResult": "CIRCLIP ARBRE DE CONTRE 5ÈME VITESSE T2.30",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "circlip arbré dé contré 5 mé vitéssé t2 35",
+    "expected": "CIRCLIP ARBRE DE CONTRE 5ÈME VITESSE T2.35",
+    "found": true,
+    "topResult": "CIRCLIP ARBRE DE CONTRE 5ÈME VITESSE T2.30",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "circlip àrbre de contre 5 me vitesse t2 35",
+    "expected": "CIRCLIP ARBRE DE CONTRE 5ÈME VITESSE T2.35",
+    "found": true,
+    "topResult": "CIRCLIP ARBRE DE CONTRE 5ÈME VITESSE T2.30",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "irclip arbre de contre 5 me vitesse t2 35",
+    "expected": "CIRCLIP ARBRE DE CONTRE 5ÈME VITESSE T2.35",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "icrclip arbre de contre 5 me vitesse t2 35",
+    "expected": "CIRCLIP ARBRE DE CONTRE 5ÈME VITESSE T2.35",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "circlip arbre de contre 5 me vitesse t2 40",
+    "expected": "CIRCLIP ARBRE DE CONTRE 5ÈME VITESSE T2.40",
+    "found": true,
+    "topResult": "CIRCLIP ARBRE DE CONTRE 5ÈME VITESSE T2.30",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "circliparbredecontre5mevitesset240",
+    "expected": "CIRCLIP ARBRE DE CONTRE 5ÈME VITESSE T2.40",
+    "found": true,
+    "topResult": "CIRCLIP ARBRE DE CONTRE 5ÈME VITESSE T2.30",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "40 t2 vitesse me 5 contre de arbre circlip",
+    "expected": "CIRCLIP ARBRE DE CONTRE 5ÈME VITESSE T2.40",
+    "found": true,
+    "topResult": "CIRCLIP ARBRE DE CONTRE 5ÈME VITESSE T2.30",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "circlip arbré dé contré 5 mé vitéssé t2 40",
+    "expected": "CIRCLIP ARBRE DE CONTRE 5ÈME VITESSE T2.40",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "circlip àrbre de contre 5 me vitesse t2 40",
+    "expected": "CIRCLIP ARBRE DE CONTRE 5ÈME VITESSE T2.40",
+    "found": true,
+    "topResult": "CIRCLIP ARBRE DE CONTRE 5ÈME VITESSE T2.30",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "irclip arbre de contre 5 me vitesse t2 40",
+    "expected": "CIRCLIP ARBRE DE CONTRE 5ÈME VITESSE T2.40",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "icrclip arbre de contre 5 me vitesse t2 40",
+    "expected": "CIRCLIP ARBRE DE CONTRE 5ÈME VITESSE T2.40",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "icrclip d arbre interm diaire",
+    "expected": "CIRCLIP D'ARBRE INTERMÉDIAIRE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "icrclip moyeu synchro bas vitesse",
+    "expected": "CIRCLIP MOYEU SYNCHRO BAS VITESSE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "icrclip od 20 50 mm",
+    "expected": "CIRCLIP OD 20,50 mm",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "icrclip synchro haute vitesse",
+    "expected": "CIRCLIP SYNCHRO HAUTE VITESSE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "icrclips roue av",
+    "expected": "CIRCLIPS ROUE AV",
+    "found": true,
+    "topResult": "CLE DE ROUE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "soupape de queue de lune demi clavette",
+    "expected": "CLAVETTE DEMI-LUNE DE QUEUE DE SOUPAPE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "cle de roue",
+    "expected": "CLE DE ROUE",
+    "found": true,
+    "topResult": "GAUGON DE ROUE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "clederoue",
+    "expected": "CLE DE ROUE",
+    "found": true,
+    "topResult": "GAUGON DE ROUE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "roue de cle",
+    "expected": "CLE DE ROUE",
+    "found": true,
+    "topResult": "GAUGON DE ROUE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "clé dé roué",
+    "expected": "CLE DE ROUE",
+    "found": true,
+    "topResult": "GAUGON DE ROUE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "le de roue",
+    "expected": "CLE DE ROUE",
+    "found": true,
+    "topResult": "GAUGON DE ROUE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "lce de roue",
+    "expected": "CLE DE ROUE",
+    "found": true,
+    "topResult": "GAUGON DE ROUE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "clip ressort plaquette de frein",
+    "expected": "CLIP RESSORT PLAQUETTE DE FREIN",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "clipressortplaquettedefrein",
+    "expected": "CLIP RESSORT PLAQUETTE DE FREIN",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "frein de plaquette ressort clip",
+    "expected": "CLIP RESSORT PLAQUETTE DE FREIN",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "clip réssort plaquétté dé fréin",
+    "expected": "CLIP RESSORT PLAQUETTE DE FREIN",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "clip ressort plàquette de frein",
+    "expected": "CLIP RESSORT PLAQUETTE DE FREIN",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "lip ressort plaquette de frein",
+    "expected": "CLIP RESSORT PLAQUETTE DE FREIN",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "lcip ressort plaquette de frein",
+    "expected": "CLIP RESSORT PLAQUETTE DE FREIN",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "ocllier durite",
+    "expected": "COLLIER DURITE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "ocmbin d instrument",
+    "expected": "COMBINÉ D'INSTRUMENT",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "clim compresseur",
+    "expected": "COMPRESSEUR CLIM",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "orps thermostat",
+    "expected": "CORPS THERMOSTAT",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "ouvercle colonne direction",
+    "expected": "COUVERCLE COLONNE DIRECTION",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "ouvercle faisceau capteur de recul ar",
+    "expected": "COUVERCLE FAISCEAU CAPTEUR DE RECUL AR",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "cremaillere complet",
+    "expected": "CREMAILLERE COMPLET",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "cremaillerecomplet",
+    "expected": "CREMAILLERE COMPLET",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "complet cremaillere",
+    "expected": "CREMAILLERE COMPLET",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "crémailléré complét",
+    "expected": "CREMAILLERE COMPLET",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "cremàillere complet",
+    "expected": "CREMAILLERE COMPLET",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "rcemaillere complet",
+    "expected": "CREMAILLERE COMPLET",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "culbuteur t 3 20",
+    "expected": "CULBUTEUR  (T:3.20)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "20 3 t culbuteur",
+    "expected": "CULBUTEUR  (T:3.20)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "culbutéur t 3 20",
+    "expected": "CULBUTEUR  (T:3.20)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "ulbuteur t 3 20",
+    "expected": "CULBUTEUR  (T:3.20)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "uclbuteur t 3 20",
+    "expected": "CULBUTEUR  (T:3.20)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "culbuteur t 3 22",
+    "expected": "CULBUTEUR  (T:3.22)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "22 3 t culbuteur",
+    "expected": "CULBUTEUR  (T:3.22)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "culbutéur t 3 22",
+    "expected": "CULBUTEUR  (T:3.22)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "ulbuteur t 3 22",
+    "expected": "CULBUTEUR  (T:3.22)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "uclbuteur t 3 22",
+    "expected": "CULBUTEUR  (T:3.22)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "culbuteur t 3 26",
+    "expected": "CULBUTEUR  (T:3.26)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "26 3 t culbuteur",
+    "expected": "CULBUTEUR  (T:3.26)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "culbutéur t 3 26",
+    "expected": "CULBUTEUR  (T:3.26)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "ulbuteur t 3 26",
+    "expected": "CULBUTEUR  (T:3.26)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "uclbuteur t 3 26",
+    "expected": "CULBUTEUR  (T:3.26)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "culbuteur t 3 28",
+    "expected": "CULBUTEUR  (T:3.28)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "28 3 t culbuteur",
+    "expected": "CULBUTEUR  (T:3.28)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "culbutéur t 3 28",
+    "expected": "CULBUTEUR  (T:3.28)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "ulbuteur t 3 28",
+    "expected": "CULBUTEUR  (T:3.28)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "uclbuteur t 3 28",
+    "expected": "CULBUTEUR  (T:3.28)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "culbuteur t 3 30",
+    "expected": "CULBUTEUR  (T:3.30)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "30 3 t culbuteur",
+    "expected": "CULBUTEUR  (T:3.30)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "culbutéur t 3 30",
+    "expected": "CULBUTEUR  (T:3.30)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "ulbuteur t 3 30",
+    "expected": "CULBUTEUR  (T:3.30)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "uclbuteur t 3 30",
+    "expected": "CULBUTEUR  (T:3.30)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "culbuteur t 3 32",
+    "expected": "CULBUTEUR  (T:3.32)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "32 3 t culbuteur",
+    "expected": "CULBUTEUR  (T:3.32)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "culbutéur t 3 32",
+    "expected": "CULBUTEUR  (T:3.32)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "ulbuteur t 3 32",
+    "expected": "CULBUTEUR  (T:3.32)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "uclbuteur t 3 32",
+    "expected": "CULBUTEUR  (T:3.32)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "culbuteur t 3 34",
+    "expected": "CULBUTEUR  (T:3.34)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "34 3 t culbuteur",
+    "expected": "CULBUTEUR  (T:3.34)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "culbutéur t 3 34",
+    "expected": "CULBUTEUR  (T:3.34)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "ulbuteur t 3 34",
+    "expected": "CULBUTEUR  (T:3.34)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "uclbuteur t 3 34",
+    "expected": "CULBUTEUR  (T:3.34)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "culbuteur t 3 36",
+    "expected": "CULBUTEUR  (T:3.36)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "36 3 t culbuteur",
+    "expected": "CULBUTEUR  (T:3.36)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "culbutéur t 3 36",
+    "expected": "CULBUTEUR  (T:3.36)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "ulbuteur t 3 36",
+    "expected": "CULBUTEUR  (T:3.36)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "uclbuteur t 3 36",
+    "expected": "CULBUTEUR  (T:3.36)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "culbuteur t 3 38",
+    "expected": "CULBUTEUR  (T:3.38)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "38 3 t culbuteur",
+    "expected": "CULBUTEUR  (T:3.38)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "culbutéur t 3 38",
+    "expected": "CULBUTEUR  (T:3.38)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "ulbuteur t 3 38",
+    "expected": "CULBUTEUR  (T:3.38)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "uclbuteur t 3 38",
+    "expected": "CULBUTEUR  (T:3.38)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "culbuteur t 3 40",
+    "expected": "CULBUTEUR  (T:3.40)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "40 3 t culbuteur",
+    "expected": "CULBUTEUR  (T:3.40)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "culbutéur t 3 40",
+    "expected": "CULBUTEUR  (T:3.40)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "ulbuteur t 3 40",
+    "expected": "CULBUTEUR  (T:3.40)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "uclbuteur t 3 40",
+    "expected": "CULBUTEUR  (T:3.40)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "culbuteur t 3 42",
+    "expected": "CULBUTEUR  (T:3.42)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "42 3 t culbuteur",
+    "expected": "CULBUTEUR  (T:3.42)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "culbutéur t 3 42",
+    "expected": "CULBUTEUR  (T:3.42)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "ulbuteur t 3 42",
+    "expected": "CULBUTEUR  (T:3.42)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "uclbuteur t 3 42",
+    "expected": "CULBUTEUR  (T:3.42)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "culbuteur t 3 44",
+    "expected": "CULBUTEUR  (T:3.44)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "44 3 t culbuteur",
+    "expected": "CULBUTEUR  (T:3.44)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "culbutéur t 3 44",
+    "expected": "CULBUTEUR  (T:3.44)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "ulbuteur t 3 44",
+    "expected": "CULBUTEUR  (T:3.44)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "uclbuteur t 3 44",
+    "expected": "CULBUTEUR  (T:3.44)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "culbuteur t 3 46",
+    "expected": "CULBUTEUR  (T:3.46)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "46 3 t culbuteur",
+    "expected": "CULBUTEUR  (T:3.46)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "culbutéur t 3 46",
+    "expected": "CULBUTEUR  (T:3.46)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "ulbuteur t 3 46",
+    "expected": "CULBUTEUR  (T:3.46)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "uclbuteur t 3 46",
+    "expected": "CULBUTEUR  (T:3.46)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "culbuteur t 3 48",
+    "expected": "CULBUTEUR  (T:3.48)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "48 3 t culbuteur",
+    "expected": "CULBUTEUR  (T:3.48)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "culbutéur t 3 48",
+    "expected": "CULBUTEUR  (T:3.48)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "ulbuteur t 3 48",
+    "expected": "CULBUTEUR  (T:3.48)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "uclbuteur t 3 48",
+    "expected": "CULBUTEUR  (T:3.48)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "culbuteur t 3 50",
+    "expected": "CULBUTEUR  (T:3.50)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "50 3 t culbuteur",
+    "expected": "CULBUTEUR  (T:3.50)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "culbutéur t 3 50",
+    "expected": "CULBUTEUR  (T:3.50)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "ulbuteur t 3 50",
+    "expected": "CULBUTEUR  (T:3.50)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "uclbuteur t 3 50",
+    "expected": "CULBUTEUR  (T:3.50)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "culbuteur t 3 52",
+    "expected": "CULBUTEUR  (T:3.52)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "52 3 t culbuteur",
+    "expected": "CULBUTEUR  (T:3.52)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "culbutéur t 3 52",
+    "expected": "CULBUTEUR  (T:3.52)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "ulbuteur t 3 52",
+    "expected": "CULBUTEUR  (T:3.52)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "uclbuteur t 3 52",
+    "expected": "CULBUTEUR  (T:3.52)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "culbuteur t 3 54",
+    "expected": "CULBUTEUR  (T:3.54)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "54 3 t culbuteur",
+    "expected": "CULBUTEUR  (T:3.54)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "culbutéur t 3 54",
+    "expected": "CULBUTEUR  (T:3.54)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "ulbuteur t 3 54",
+    "expected": "CULBUTEUR  (T:3.54)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "uclbuteur t 3 54",
+    "expected": "CULBUTEUR  (T:3.54)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "culbuteur t 3 56",
+    "expected": "CULBUTEUR  (T:3.56)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "56 3 t culbuteur",
+    "expected": "CULBUTEUR  (T:3.56)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "culbutéur t 3 56",
+    "expected": "CULBUTEUR  (T:3.56)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "ulbuteur t 3 56",
+    "expected": "CULBUTEUR  (T:3.56)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "uclbuteur t 3 56",
+    "expected": "CULBUTEUR  (T:3.56)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "culbuteur t 3 58",
+    "expected": "CULBUTEUR  (T:3.58)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "58 3 t culbuteur",
+    "expected": "CULBUTEUR  (T:3.58)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "culbutéur t 3 58",
+    "expected": "CULBUTEUR  (T:3.58)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "ulbuteur t 3 58",
+    "expected": "CULBUTEUR  (T:3.58)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "uclbuteur t 3 58",
+    "expected": "CULBUTEUR  (T:3.58)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "culbuteur t 3 60",
+    "expected": "CULBUTEUR  (T:3.60)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "60 3 t culbuteur",
+    "expected": "CULBUTEUR  (T:3.60)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "culbutéur t 3 60",
+    "expected": "CULBUTEUR  (T:3.60)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "ulbuteur t 3 60",
+    "expected": "CULBUTEUR  (T:3.60)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "uclbuteur t 3 60",
+    "expected": "CULBUTEUR  (T:3.60)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "culbuteur t 3 62",
+    "expected": "CULBUTEUR  (T:3.62)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "62 3 t culbuteur",
+    "expected": "CULBUTEUR  (T:3.62)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "culbutéur t 3 62",
+    "expected": "CULBUTEUR  (T:3.62)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "ulbuteur t 3 62",
+    "expected": "CULBUTEUR  (T:3.62)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "uclbuteur t 3 62",
+    "expected": "CULBUTEUR  (T:3.62)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "culbuteur t 3 64",
+    "expected": "CULBUTEUR  (T:3.64)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "64 3 t culbuteur",
+    "expected": "CULBUTEUR  (T:3.64)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "culbutéur t 3 64",
+    "expected": "CULBUTEUR  (T:3.64)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "ulbuteur t 3 64",
+    "expected": "CULBUTEUR  (T:3.64)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "uclbuteur t 3 64",
+    "expected": "CULBUTEUR  (T:3.64)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "culbuteur t 3 66",
+    "expected": "CULBUTEUR  (T:3.66)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "66 3 t culbuteur",
+    "expected": "CULBUTEUR  (T:3.66)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "culbutéur t 3 66",
+    "expected": "CULBUTEUR  (T:3.66)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "ulbuteur t 3 66",
+    "expected": "CULBUTEUR  (T:3.66)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "uclbuteur t 3 66",
+    "expected": "CULBUTEUR  (T:3.66)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "culbuteur t 3 68",
+    "expected": "CULBUTEUR  (T:3.68)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "68 3 t culbuteur",
+    "expected": "CULBUTEUR  (T:3.68)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "culbutéur t 3 68",
+    "expected": "CULBUTEUR  (T:3.68)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "ulbuteur t 3 68",
+    "expected": "CULBUTEUR  (T:3.68)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "uclbuteur t 3 68",
+    "expected": "CULBUTEUR  (T:3.68)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "culbuteur t 3 70",
+    "expected": "CULBUTEUR  (T:3.70)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "70 3 t culbuteur",
+    "expected": "CULBUTEUR  (T:3.70)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "culbutéur t 3 70",
+    "expected": "CULBUTEUR  (T:3.70)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "ulbuteur t 3 70",
+    "expected": "CULBUTEUR  (T:3.70)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "uclbuteur t 3 70",
+    "expected": "CULBUTEUR  (T:3.70)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "culbuteur t 3 72",
+    "expected": "CULBUTEUR  (T:3.72)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "72 3 t culbuteur",
+    "expected": "CULBUTEUR  (T:3.72)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "culbutéur t 3 72",
+    "expected": "CULBUTEUR  (T:3.72)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "ulbuteur t 3 72",
+    "expected": "CULBUTEUR  (T:3.72)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "uclbuteur t 3 72",
+    "expected": "CULBUTEUR  (T:3.72)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "culbuteur t 3 74",
+    "expected": "CULBUTEUR  (T:3.74)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "74 3 t culbuteur",
+    "expected": "CULBUTEUR  (T:3.74)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "culbutéur t 3 74",
+    "expected": "CULBUTEUR  (T:3.74)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "ulbuteur t 3 74",
+    "expected": "CULBUTEUR  (T:3.74)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "uclbuteur t 3 74",
+    "expected": "CULBUTEUR  (T:3.74)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "culbuteur t 3 76",
+    "expected": "CULBUTEUR  (T:3.76)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "76 3 t culbuteur",
+    "expected": "CULBUTEUR  (T:3.76)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "culbutéur t 3 76",
+    "expected": "CULBUTEUR  (T:3.76)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "ulbuteur t 3 76",
+    "expected": "CULBUTEUR  (T:3.76)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "uclbuteur t 3 76",
+    "expected": "CULBUTEUR  (T:3.76)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "culbuteur t 3 78",
+    "expected": "CULBUTEUR  (T:3.78)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "78 3 t culbuteur",
+    "expected": "CULBUTEUR  (T:3.78)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "culbutéur t 3 78",
+    "expected": "CULBUTEUR  (T:3.78)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "ulbuteur t 3 78",
+    "expected": "CULBUTEUR  (T:3.78)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "uclbuteur t 3 78",
+    "expected": "CULBUTEUR  (T:3.78)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "culbuteur t 3 18",
+    "expected": "CULBUTEUR (T:3.18)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "18 3 t culbuteur",
+    "expected": "CULBUTEUR (T:3.18)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "culbutéur t 3 18",
+    "expected": "CULBUTEUR (T:3.18)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "ulbuteur t 3 18",
+    "expected": "CULBUTEUR (T:3.18)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "uclbuteur t 3 18",
+    "expected": "CULBUTEUR (T:3.18)",
+    "found": true,
+    "topResult": "CULBUTEUR  (T:3.24)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "d ar air d deflecteur",
+    "expected": "DEFLECTEUR D AIR AR D",
+    "found": true,
+    "topResult": "CIRCLIP D'ARBRE INTERMÉDIAIRE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "disqueembrayage",
+    "expected": "DISQUE EMBRAYAGE",
+    "found": true,
+    "topResult": "CABLE FREIN DE STATIONNEMENT D",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "embrayage disque",
+    "expected": "DISQUE EMBRAYAGE",
+    "found": true,
+    "topResult": "DISQUE DE FREIN AV",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "disqué émbrayagé",
+    "expected": "DISQUE EMBRAYAGE",
+    "found": true,
+    "topResult": "CABLE FREIN DE STATIONNEMENT D",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "disqueembrayage",
+    "expected": "DISQUE EMBRAYAGE",
+    "found": true,
+    "topResult": "CABLE FREIN DE STATIONNEMENT D",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "embrayage disque",
+    "expected": "DISQUE EMBRAYAGE",
+    "found": true,
+    "topResult": "DISQUE DE FREIN AV",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "disqué émbrayagé",
+    "expected": "DISQUE EMBRAYAGE",
+    "found": true,
+    "topResult": "CABLE FREIN DE STATIONNEMENT D",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "durite de radiateur",
+    "expected": "DURITE DE RADIATEUR",
+    "found": true,
+    "topResult": "CACHE RADIATEUR D",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "duritederadiateur",
+    "expected": "DURITE DE RADIATEUR",
+    "found": true,
+    "topResult": "CACHE RADIATEUR D",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "radiateur de durite",
+    "expected": "DURITE DE RADIATEUR",
+    "found": true,
+    "topResult": "CACHE RADIATEUR D",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "durité dé radiatéur",
+    "expected": "DURITE DE RADIATEUR",
+    "found": true,
+    "topResult": "CACHE RADIATEUR D",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "durite de ràdiàteur",
+    "expected": "DURITE DE RADIATEUR",
+    "found": true,
+    "topResult": "CACHE RADIATEUR D",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "urite de radiateur",
+    "expected": "DURITE DE RADIATEUR",
+    "found": true,
+    "topResult": "CACHE RADIATEUR D",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "rgatigner le seuil av g",
+    "expected": "ÉGRATIGNER LE SEUIL AV G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "énjolivéur",
+    "expected": "ENJOLIVEUR",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "nejoliveur",
+    "expected": "ENJOLIVEUR",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "extensioncotecorpsotrd",
+    "expected": "EXTENSION COTE CORPS OTR D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "éxténsion coté corps otr d",
+    "expected": "EXTENSION COTE CORPS OTR D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "extension garde boue d",
+    "expected": "EXTENSION GARDE-BOUE D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "extensiongardeboued",
+    "expected": "EXTENSION GARDE-BOUE D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "d boue garde extension",
+    "expected": "EXTENSION GARDE-BOUE D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "éxténsion gardé boué d",
+    "expected": "EXTENSION GARDE-BOUE D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "extension gàrde boue d",
+    "expected": "EXTENSION GARDE-BOUE D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "xtension garde boue d",
+    "expected": "EXTENSION GARDE-BOUE D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "xetension garde boue d",
+    "expected": "EXTENSION GARDE-BOUE D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "extensionsuplongerond",
+    "expected": "EXTENSION SUP LONGERON D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "extensionsuplongerond",
+    "expected": "EXTENSION SUP LONGERON D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "extensioncttabliermbrlwrlh",
+    "expected": "EXTENSION, CÔTÉ TABLIER MBR LWR LH",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "feuard",
+    "expected": "FEU AR D",
+    "found": true,
+    "topResult": "AGRAFE FEU AR",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "féu ar d",
+    "expected": "FEU AR D",
+    "found": true,
+    "topResult": "PARE CHOC AR D",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "eu ar d",
+    "expected": "FEU AR D",
+    "found": true,
+    "topResult": "DURITE DE RADIATEUR",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "efu ar d",
+    "expected": "FEU AR D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "féu ar g",
+    "expected": "FEU AR G",
+    "found": true,
+    "topResult": "CAPTEUR MARCHE AR",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "eu ar g",
+    "expected": "FEU AR G",
+    "found": true,
+    "topResult": "CACHE MOTEUR G",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "efu ar g",
+    "expected": "FEU AR G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "efutre tableau de bord",
+    "expected": "FEUTRE TABLEAU DE BORD",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "filtre a air",
+    "expected": "FILTRE A AIR",
+    "found": true,
+    "topResult": "FILTRE A HUILE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "filtreaair",
+    "expected": "FILTRE A AIR",
+    "found": true,
+    "topResult": "FILTRE A HUILE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "air a filtre",
+    "expected": "FILTRE A AIR",
+    "found": true,
+    "topResult": "FILTRE A HUILE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "filtré a air",
+    "expected": "FILTRE A AIR",
+    "found": true,
+    "topResult": "FILTRE A HUILE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "filtre à àir",
+    "expected": "FILTRE A AIR",
+    "found": true,
+    "topResult": "FILTRE A HUILE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "iltre a air",
+    "expected": "FILTRE A AIR",
+    "found": true,
+    "topResult": "FILTRE A HUILE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "ifltre a air",
+    "expected": "FILTRE A AIR",
+    "found": true,
+    "topResult": "FILTRE A HUILE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "fléxiblé clim hauté",
+    "expected": "FLEXIBLE CLIM HAUTE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "arnitrur malle",
+    "expected": "GARNITRUR MALLE",
+    "found": true,
+    "topResult": "MALLE AR",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "agrnitrur malle",
+    "expected": "GARNITRUR MALLE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "agrniture aile ar g",
+    "expected": "GARNITURE AILE AR G",
+    "found": true,
+    "topResult": "SUPPORT FILTRE A HUILE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "agrniture bochon carburant",
+    "expected": "GARNITURE BOCHON CARBURANT",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "garniturectr",
+    "expected": "GARNITURE CTR",
+    "found": true,
+    "topResult": "MONTANT CENTRALE G",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "agrniture ctr",
+    "expected": "GARNITURE CTR",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "garniture montant central d",
+    "expected": "GARNITURE MONTANT CENTRAL D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "garnituremontantcentrald",
+    "expected": "GARNITURE MONTANT CENTRAL D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "d central montant garniture",
+    "expected": "GARNITURE MONTANT CENTRAL D",
+    "found": true,
+    "topResult": "MONTANT CENTRALE G",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "garnituré montant céntral d",
+    "expected": "GARNITURE MONTANT CENTRAL D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "gàrniture montànt centràl d",
+    "expected": "GARNITURE MONTANT CENTRAL D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "agrniture montant central d",
+    "expected": "GARNITURE MONTANT CENTRAL D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "garniture moustache d",
+    "expected": "GARNITURE MOUSTACHE D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "garnituremoustached",
+    "expected": "GARNITURE MOUSTACHE D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "d moustache garniture",
+    "expected": "GARNITURE MOUSTACHE D",
+    "found": true,
+    "topResult": "GARNITURE MOUSTACHE G",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "garnituré moustaché d",
+    "expected": "GARNITURE MOUSTACHE D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "gàrniture moustàche d",
+    "expected": "GARNITURE MOUSTACHE D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "agrniture moustache d",
+    "expected": "GARNITURE MOUSTACHE D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "garnituré qtr ar d",
+    "expected": "GARNITURE QTR AR D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "gàrniture qtr àr d",
+    "expected": "GARNITURE QTR AR D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "arniture qtr ar d",
+    "expected": "GARNITURE QTR AR D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "agrniture qtr ar d",
+    "expected": "GARNITURE QTR AR D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "garniture qtr ar g",
+    "expected": "GARNITURE QTR AR G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "garnitureqtrarg",
+    "expected": "GARNITURE QTR AR G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "g ar qtr garniture",
+    "expected": "GARNITURE QTR AR G",
+    "found": true,
+    "topResult": "GARNITURE MOUSTACHE G",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "garnituré qtr ar g",
+    "expected": "GARNITURE QTR AR G",
+    "found": true,
+    "topResult": "GARNITURE MOUSTACHE G",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "gàrniture qtr àr g",
+    "expected": "GARNITURE QTR AR G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "arniture qtr ar g",
+    "expected": "GARNITURE QTR AR G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "agrniture qtr ar g",
+    "expected": "GARNITURE QTR AR G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "aguge pompe essence",
+    "expected": "GAUGE POMPE ESSENCE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "gaugonderoue",
+    "expected": "GAUGON DE ROUE",
+    "found": true,
+    "topResult": "PASSAGE DE ROUE AR G",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "augon de roue",
+    "expected": "GAUGON DE ROUE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "oujon",
+    "expected": "GOUJON",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "jeu de plaquettes de frein",
+    "expected": "JEU DE PLAQUETTES DE FREIN",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "jeudeplaquettesdefrein",
+    "expected": "JEU DE PLAQUETTES DE FREIN",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "frein de plaquettes de jeu",
+    "expected": "JEU DE PLAQUETTES DE FREIN",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "jéu dé plaquéttés dé fréin",
+    "expected": "JEU DE PLAQUETTES DE FREIN",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "jeu de plàquettes de frein",
+    "expected": "JEU DE PLAQUETTES DE FREIN",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "eu de plaquettes de frein",
+    "expected": "JEU DE PLAQUETTES DE FREIN",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "eju de plaquettes de frein",
+    "expected": "JEU DE PLAQUETTES DE FREIN",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "joint carter d huile",
+    "expected": "JOINT CARTER D'HUILE",
+    "found": true,
+    "topResult": "JOINT, CARTER D'HUILE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "jointcarterdhuile",
+    "expected": "JOINT CARTER D'HUILE",
+    "found": true,
+    "topResult": "JOINT, CARTER D'HUILE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "huile d carter joint",
+    "expected": "JOINT CARTER D'HUILE",
+    "found": true,
+    "topResult": "CIRCLIP D'ARBRE INTERMÉDIAIRE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "joint cartér d huilé",
+    "expected": "JOINT CARTER D'HUILE",
+    "found": true,
+    "topResult": "JOINT, CARTER D'HUILE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "joint càrter d huile",
+    "expected": "JOINT CARTER D'HUILE",
+    "found": true,
+    "topResult": "JOINT, CARTER D'HUILE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "oint carter d huile",
+    "expected": "JOINT CARTER D'HUILE",
+    "found": true,
+    "topResult": "JOINT, CARTER D'HUILE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "ojint carter d huile",
+    "expected": "JOINT CARTER D'HUILE",
+    "found": true,
+    "topResult": "JOINT, CARTER D'HUILE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "joint d echappement",
+    "expected": "JOINT D'ECHAPPEMENT",
+    "found": true,
+    "topResult": "JOINT DE CULASSE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "jointdechappement",
+    "expected": "JOINT D'ECHAPPEMENT",
+    "found": true,
+    "topResult": "JOINT DE CULASSE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "echappement d joint",
+    "expected": "JOINT D'ECHAPPEMENT",
+    "found": true,
+    "topResult": "JOINT DE CULASSE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "joint d échappémént",
+    "expected": "JOINT D'ECHAPPEMENT",
+    "found": true,
+    "topResult": "JOINT DE CULASSE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "joint d echàppement",
+    "expected": "JOINT D'ECHAPPEMENT",
+    "found": true,
+    "topResult": "JOINT DE CULASSE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "oint d echappement",
+    "expected": "JOINT D'ECHAPPEMENT",
+    "found": true,
+    "topResult": "JOINT DE CULASSE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "ojint d echappement",
+    "expected": "JOINT D'ECHAPPEMENT",
+    "found": true,
+    "topResult": "JOINT DE CULASSE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "joint d echappement",
+    "expected": "JOINT D'ECHAPPEMENT",
+    "found": true,
+    "topResult": "JOINT DE CULASSE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "jointdechappement",
+    "expected": "JOINT D'ECHAPPEMENT",
+    "found": true,
+    "topResult": "JOINT DE CULASSE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "echappement d joint",
+    "expected": "JOINT D'ECHAPPEMENT",
+    "found": true,
+    "topResult": "JOINT DE CULASSE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "joint d échappémént",
+    "expected": "JOINT D'ECHAPPEMENT",
+    "found": true,
+    "topResult": "JOINT DE CULASSE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "joint d echàppement",
+    "expected": "JOINT D'ECHAPPEMENT",
+    "found": true,
+    "topResult": "JOINT DE CULASSE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "oint d echappement",
+    "expected": "JOINT D'ECHAPPEMENT",
+    "found": true,
+    "topResult": "JOINT DE CULASSE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "ojint d echappement",
+    "expected": "JOINT D'ECHAPPEMENT",
+    "found": true,
+    "topResult": "JOINT DE CULASSE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "d ar vitre de joint",
+    "expected": "JOINT DE VITRE AR D",
+    "found": true,
+    "topResult": "JOINT DE VITRE INTERRIEUR",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "d ar vitre de joint",
+    "expected": "JOINT DE VITRE AR D",
+    "found": true,
+    "topResult": "JOINT DE VITRE INTERRIEUR",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "g ar vitre de joint",
+    "expected": "JOINT DE VITRE AR G",
+    "found": true,
+    "topResult": "JOINT DE VITRE INTERRIEUR",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "jointlecheurdevitrearg",
+    "expected": "JOINT LECHEUR DE VITRE AR G",
+    "found": true,
+    "topResult": "JOINT LECHE VITRE D",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "oint lecheur de vitre ar g",
+    "expected": "JOINT LECHEUR DE VITRE AR G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "kasarolefeuard",
+    "expected": "KASAROLE FEU AR D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "d ar feu kasarole",
+    "expected": "KASAROLE FEU AR D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "kasarolé féu ar d",
+    "expected": "KASAROLE FEU AR D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "kasaroule feu ar g",
+    "expected": "KASAROULE FEU AR G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "kasaroulefeuarg",
+    "expected": "KASAROULE FEU AR G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "g ar feu kasaroule",
+    "expected": "KASAROULE FEU AR G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "almpe plaque",
+    "expected": "LAMPE PLAQUE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "longeronard",
+    "expected": "LONGERON AR D",
+    "found": true,
+    "topResult": "LONGERON D",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "longerong",
+    "expected": "LONGERON G",
+    "found": true,
+    "topResult": "LONGERON D",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "g longeron",
+    "expected": "LONGERON G",
+    "found": true,
+    "topResult": "LONGERON D",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "amnchon de synchro 5eme vitesse",
+    "expected": "MANCHON DE SYNCHRO 5EME VITESSE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "anchon de synchronisation bas vitesse",
+    "expected": "MANCHON DE SYNCHRONISATION BAS VITESSE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "amnchon de synchronisation bas vitesse",
+    "expected": "MANCHON DE SYNCHRONISATION BAS VITESSE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "amnchon synchro haute vitesse",
+    "expected": "MANCHON SYNCHRO HAUTE VITESSE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "amrmite echappement",
+    "expected": "MARMITE ECHAPPEMENT",
+    "found": true,
+    "topResult": "AMORTISSEUR AV D",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "miroire d",
+    "expected": "MIROIRE D",
+    "found": true,
+    "topResult": "RETROVISEUR D",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "miroired",
+    "expected": "MIROIRE D",
+    "found": true,
+    "topResult": "RETROVISEUR D",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "d miroire",
+    "expected": "MIROIRE D",
+    "found": true,
+    "topResult": "RETROVISEUR D",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "miroiré d",
+    "expected": "MIROIRE D",
+    "found": true,
+    "topResult": "RETROVISEUR D",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "iroire d",
+    "expected": "MIROIRE D",
+    "found": true,
+    "topResult": "RETROVISEUR D",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "miroire g",
+    "expected": "MIROIRE G",
+    "found": true,
+    "topResult": "RETROVISEUR G",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "miroireg",
+    "expected": "MIROIRE G",
+    "found": true,
+    "topResult": "RETROVISEUR G",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "g miroire",
+    "expected": "MIROIRE G",
+    "found": true,
+    "topResult": "RETROVISEUR D",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "miroiré g",
+    "expected": "MIROIRE G",
+    "found": true,
+    "topResult": "RETROVISEUR G",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "iroire g",
+    "expected": "MIROIRE G",
+    "found": true,
+    "topResult": "RETROVISEUR G",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "module eps",
+    "expected": "MODULE EPS",
+    "found": true,
+    "topResult": "MODULE ABS",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "moduleeps",
+    "expected": "MODULE EPS",
+    "found": true,
+    "topResult": "MODULE ABS",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "eps module",
+    "expected": "MODULE EPS",
+    "found": true,
+    "topResult": "MODULE ABS",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "modulé éps",
+    "expected": "MODULE EPS",
+    "found": true,
+    "topResult": "MODULE ABS",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "odule eps",
+    "expected": "MODULE EPS",
+    "found": true,
+    "topResult": "MODULE ABS",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "omdule eps",
+    "expected": "MODULE EPS",
+    "found": true,
+    "topResult": "MODULE ABS",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "oyeu av",
+    "expected": "MOYEU AV",
+    "found": true,
+    "topResult": "PLAGE AV",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "g optique",
+    "expected": "OPTIQUE G",
+    "found": true,
+    "topResult": "OPTIQUE D",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "panneau c t plancher ar d",
+    "expected": "PANNEAU  CÔTÉ PLANCHER AR D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "panneauctplancherard",
+    "expected": "PANNEAU  CÔTÉ PLANCHER AR D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "d ar plancher t c panneau",
+    "expected": "PANNEAU  CÔTÉ PLANCHER AR D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "pannéau c t planchér ar d",
+    "expected": "PANNEAU  CÔTÉ PLANCHER AR D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "pànneàu c t plàncher àr d",
+    "expected": "PANNEAU  CÔTÉ PLANCHER AR D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "apnneau c t plancher ar d",
+    "expected": "PANNEAU  CÔTÉ PLANCHER AR D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "panneau assemblage c t tableau de bord d",
+    "expected": "PANNEAU ASSEMBLAGE CÔTÉ TABLEAU DE BORD D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "panneauassemblagecttableaudebordd",
+    "expected": "PANNEAU ASSEMBLAGE CÔTÉ TABLEAU DE BORD D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "d bord de tableau t c assemblage panneau",
+    "expected": "PANNEAU ASSEMBLAGE CÔTÉ TABLEAU DE BORD D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "pannéau assémblagé c t tabléau dé bord d",
+    "expected": "PANNEAU ASSEMBLAGE CÔTÉ TABLEAU DE BORD D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "pànneàu àssemblàge c t tàbleàu de bord d",
+    "expected": "PANNEAU ASSEMBLAGE CÔTÉ TABLEAU DE BORD D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "apnneau assemblage c t tableau de bord d",
+    "expected": "PANNEAU ASSEMBLAGE CÔTÉ TABLEAU DE BORD D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "panneau assemblage c t tableau de bord g",
+    "expected": "PANNEAU ASSEMBLAGE CÔTÉ TABLEAU DE BORD G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "panneauassemblagecttableaudebordg",
+    "expected": "PANNEAU ASSEMBLAGE CÔTÉ TABLEAU DE BORD G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "g bord de tableau t c assemblage panneau",
+    "expected": "PANNEAU ASSEMBLAGE CÔTÉ TABLEAU DE BORD G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "pannéau assémblagé c t tabléau dé bord g",
+    "expected": "PANNEAU ASSEMBLAGE CÔTÉ TABLEAU DE BORD G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "pànneàu àssemblàge c t tàbleàu de bord g",
+    "expected": "PANNEAU ASSEMBLAGE CÔTÉ TABLEAU DE BORD G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "apnneau assemblage c t tableau de bord g",
+    "expected": "PANNEAU ASSEMBLAGE CÔTÉ TABLEAU DE BORD G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "panneau de toit",
+    "expected": "PANNEAU DE TOIT",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "panneaudetoit",
+    "expected": "PANNEAU DE TOIT",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "toit de panneau",
+    "expected": "PANNEAU DE TOIT",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "pannéau dé toit",
+    "expected": "PANNEAU DE TOIT",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "pànneàu de toit",
+    "expected": "PANNEAU DE TOIT",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "apnneau de toit",
+    "expected": "PANNEAU DE TOIT",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "panneau feux rouge ar",
+    "expected": "PANNEAU FEUX ROUGE AR",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "panneaufeuxrougear",
+    "expected": "PANNEAU FEUX ROUGE AR",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "ar rouge feux panneau",
+    "expected": "PANNEAU FEUX ROUGE AR",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "pannéau féux rougé ar",
+    "expected": "PANNEAU FEUX ROUGE AR",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "pànneàu feux rouge àr",
+    "expected": "PANNEAU FEUX ROUGE AR",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "apnneau feux rouge ar",
+    "expected": "PANNEAU FEUX ROUGE AR",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "panneau tablier de garde boue d",
+    "expected": "PANNEAU, TABLIER DE GARDE-BOUE D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "panneautablierdegardeboued",
+    "expected": "PANNEAU, TABLIER DE GARDE-BOUE D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "d boue garde de tablier panneau",
+    "expected": "PANNEAU, TABLIER DE GARDE-BOUE D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "pannéau tabliér dé gardé boué d",
+    "expected": "PANNEAU, TABLIER DE GARDE-BOUE D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "pànneàu tàblier de gàrde boue d",
+    "expected": "PANNEAU, TABLIER DE GARDE-BOUE D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "anneau tablier de garde boue d",
+    "expected": "PANNEAU, TABLIER DE GARDE-BOUE D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "apnneau tablier de garde boue d",
+    "expected": "PANNEAU, TABLIER DE GARDE-BOUE D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "panneau tablier de garde boue g",
+    "expected": "PANNEAU, TABLIER DE GARDE-BOUE G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "panneautablierdegardeboueg",
+    "expected": "PANNEAU, TABLIER DE GARDE-BOUE G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "g boue garde de tablier panneau",
+    "expected": "PANNEAU, TABLIER DE GARDE-BOUE G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "pannéau tabliér dé gardé boué g",
+    "expected": "PANNEAU, TABLIER DE GARDE-BOUE G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "pànneàu tàblier de gàrde boue g",
+    "expected": "PANNEAU, TABLIER DE GARDE-BOUE G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "anneau tablier de garde boue g",
+    "expected": "PANNEAU, TABLIER DE GARDE-BOUE G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "apnneau tablier de garde boue g",
+    "expected": "PANNEAU, TABLIER DE GARDE-BOUE G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "parahuile",
+    "expected": "PARA HUILE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "huile para",
+    "expected": "PARA HUILE",
+    "found": true,
+    "topResult": "PARE HUILE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "pàrà huile",
+    "expected": "PARA HUILE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "apra huile",
+    "expected": "PARA HUILE",
+    "found": true,
+    "topResult": "FILTRE A HUILE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "para soleil g",
+    "expected": "PARA SOLEIL G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "parasoleilg",
+    "expected": "PARA SOLEIL G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "g soleil para",
+    "expected": "PARA SOLEIL G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "para soléil g",
+    "expected": "PARA SOLEIL G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "pàrà soleil g",
+    "expected": "PARA SOLEIL G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "apra soleil g",
+    "expected": "PARA SOLEIL G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "pare a boue ar g",
+    "expected": "PARE A BOUE AR G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "pareabouearg",
+    "expected": "PARE A BOUE AR G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "paré a boué ar g",
+    "expected": "PARE A BOUE AR G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "pàre à boue àr g",
+    "expected": "PARE A BOUE AR G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "pare a bour ar d",
+    "expected": "PARE A BOUR AR D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "pareabourard",
+    "expected": "PARE A BOUR AR D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "paré a bour ar d",
+    "expected": "PARE A BOUR AR D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "are a bour ar d",
+    "expected": "PARE A BOUR AR D",
+    "found": true,
+    "topResult": "BOITE A OUTILS",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "pàre à huile differentiel",
+    "expected": "PARE A HUILE DIFFERENTIEL",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "are a huile differentiel",
+    "expected": "PARE A HUILE DIFFERENTIEL",
+    "found": true,
+    "topResult": "AILE AV D",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "pàre à huile differentiel d",
+    "expected": "PARE A HUILE DIFFERENTIEL D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "are a huile differentiel d",
+    "expected": "PARE A HUILE DIFFERENTIEL D",
+    "found": true,
+    "topResult": "AILE AV D",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "pare boue av d",
+    "expected": "PARE BOUE AV D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "pareboueavd",
+    "expected": "PARE BOUE AV D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "pàre boue àv d",
+    "expected": "PARE BOUE AV D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "apre boue av d",
+    "expected": "PARE BOUE AV D",
+    "found": true,
+    "topResult": "BOITE A OUTILS",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "pare boue av g",
+    "expected": "PARE BOUE AV G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "pareboueavg",
+    "expected": "PARE BOUE AV G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "pàre boue àv g",
+    "expected": "PARE BOUE AV G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "apre boue av g",
+    "expected": "PARE BOUE AV G",
+    "found": true,
+    "topResult": "BOITE A OUTILS",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "pare brise",
+    "expected": "PARE BRISE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "parebrise",
+    "expected": "PARE BRISE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "paré brisé",
+    "expected": "PARE BRISE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "pàre brise",
+    "expected": "PARE BRISE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "apre brise",
+    "expected": "PARE BRISE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "pare choc ar d",
+    "expected": "PARE CHOC AR D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "parechocard",
+    "expected": "PARE CHOC AR D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "paré choc ar d",
+    "expected": "PARE CHOC AR D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "pàre choc àr d",
+    "expected": "PARE CHOC AR D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "apre choc ar d",
+    "expected": "PARE CHOC AR D",
+    "found": true,
+    "topResult": "TETE DURIT FILTRE A AIR",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "pare choc ar g",
+    "expected": "PARE CHOC AR G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "parechocarg",
+    "expected": "PARE CHOC AR G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "paré choc ar g",
+    "expected": "PARE CHOC AR G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "pàre choc àr g",
+    "expected": "PARE CHOC AR G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "apre choc ar g",
+    "expected": "PARE CHOC AR G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "pare huile",
+    "expected": "PARE HUILE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "parehuile",
+    "expected": "PARE HUILE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "huile pare",
+    "expected": "PARE HUILE",
+    "found": true,
+    "topResult": "PARA HUILE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "paré huilé",
+    "expected": "PARE HUILE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "pàre huile",
+    "expected": "PARE HUILE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "are huile",
+    "expected": "PARE HUILE",
+    "found": true,
+    "topResult": "PARA HUILE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "apre huile",
+    "expected": "PARE HUILE",
+    "found": true,
+    "topResult": "FILTRE A HUILE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "pàre huile àr villebrequin",
+    "expected": "PARE HUILE AR VILLEBREQUIN",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "apre huile ar villebrequin",
+    "expected": "PARE HUILE AR VILLEBREQUIN",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "passage de roue",
+    "expected": "PASSAGE DE ROUE",
+    "found": true,
+    "topResult": "PASSAGE ROUE D",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "passagederoue",
+    "expected": "PASSAGE DE ROUE",
+    "found": true,
+    "topResult": "PASSAGE ROUE D",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "roue de passage",
+    "expected": "PASSAGE DE ROUE",
+    "found": true,
+    "topResult": "PASSAGE ROUE D",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "passagé dé roué",
+    "expected": "PASSAGE DE ROUE",
+    "found": true,
+    "topResult": "PASSAGE ROUE D",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "pàssàge de roue",
+    "expected": "PASSAGE DE ROUE",
+    "found": true,
+    "topResult": "PASSAGE ROUE D",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "assage de roue",
+    "expected": "PASSAGE DE ROUE",
+    "found": true,
+    "topResult": "PASSAGE ROUE D",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "apssage de roue",
+    "expected": "PASSAGE DE ROUE",
+    "found": true,
+    "topResult": "PASSAGE ROUE D",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "passage de roue ard",
+    "expected": "PASSAGE DE ROUE ARD",
+    "found": true,
+    "topResult": "PASSAGE ROUE D",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "passagé dé roué ard",
+    "expected": "PASSAGE DE ROUE ARD",
+    "found": true,
+    "topResult": "PASSAGE ROUE D",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "assage de roue ard",
+    "expected": "PASSAGE DE ROUE ARD",
+    "found": true,
+    "topResult": "PARE A BOUR AR D",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "pignon arbre d entree 1 re",
+    "expected": "PIGNON,ARBRE D'ENTREE 1ÈRE",
+    "found": true,
+    "topResult": "PIGNON,ARBRE D'ENTREE 3ÈME",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "pignonarbredentree1re",
+    "expected": "PIGNON,ARBRE D'ENTREE 1ÈRE",
+    "found": true,
+    "topResult": "PIGNON,ARBRE D'ENTREE 3ÈME",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "re 1 entree d arbre pignon",
+    "expected": "PIGNON,ARBRE D'ENTREE 1ÈRE",
+    "found": true,
+    "topResult": "PIGNON,ARBRE D'ENTREE 3ÈME",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "pignon arbré d éntréé 1 ré",
+    "expected": "PIGNON,ARBRE D'ENTREE 1ÈRE",
+    "found": true,
+    "topResult": "PIGNON,ARBRE D'ENTREE 3ÈME",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "pignon àrbre d entree 1 re",
+    "expected": "PIGNON,ARBRE D'ENTREE 1ÈRE",
+    "found": true,
+    "topResult": "PIGNON,ARBRE D'ENTREE 3ÈME",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "ignon arbre d entree 1 re",
+    "expected": "PIGNON,ARBRE D'ENTREE 1ÈRE",
+    "found": true,
+    "topResult": "PIGNON,ARBRE D'ENTREE 3ÈME",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "ipgnon arbre d entree 1 re",
+    "expected": "PIGNON,ARBRE D'ENTREE 1ÈRE",
+    "found": true,
+    "topResult": "PIGNON,ARBRE D'ENTREE 3ÈME",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "pignon arbre d entree 2 me",
+    "expected": "PIGNON,ARBRE D'ENTREE 2ÈME",
+    "found": true,
+    "topResult": "PIGNON,ARBRE D'ENTREE 3ÈME",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "pignonarbredentree2me",
+    "expected": "PIGNON,ARBRE D'ENTREE 2ÈME",
+    "found": true,
+    "topResult": "PIGNON,ARBRE D'ENTREE 3ÈME",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "me 2 entree d arbre pignon",
+    "expected": "PIGNON,ARBRE D'ENTREE 2ÈME",
+    "found": true,
+    "topResult": "PIGNON,ARBRE D'ENTREE 3ÈME",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "pignon arbré d éntréé 2 mé",
+    "expected": "PIGNON,ARBRE D'ENTREE 2ÈME",
+    "found": true,
+    "topResult": "PIGNON,ARBRE D'ENTREE 3ÈME",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "pignon àrbre d entree 2 me",
+    "expected": "PIGNON,ARBRE D'ENTREE 2ÈME",
+    "found": true,
+    "topResult": "PIGNON,ARBRE D'ENTREE 3ÈME",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "ignon arbre d entree 2 me",
+    "expected": "PIGNON,ARBRE D'ENTREE 2ÈME",
+    "found": true,
+    "topResult": "PIGNON,ARBRE D'ENTREE 3ÈME",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "ipgnon arbre d entree 2 me",
+    "expected": "PIGNON,ARBRE D'ENTREE 2ÈME",
+    "found": true,
+    "topResult": "PIGNON,ARBRE D'ENTREE 3ÈME",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "in de fourchette",
+    "expected": "PIN DE FOURCHETTE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "lpanche ar",
+    "expected": "PLANCHE AR",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "plaque5memoyeudesynchronisation",
+    "expected": "PLAQUE 5ÈME MOYEU DE SYNCHRONISATION",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "plaqué 5 mé moyéu dé synchronisation",
+    "expected": "PLAQUE 5ÈME MOYEU DE SYNCHRONISATION",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "plaquefreinard",
+    "expected": "PLAQUE FREIN AR D",
+    "found": true,
+    "topResult": "JEU DE PLAQUETTES DE FREIN",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "plaque moyeu synchro 5 me",
+    "expected": "PLAQUE MOYEU SYNCHRO 5ÈME",
+    "found": true,
+    "topResult": "PLAQUE 5ÈME MOYEU DE SYNCHRONISATION",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "plaquemoyeusynchro5me",
+    "expected": "PLAQUE MOYEU SYNCHRO 5ÈME",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "me 5 synchro moyeu plaque",
+    "expected": "PLAQUE MOYEU SYNCHRO 5ÈME",
+    "found": true,
+    "topResult": "PLAQUE 5ÈME MOYEU DE SYNCHRONISATION",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "plaqué moyéu synchro 5 mé",
+    "expected": "PLAQUE MOYEU SYNCHRO 5ÈME",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "plàque moyeu synchro 5 me",
+    "expected": "PLAQUE MOYEU SYNCHRO 5ÈME",
+    "found": true,
+    "topResult": "PLAQUE 5ÈME MOYEU DE SYNCHRONISATION",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "laque moyeu synchro 5 me",
+    "expected": "PLAQUE MOYEU SYNCHRO 5ÈME",
+    "found": true,
+    "topResult": "PLAQUE 5ÈME MOYEU DE SYNCHRONISATION",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "lpaque moyeu synchro 5 me",
+    "expected": "PLAQUE MOYEU SYNCHRO 5ÈME",
+    "found": true,
+    "topResult": "PLAQUE 5ÈME MOYEU DE SYNCHRONISATION",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "plaqueclaisondecarterdhuile",
+    "expected": "PLAQUE, CLAISON DE CARTER D’HUILE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "plaqué claison dé cartér d huilé",
+    "expected": "PLAQUE, CLAISON DE CARTER D’HUILE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "plateauembrayage",
+    "expected": "PLATEAU EMBRAYAGE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "embrayage plateau",
+    "expected": "PLATEAU EMBRAYAGE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "platéau émbrayagé",
+    "expected": "PLATEAU EMBRAYAGE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "plàteàu embràyàge",
+    "expected": "PLATEAU EMBRAYAGE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "lateau embrayage",
+    "expected": "PLATEAU EMBRAYAGE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "plateauembrayage",
+    "expected": "PLATEAU EMBRAYAGE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "embrayage plateau",
+    "expected": "PLATEAU EMBRAYAGE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "platéau émbrayagé",
+    "expected": "PLATEAU EMBRAYAGE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "plàteàu embràyàge",
+    "expected": "PLATEAU EMBRAYAGE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "lateau embrayage",
+    "expected": "PLATEAU EMBRAYAGE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "plateau synchroniseur 5 vitesse",
+    "expected": "PLATEAU SYNCHRONISEUR 5ᵉ VITESSE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "plateausynchroniseur5vitesse",
+    "expected": "PLATEAU SYNCHRONISEUR 5ᵉ VITESSE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "vitesse 5 synchroniseur plateau",
+    "expected": "PLATEAU SYNCHRONISEUR 5ᵉ VITESSE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "platéau synchroniséur 5 vitéssé",
+    "expected": "PLATEAU SYNCHRONISEUR 5ᵉ VITESSE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "plàteàu synchroniseur 5 vitesse",
+    "expected": "PLATEAU SYNCHRONISEUR 5ᵉ VITESSE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "lateau synchroniseur 5 vitesse",
+    "expected": "PLATEAU SYNCHRONISEUR 5ᵉ VITESSE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "lpateau synchroniseur 5 vitesse",
+    "expected": "PLATEAU SYNCHRONISEUR 5ᵉ VITESSE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "g interieur poignee",
+    "expected": "POIGNEE INTERIEUR G",
+    "found": true,
+    "topResult": "POIGNE INTERRIEUR D",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "pompe a eau",
+    "expected": "POMPE A EAU",
+    "found": true,
+    "topResult": "TIRAN DE PORTE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "pompeaeau",
+    "expected": "POMPE A EAU",
+    "found": true,
+    "topResult": "TIRAN DE PORTE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "eau a pompe",
+    "expected": "POMPE A EAU",
+    "found": true,
+    "topResult": "TIRAN DE PORTE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "pompé a éau",
+    "expected": "POMPE A EAU",
+    "found": true,
+    "topResult": "TIRAN DE PORTE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "pompe à eàu",
+    "expected": "POMPE A EAU",
+    "found": true,
+    "topResult": "TIRAN DE PORTE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "ompe a eau",
+    "expected": "POMPE A EAU",
+    "found": true,
+    "topResult": "TIRAN DE PORTE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "opmpe a eau",
+    "expected": "POMPE A EAU",
+    "found": true,
+    "topResult": "TIRAN DE PORTE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "ervettment de toit",
+    "expected": "REVETTMENT DE TOIT",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "rondelle durite flexible disque av",
+    "expected": "RONDELLE DURITE FLEXIBLE DISQUE AV",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "rondelleduriteflexibledisqueav",
+    "expected": "RONDELLE DURITE FLEXIBLE DISQUE AV",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "av disque flexible durite rondelle",
+    "expected": "RONDELLE DURITE FLEXIBLE DISQUE AV",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "rondéllé durité fléxiblé disqué av",
+    "expected": "RONDELLE DURITE FLEXIBLE DISQUE AV",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "rondelle durite flexible disque àv",
+    "expected": "RONDELLE DURITE FLEXIBLE DISQUE AV",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "ondelle durite flexible disque av",
+    "expected": "RONDELLE DURITE FLEXIBLE DISQUE AV",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "orndelle durite flexible disque av",
+    "expected": "RONDELLE DURITE FLEXIBLE DISQUE AV",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "vitesse me 5 roulement",
+    "expected": "ROULEMENT 5ÈME VITESSE",
+    "found": true,
+    "topResult": "ROULMENT BOITE DE VITESSE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "roulémént 5 mé vitéssé",
+    "expected": "ROULEMENT 5ÈME VITESSE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "vitesse me 5 roulement",
+    "expected": "ROULEMENT 5ÈME VITESSE",
+    "found": true,
+    "topResult": "ROULMENT BOITE DE VITESSE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "roulémént 5 mé vitéssé",
+    "expected": "ROULEMENT 5ÈME VITESSE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "roulement bielle inf std t 2 0",
+    "expected": "ROULEMENT BIELLE INF (STD,T:2.0)",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "roulémént biéllé inf std t 2 0",
+    "expected": "ROULEMENT BIELLE INF (STD,T:2.0)",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "oulement bielle inf std t 2 0",
+    "expected": "ROULEMENT BIELLE INF (STD,T:2.0)",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "orulement bielle inf std t 2 0",
+    "expected": "ROULEMENT BIELLE INF (STD,T:2.0)",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "roulement bielle inf std t 2 0",
+    "expected": "ROULEMENT BIELLE INF (STD,T:2.0)",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "roulémént biéllé inf std t 2 0",
+    "expected": "ROULEMENT BIELLE INF (STD,T:2.0)",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "oulement bielle inf std t 2 0",
+    "expected": "ROULEMENT BIELLE INF (STD,T:2.0)",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "orulement bielle inf std t 2 0",
+    "expected": "ROULEMENT BIELLE INF (STD,T:2.0)",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "roulement bielle inf std t 2 0",
+    "expected": "ROULEMENT BIELLE INF (STD,T:2.0)",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "roulémént biéllé inf std t 2 0",
+    "expected": "ROULEMENT BIELLE INF (STD,T:2.0)",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "oulement bielle inf std t 2 0",
+    "expected": "ROULEMENT BIELLE INF (STD,T:2.0)",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "orulement bielle inf std t 2 0",
+    "expected": "ROULEMENT BIELLE INF (STD,T:2.0)",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "roulement bielle inf std t 2 0",
+    "expected": "ROULEMENT BIELLE INF (STD,T:2.0)",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "roulémént biéllé inf std t 2 0",
+    "expected": "ROULEMENT BIELLE INF (STD,T:2.0)",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "oulement bielle inf std t 2 0",
+    "expected": "ROULEMENT BIELLE INF (STD,T:2.0)",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "orulement bielle inf std t 2 0",
+    "expected": "ROULEMENT BIELLE INF (STD,T:2.0)",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "roulementbielleinfus025t2125",
+    "expected": "ROULEMENT BIELLE INF (US:0.25,T:2.125)",
+    "found": true,
+    "topResult": "ROULEMENT BIELLE INF (STD,T:2.0)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "roulementbielleinfus025t2125",
+    "expected": "ROULEMENT BIELLE INF (US:0.25,T:2.125)",
+    "found": true,
+    "topResult": "ROULEMENT BIELLE INF (STD,T:2.0)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "roulementbielleinfus025t2125",
+    "expected": "ROULEMENT BIELLE INF (US:0.25,T:2.125)",
+    "found": true,
+    "topResult": "ROULEMENT BIELLE INF (STD,T:2.0)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "roulementbielleinfus025t2125",
+    "expected": "ROULEMENT BIELLE INF (US:0.25,T:2.125)",
+    "found": true,
+    "topResult": "ROULEMENT BIELLE INF (STD,T:2.0)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "white 125 2 t 25 0 us inf bielle roulement",
+    "expected": "ROULEMENT BIELLE INF (US:0.25,T:2.125,WHITE)",
+    "found": true,
+    "topResult": "ROULEMENT BIELLE INF (STD,T:2.0)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "roulémént biéllé inf us 0 25 t 2 125 whité",
+    "expected": "ROULEMENT BIELLE INF (US:0.25,T:2.125,WHITE)",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "roulement bielle sup us 0 25 t 2 125",
+    "expected": "ROULEMENT BIELLE SUP ((US:0.25,T:2.125)",
+    "found": true,
+    "topResult": "ROULEMENT BIELLE INF (US:0.25,T:2.125)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "roulementbiellesupus025t2125",
+    "expected": "ROULEMENT BIELLE SUP ((US:0.25,T:2.125)",
+    "found": true,
+    "topResult": "ROULEMENT BIELLE SUP (STD, T:2,0)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "125 2 t 25 0 us sup bielle roulement",
+    "expected": "ROULEMENT BIELLE SUP ((US:0.25,T:2.125)",
+    "found": true,
+    "topResult": "ROULEMENT BIELLE INF (US:0.25,T:2.125)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "roulémént biéllé sup us 0 25 t 2 125",
+    "expected": "ROULEMENT BIELLE SUP ((US:0.25,T:2.125)",
+    "found": true,
+    "topResult": "ROULEMENT BIELLE INF (US:0.25,T:2.125)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "oulement bielle sup us 0 25 t 2 125",
+    "expected": "ROULEMENT BIELLE SUP ((US:0.25,T:2.125)",
+    "found": true,
+    "topResult": "ROULEMENT BIELLE INF (US:0.25,T:2.125)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "orulement bielle sup us 0 25 t 2 125",
+    "expected": "ROULEMENT BIELLE SUP ((US:0.25,T:2.125)",
+    "found": true,
+    "topResult": "ROULEMENT BIELLE INF (US:0.25,T:2.125)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "roulement bielle sup std t 2 0",
+    "expected": "ROULEMENT BIELLE SUP (STD, T:2,0)",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "roulementbiellesupstdt20",
+    "expected": "ROULEMENT BIELLE SUP (STD, T:2,0)",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "roulémént biéllé sup std t 2 0",
+    "expected": "ROULEMENT BIELLE SUP (STD, T:2,0)",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "oulement bielle sup std t 2 0",
+    "expected": "ROULEMENT BIELLE SUP (STD, T:2,0)",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "orulement bielle sup std t 2 0",
+    "expected": "ROULEMENT BIELLE SUP (STD, T:2,0)",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "roulement bielle sup std t 2 0",
+    "expected": "ROULEMENT BIELLE SUP (STD, T:2,0)",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "roulementbiellesupstdt20",
+    "expected": "ROULEMENT BIELLE SUP (STD, T:2,0)",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "roulémént biéllé sup std t 2 0",
+    "expected": "ROULEMENT BIELLE SUP (STD, T:2,0)",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "oulement bielle sup std t 2 0",
+    "expected": "ROULEMENT BIELLE SUP (STD, T:2,0)",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "orulement bielle sup std t 2 0",
+    "expected": "ROULEMENT BIELLE SUP (STD, T:2,0)",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "roulement bielle sup std t 2 0",
+    "expected": "ROULEMENT BIELLE SUP (STD,T:2.0)",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "roulementbiellesupstdt20",
+    "expected": "ROULEMENT BIELLE SUP (STD,T:2.0)",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "0 2 t std sup bielle roulement",
+    "expected": "ROULEMENT BIELLE SUP (STD,T:2.0)",
+    "found": true,
+    "topResult": "ROULEMENT BIELLE SUP (STD, T:2,0)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "roulémént biéllé sup std t 2 0",
+    "expected": "ROULEMENT BIELLE SUP (STD,T:2.0)",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "oulement bielle sup std t 2 0",
+    "expected": "ROULEMENT BIELLE SUP (STD,T:2.0)",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "orulement bielle sup std t 2 0",
+    "expected": "ROULEMENT BIELLE SUP (STD,T:2.0)",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "roulement bielle sup std t 2 0",
+    "expected": "ROULEMENT BIELLE SUP (STD,T:2.0)",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "roulementbiellesupstdt20",
+    "expected": "ROULEMENT BIELLE SUP (STD,T:2.0)",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "0 2 t std sup bielle roulement",
+    "expected": "ROULEMENT BIELLE SUP (STD,T:2.0)",
+    "found": true,
+    "topResult": "ROULEMENT BIELLE SUP (STD, T:2,0)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "roulémént biéllé sup std t 2 0",
+    "expected": "ROULEMENT BIELLE SUP (STD,T:2.0)",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "oulement bielle sup std t 2 0",
+    "expected": "ROULEMENT BIELLE SUP (STD,T:2.0)",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "orulement bielle sup std t 2 0",
+    "expected": "ROULEMENT BIELLE SUP (STD,T:2.0)",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "roulement bielle sup std t 2 0",
+    "expected": "ROULEMENT BIELLE SUP (STD,T:2.0)",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "roulementbiellesupstdt20",
+    "expected": "ROULEMENT BIELLE SUP (STD,T:2.0)",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "0 2 t std sup bielle roulement",
+    "expected": "ROULEMENT BIELLE SUP (STD,T:2.0)",
+    "found": true,
+    "topResult": "ROULEMENT BIELLE SUP (STD, T:2,0)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "roulémént biéllé sup std t 2 0",
+    "expected": "ROULEMENT BIELLE SUP (STD,T:2.0)",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "oulement bielle sup std t 2 0",
+    "expected": "ROULEMENT BIELLE SUP (STD,T:2.0)",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "orulement bielle sup std t 2 0",
+    "expected": "ROULEMENT BIELLE SUP (STD,T:2.0)",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "roulement bielle sup std t 2 0",
+    "expected": "ROULEMENT BIELLE SUP (STD,T:2.0)",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "roulementbiellesupstdt20",
+    "expected": "ROULEMENT BIELLE SUP (STD,T:2.0)",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "0 2 t std sup bielle roulement",
+    "expected": "ROULEMENT BIELLE SUP (STD,T:2.0)",
+    "found": true,
+    "topResult": "ROULEMENT BIELLE SUP (STD, T:2,0)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "roulémént biéllé sup std t 2 0",
+    "expected": "ROULEMENT BIELLE SUP (STD,T:2.0)",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "oulement bielle sup std t 2 0",
+    "expected": "ROULEMENT BIELLE SUP (STD,T:2.0)",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "orulement bielle sup std t 2 0",
+    "expected": "ROULEMENT BIELLE SUP (STD,T:2.0)",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "roulement bielle sup us 0 25 t 2 125",
+    "expected": "ROULEMENT BIELLE SUP (US:0,25, T:2,125)",
+    "found": true,
+    "topResult": "ROULEMENT BIELLE INF (US:0.25,T:2.125)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "roulementbiellesupus025t2125",
+    "expected": "ROULEMENT BIELLE SUP (US:0,25, T:2,125)",
+    "found": true,
+    "topResult": "ROULEMENT BIELLE SUP (STD, T:2,0)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "125 2 t 25 0 us sup bielle roulement",
+    "expected": "ROULEMENT BIELLE SUP (US:0,25, T:2,125)",
+    "found": true,
+    "topResult": "ROULEMENT BIELLE INF (US:0.25,T:2.125)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "roulémént biéllé sup us 0 25 t 2 125",
+    "expected": "ROULEMENT BIELLE SUP (US:0,25, T:2,125)",
+    "found": true,
+    "topResult": "ROULEMENT BIELLE INF (US:0.25,T:2.125)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "oulement bielle sup us 0 25 t 2 125",
+    "expected": "ROULEMENT BIELLE SUP (US:0,25, T:2,125)",
+    "found": true,
+    "topResult": "ROULEMENT BIELLE INF (US:0.25,T:2.125)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "orulement bielle sup us 0 25 t 2 125",
+    "expected": "ROULEMENT BIELLE SUP (US:0,25, T:2,125)",
+    "found": true,
+    "topResult": "ROULEMENT BIELLE INF (US:0.25,T:2.125)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "roulement bielle sup us 0 25 t 2 125",
+    "expected": "ROULEMENT BIELLE SUP (US:0.25,T:2.125)",
+    "found": true,
+    "topResult": "ROULEMENT BIELLE INF (US:0.25,T:2.125)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "roulementbiellesupus025t2125",
+    "expected": "ROULEMENT BIELLE SUP (US:0.25,T:2.125)",
+    "found": true,
+    "topResult": "ROULEMENT BIELLE SUP (STD, T:2,0)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "125 2 t 25 0 us sup bielle roulement",
+    "expected": "ROULEMENT BIELLE SUP (US:0.25,T:2.125)",
+    "found": true,
+    "topResult": "ROULEMENT BIELLE INF (US:0.25,T:2.125)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "roulémént biéllé sup us 0 25 t 2 125",
+    "expected": "ROULEMENT BIELLE SUP (US:0.25,T:2.125)",
+    "found": true,
+    "topResult": "ROULEMENT BIELLE INF (US:0.25,T:2.125)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "oulement bielle sup us 0 25 t 2 125",
+    "expected": "ROULEMENT BIELLE SUP (US:0.25,T:2.125)",
+    "found": true,
+    "topResult": "ROULEMENT BIELLE INF (US:0.25,T:2.125)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "orulement bielle sup us 0 25 t 2 125",
+    "expected": "ROULEMENT BIELLE SUP (US:0.25,T:2.125)",
+    "found": true,
+    "topResult": "ROULEMENT BIELLE INF (US:0.25,T:2.125)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "roulement bielle sup us 0 25 t 2 125",
+    "expected": "ROULEMENT BIELLE SUP (US:0.25,T:2.125)",
+    "found": true,
+    "topResult": "ROULEMENT BIELLE INF (US:0.25,T:2.125)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "roulementbiellesupus025t2125",
+    "expected": "ROULEMENT BIELLE SUP (US:0.25,T:2.125)",
+    "found": true,
+    "topResult": "ROULEMENT BIELLE SUP (STD, T:2,0)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "125 2 t 25 0 us sup bielle roulement",
+    "expected": "ROULEMENT BIELLE SUP (US:0.25,T:2.125)",
+    "found": true,
+    "topResult": "ROULEMENT BIELLE INF (US:0.25,T:2.125)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "roulémént biéllé sup us 0 25 t 2 125",
+    "expected": "ROULEMENT BIELLE SUP (US:0.25,T:2.125)",
+    "found": true,
+    "topResult": "ROULEMENT BIELLE INF (US:0.25,T:2.125)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "oulement bielle sup us 0 25 t 2 125",
+    "expected": "ROULEMENT BIELLE SUP (US:0.25,T:2.125)",
+    "found": true,
+    "topResult": "ROULEMENT BIELLE INF (US:0.25,T:2.125)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "orulement bielle sup us 0 25 t 2 125",
+    "expected": "ROULEMENT BIELLE SUP (US:0.25,T:2.125)",
+    "found": true,
+    "topResult": "ROULEMENT BIELLE INF (US:0.25,T:2.125)",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "vitesse boite roulement",
+    "expected": "ROULEMENT BOITE VITESSE",
+    "found": true,
+    "topResult": "ROULMENT BOITE DE VITESSE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "roulement3meet4mevitesse",
+    "expected": "ROULEMENT3ÈME ET 4ÈME VITESSE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "vitesse me 4 et me roulement3",
+    "expected": "ROULEMENT3ÈME ET 4ÈME VITESSE",
+    "found": true,
+    "topResult": "ROULMENT BOITE DE VITESSE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "roulment boite vitesse",
+    "expected": "ROULMENT BOITE VITESSE",
+    "found": true,
+    "topResult": "ROULEMENT BOITE VITESSE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "roulmentboitevitesse",
+    "expected": "ROULMENT BOITE VITESSE",
+    "found": true,
+    "topResult": "ROULMENT BOITE DE VITESSE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "vitesse boite roulment",
+    "expected": "ROULMENT BOITE VITESSE",
+    "found": true,
+    "topResult": "ROULMENT BOITE DE VITESSE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "roulmént boité vitéssé",
+    "expected": "ROULMENT BOITE VITESSE",
+    "found": true,
+    "topResult": "ROULEMENT BOITE VITESSE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "oulment boite vitesse",
+    "expected": "ROULMENT BOITE VITESSE",
+    "found": true,
+    "topResult": "ROULMENT BOITE DE VITESSE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "orulment boite vitesse",
+    "expected": "ROULMENT BOITE VITESSE",
+    "found": true,
+    "topResult": "ROULEMENT BOITE VITESSE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "roulment boite vitesse",
+    "expected": "ROULMENT BOITE VITESSE",
+    "found": true,
+    "topResult": "ROULEMENT BOITE VITESSE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "roulmentboitevitesse",
+    "expected": "ROULMENT BOITE VITESSE",
+    "found": true,
+    "topResult": "ROULMENT BOITE DE VITESSE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "vitesse boite roulment",
+    "expected": "ROULMENT BOITE VITESSE",
+    "found": true,
+    "topResult": "ROULMENT BOITE DE VITESSE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "roulmént boité vitéssé",
+    "expected": "ROULMENT BOITE VITESSE",
+    "found": true,
+    "topResult": "ROULEMENT BOITE VITESSE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "oulment boite vitesse",
+    "expected": "ROULMENT BOITE VITESSE",
+    "found": true,
+    "topResult": "ROULMENT BOITE DE VITESSE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "orulment boite vitesse",
+    "expected": "ROULMENT BOITE VITESSE",
+    "found": true,
+    "topResult": "ROULEMENT BOITE VITESSE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "d laterale section",
+    "expected": "SECTION LATERALE D",
+    "found": true,
+    "topResult": "SECTION LATERAL G",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "séction latéralé d",
+    "expected": "SECTION LATERALE D",
+    "found": true,
+    "topResult": "SECTION LATERAL G",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "sensor assy clutch speed",
+    "expected": "SENSOR ASSY,CLUTCH SPEED",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "sensorassyclutchspeed",
+    "expected": "SENSOR ASSY,CLUTCH SPEED",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "speed clutch assy sensor",
+    "expected": "SENSOR ASSY,CLUTCH SPEED",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "sénsor assy clutch spééd",
+    "expected": "SENSOR ASSY,CLUTCH SPEED",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "sensor àssy clutch speed",
+    "expected": "SENSOR ASSY,CLUTCH SPEED",
+    "found": true,
+    "topResult": "CAPTEUR DE VITESSE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "ensor assy clutch speed",
+    "expected": "SENSOR ASSY,CLUTCH SPEED",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "esnsor assy clutch speed",
+    "expected": "SENSOR ASSY,CLUTCH SPEED",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "errure capot",
+    "expected": "SERRURE CAPOT",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "sérruré clé dé porté",
+    "expected": "SERRURE CLE DE PORTE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "errure de male ar",
+    "expected": "SERRURE DE MALE AR",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "errure reservoir",
+    "expected": "SERRURE RESERVOIR",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "errure siege ar d",
+    "expected": "SERRURE SIEGE AR D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "errure siege ar d",
+    "expected": "SERRURE SIEGE AR D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "errure siege ar g",
+    "expected": "SERRURE SIEGE AR G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "iege ressort d ammortisseur av",
+    "expected": "SIEGE RESSORT D'AMMORTISSEUR AV",
+    "found": true,
+    "topResult": "TOCS RESSORT A BOUDAIN",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "isege ressort d ammortisseur av",
+    "expected": "SIEGE RESSORT D'AMMORTISSEUR AV",
+    "found": true,
+    "topResult": "TOCS RESSORT A BOUDAIN",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "igle de calandre",
+    "expected": "SIGLE DE CALANDRE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "siglesuzuki",
+    "expected": "SIGLE SUZUKI",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "siglé suzuki",
+    "expected": "SIGLE SUZUKI",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "sondelambdasupp",
+    "expected": "SONDE LAMBDA SUPP",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "sonde làmbdà supp",
+    "expected": "SONDE LAMBDA SUPP",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "osnde lambda supp",
+    "expected": "SONDE LAMBDA SUPP",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "cremaillere soufflet",
+    "expected": "SOUFFLET CREMAILLERE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "oufflet cremaillere",
+    "expected": "SOUFFLET CREMAILLERE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "osupape admission",
+    "expected": "SOUPAPE ADMISSION",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "osupape echappement",
+    "expected": "SOUPAPE ECHAPPEMENT",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "support pannéau dé porté",
+    "expected": "SUPPORT PANNEAU DE PORTE",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "support tete traverse radiateur d 2",
+    "expected": "SUPPORT TETE TRAVERSE RADIATEUR D 2",
+    "found": true,
+    "topResult": "SUPPORT TETE TRAVERSE RADIATEUR D 1",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "supporttetetraverseradiateurd2",
+    "expected": "SUPPORT TETE TRAVERSE RADIATEUR D 2",
+    "found": true,
+    "topResult": "SUPPORT TETE TRAVERSE RADIATEUR D 1",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "2 d radiateur traverse tete support",
+    "expected": "SUPPORT TETE TRAVERSE RADIATEUR D 2",
+    "found": true,
+    "topResult": "SUPPORT TETE TRAVERSE RADIATEUR D 1",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "uspport tete traverse radiateur d 2",
+    "expected": "SUPPORT TETE TRAVERSE RADIATEUR D 2",
+    "found": true,
+    "topResult": "SUPPORT TETE TRAVERSE RADIATEUR D 1",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "synchro 2eme vitesse",
+    "expected": "SYNCHRO 2EME VITESSE",
+    "found": true,
+    "topResult": "SYNCHRO 2éme VITESSE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "synchro 2émé vitéssé",
+    "expected": "SYNCHRO 2EME VITESSE",
+    "found": true,
+    "topResult": "SYNCHRO 2éme VITESSE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "ynchro 2eme vitesse",
+    "expected": "SYNCHRO 2EME VITESSE",
+    "found": true,
+    "topResult": "SYNCHRO 2éme VITESSE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "vitesse me 2 synchro",
+    "expected": "SYNCHRO 2éme VITESSE",
+    "found": true,
+    "topResult": "RING SYNCHRONISEUR DE VITESSE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "synchro 2 mé vitéssé",
+    "expected": "SYNCHRO 2éme VITESSE",
+    "found": true,
+    "topResult": "SYNCHRO 1ER VITESSE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "vitesse me 2 synchro",
+    "expected": "SYNCHRO 2éme VITESSE",
+    "found": true,
+    "topResult": "RING SYNCHRONISEUR DE VITESSE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "synchro 2 mé vitéssé",
+    "expected": "SYNCHRO 2éme VITESSE",
+    "found": true,
+    "topResult": "SYNCHRO 1ER VITESSE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "vitesse re 1 anneau synchro",
+    "expected": "SYNCHRO ANNEAU 1ÈRE VITESSE",
+    "found": true,
+    "topResult": "ANNEAU DE SYNCHRO 2ÈME VITESSE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "synchro ànneàu 1 re vitesse",
+    "expected": "SYNCHRO ANNEAU 1ÈRE VITESSE",
+    "found": true,
+    "topResult": "ANNEAU DE SYNCHRO 2ÈME VITESSE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "vitesse re 1 anneau synchro",
+    "expected": "SYNCHRO ANNEAU 1ÈRE VITESSE",
+    "found": true,
+    "topResult": "ANNEAU DE SYNCHRO 2ÈME VITESSE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "synchro ànneàu 1 re vitesse",
+    "expected": "SYNCHRO ANNEAU 1ÈRE VITESSE",
+    "found": true,
+    "topResult": "ANNEAU DE SYNCHRO 2ÈME VITESSE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "tàbleàu de bord",
+    "expected": "TABLEAU DE BORD",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "ambour de frien",
+    "expected": "TAMBOUR DE FRIEN",
+    "found": true,
+    "topResult": "PLAQUE FREIN AR D",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "tensionneurchainededistribution",
+    "expected": "TENSIONNEUR CHAINE DE DISTRIBUTION",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "ténsionnéur chainé dé distribution",
+    "expected": "TENSIONNEUR CHAINE DE DISTRIBUTION",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "ensionneur chaine de distribution",
+    "expected": "TENSIONNEUR CHAINE DE DISTRIBUTION",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "etnsionneur chaine de distribution",
+    "expected": "TENSIONNEUR CHAINE DE DISTRIBUTION",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "tirant de porte",
+    "expected": "TIRANT DE PORTE",
+    "found": true,
+    "topResult": "TIRAN DE PORTE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "tirantdeporte",
+    "expected": "TIRANT DE PORTE",
+    "found": true,
+    "topResult": "TIRAN DE PORTE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "porte de tirant",
+    "expected": "TIRANT DE PORTE",
+    "found": true,
+    "topResult": "TIRAN DE PORTE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "tirant dé porté",
+    "expected": "TIRANT DE PORTE",
+    "found": true,
+    "topResult": "TIRAN DE PORTE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "tirànt de porte",
+    "expected": "TIRANT DE PORTE",
+    "found": true,
+    "topResult": "TIRAN DE PORTE",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "irant de porte",
+    "expected": "TIRANT DE PORTE",
+    "found": true,
+    "topResult": "PORTE AV D",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "oc amortisseur",
+    "expected": "TOC AMORTISSEUR",
+    "found": true,
+    "topResult": "AMORTISSEUR AR",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "otc amortisseur",
+    "expected": "TOC AMORTISSEUR",
+    "found": true,
+    "topResult": "AMORTISSEUR AR",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "tocs amortisseur",
+    "expected": "TOCS AMORTISSEUR",
+    "found": true,
+    "topResult": "TOC AMORTISSEUR",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "tocsamortisseur",
+    "expected": "TOCS AMORTISSEUR",
+    "found": true,
+    "topResult": "TOC AMORTISSEUR",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "amortisseur tocs",
+    "expected": "TOCS AMORTISSEUR",
+    "found": true,
+    "topResult": "TOC AMORTISSEUR",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "tocs amortisséur",
+    "expected": "TOCS AMORTISSEUR",
+    "found": true,
+    "topResult": "TOC AMORTISSEUR",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "tocs àmortisseur",
+    "expected": "TOCS AMORTISSEUR",
+    "found": true,
+    "topResult": "TOC AMORTISSEUR",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "ocs amortisseur",
+    "expected": "TOCS AMORTISSEUR",
+    "found": true,
+    "topResult": "TOC AMORTISSEUR",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "olle longerons g",
+    "expected": "TOLLE LONGERONS G",
+    "found": true,
+    "topResult": "LONGERON G",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "rtaverse plancher ar g",
+    "expected": "TRAVERSE PLANCHER AR G",
+    "found": true,
+    "topResult": "CACHE RETROVISEUR G",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "rtaverse radiateur",
+    "expected": "TRAVERSE RADIATEUR",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "triangle av d",
+    "expected": "TRIANGLE AV D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "triangleavd",
+    "expected": "TRIANGLE AV D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "d av triangle",
+    "expected": "TRIANGLE AV D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "triàngle àv d",
+    "expected": "TRIANGLE AV D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "riangle av d",
+    "expected": "TRIANGLE AV D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "rtiangle av d",
+    "expected": "TRIANGLE AV D",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "triangle av g",
+    "expected": "TRIANGLE AV G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "triangleavg",
+    "expected": "TRIANGLE AV G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "g av triangle",
+    "expected": "TRIANGLE AV G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "triàngle àv g",
+    "expected": "TRIANGLE AV G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "riangle av g",
+    "expected": "TRIANGLE AV G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "rtiangle av g",
+    "expected": "TRIANGLE AV G",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "canister valve",
+    "expected": "VALVE CANISTER",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "avlve canister",
+    "expected": "VALVE CANISTER",
+    "found": false,
+    "topResult": null,
+    "isCorrect": false,
+    "productsCount": 0
+  },
+  {
+    "query": "ase d eau",
+    "expected": "VASE D'EAU",
+    "found": true,
+    "topResult": "AILE AV D",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "avse d eau",
+    "expected": "VASE D'EAU",
+    "found": true,
+    "topResult": "BERCEAU AV",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "ilbrequin",
+    "expected": "VILBREQUIN",
+    "found": true,
+    "topResult": "CAPTEUR ARBRE A CAMME",
+    "isCorrect": false,
+    "productsCount": 1
+  },
+  {
+    "query": "vitrearg",
+    "expected": "VITRE AR G",
+    "found": true,
+    "topResult": "VITRE AR D",
+    "isCorrect": false,
+    "productsCount": 1
+  }
+]

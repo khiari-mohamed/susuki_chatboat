@@ -1,0 +1,683 @@
+{
+  "production": {
+    "_prisma_migrations": {
+      "name": "_prisma_migrations",
+      "rowCount": 3,
+      "columns": [
+        {
+          "name": "id",
+          "type": "character varying",
+          "nullable": false,
+          "isPrimaryKey": true
+        },
+        {
+          "name": "checksum",
+          "type": "character varying",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "finished_at",
+          "type": "timestamp with time zone",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "migration_name",
+          "type": "character varying",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "logs",
+          "type": "text",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "rolled_back_at",
+          "type": "timestamp with time zone",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "started_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "applied_steps_count",
+          "type": "integer",
+          "nullable": false,
+          "isPrimaryKey": false
+        }
+      ]
+    },
+    "chat_feedback": {
+      "name": "chat_feedback",
+      "rowCount": 1,
+      "columns": [
+        {
+          "name": "id",
+          "type": "text",
+          "nullable": false,
+          "isPrimaryKey": true
+        },
+        {
+          "name": "message_id",
+          "type": "text",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "rating",
+          "type": "integer",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "comment",
+          "type": "text",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp without time zone",
+          "nullable": false,
+          "isPrimaryKey": false
+        }
+      ]
+    },
+    "chat_messages": {
+      "name": "chat_messages",
+      "rowCount": 33034,
+      "columns": [
+        {
+          "name": "id",
+          "type": "text",
+          "nullable": false,
+          "isPrimaryKey": true
+        },
+        {
+          "name": "session_id",
+          "type": "text",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "sender",
+          "type": "text",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "message",
+          "type": "text",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "timestamp",
+          "type": "timestamp without time zone",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "metadata",
+          "type": "jsonb",
+          "nullable": true,
+          "isPrimaryKey": false
+        }
+      ]
+    },
+    "chat_prompts": {
+      "name": "chat_prompts",
+      "rowCount": 706,
+      "columns": [
+        {
+          "name": "id",
+          "type": "text",
+          "nullable": false,
+          "isPrimaryKey": true
+        },
+        {
+          "name": "session_id",
+          "type": "text",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "prompt_text",
+          "type": "text",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "response_text",
+          "type": "text",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "model",
+          "type": "text",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "tokens",
+          "type": "integer",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp without time zone",
+          "nullable": false,
+          "isPrimaryKey": false
+        }
+      ]
+    },
+    "chat_sessions": {
+      "name": "chat_sessions",
+      "rowCount": 15349,
+      "columns": [
+        {
+          "name": "id",
+          "type": "text",
+          "nullable": false,
+          "isPrimaryKey": true
+        },
+        {
+          "name": "vehicle_info",
+          "type": "jsonb",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "started_at",
+          "type": "timestamp without time zone",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "ended_at",
+          "type": "timestamp without time zone",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "metadata",
+          "type": "jsonb",
+          "nullable": true,
+          "isPrimaryKey": false
+        }
+      ]
+    },
+    "clients": {
+      "name": "clients",
+      "rowCount": 0,
+      "columns": [
+        {
+          "name": "id_client",
+          "type": "integer",
+          "nullable": false,
+          "isPrimaryKey": true
+        },
+        {
+          "name": "nom",
+          "type": "character varying",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "prenom",
+          "type": "character varying",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "email",
+          "type": "character varying",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "telephone",
+          "type": "character varying",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "adresse",
+          "type": "text",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "type_client",
+          "type": "character varying",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "date_inscription",
+          "type": "timestamp without time zone",
+          "nullable": false,
+          "isPrimaryKey": false
+        }
+      ]
+    },
+    "documents": {
+      "name": "documents",
+      "rowCount": 0,
+      "columns": [
+        {
+          "name": "id_document",
+          "type": "integer",
+          "nullable": false,
+          "isPrimaryKey": true
+        },
+        {
+          "name": "type_document",
+          "type": "character varying",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "date_creation",
+          "type": "timestamp without time zone",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "lien_document",
+          "type": "text",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "id_client",
+          "type": "integer",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "id_vehicule",
+          "type": "integer",
+          "nullable": true,
+          "isPrimaryKey": false
+        }
+      ]
+    },
+    "employes": {
+      "name": "employes",
+      "rowCount": 0,
+      "columns": [
+        {
+          "name": "id_employe",
+          "type": "integer",
+          "nullable": false,
+          "isPrimaryKey": true
+        },
+        {
+          "name": "nom",
+          "type": "character varying",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "prenom",
+          "type": "character varying",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "poste",
+          "type": "character varying",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "email",
+          "type": "character varying",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "telephone",
+          "type": "character varying",
+          "nullable": true,
+          "isPrimaryKey": false
+        }
+      ]
+    },
+    "pieces_rechange": {
+      "name": "pieces_rechange",
+      "rowCount": 620,
+      "columns": [
+        {
+          "name": "reference",
+          "type": "character varying",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "designation",
+          "type": "text",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "version_modele",
+          "type": "character varying",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "type_vehicule",
+          "type": "character varying",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "prix_ht",
+          "type": "numeric",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "stock",
+          "type": "integer",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp without time zone",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "date_ajout",
+          "type": "timestamp without time zone",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "fournisseur",
+          "type": "character varying",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "id_piece",
+          "type": "integer",
+          "nullable": false,
+          "isPrimaryKey": true
+        },
+        {
+          "name": "nom_piece",
+          "type": "text",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "prix_unitaire",
+          "type": "numeric",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "quantite_stock",
+          "type": "integer",
+          "nullable": false,
+          "isPrimaryKey": false
+        }
+      ]
+    },
+    "reparations": {
+      "name": "reparations",
+      "rowCount": 0,
+      "columns": [
+        {
+          "name": "id_entretien",
+          "type": "integer",
+          "nullable": false,
+          "isPrimaryKey": true
+        },
+        {
+          "name": "id_vehicule",
+          "type": "integer",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "id_client",
+          "type": "integer",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "date_entretien",
+          "type": "timestamp without time zone",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "type_entretien",
+          "type": "character varying",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "cout",
+          "type": "numeric",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "id_vendeur",
+          "type": "integer",
+          "nullable": true,
+          "isPrimaryKey": false
+        }
+      ]
+    },
+    "upload_tracking": {
+      "name": "upload_tracking",
+      "rowCount": 0,
+      "columns": [
+        {
+          "name": "id",
+          "type": "text",
+          "nullable": false,
+          "isPrimaryKey": true
+        },
+        {
+          "name": "user_ip",
+          "type": "character varying",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "uploaded_at",
+          "type": "timestamp without time zone",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "success",
+          "type": "boolean",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "vehicle_info",
+          "type": "jsonb",
+          "nullable": true,
+          "isPrimaryKey": false
+        }
+      ]
+    },
+    "vehicules": {
+      "name": "vehicules",
+      "rowCount": 0,
+      "columns": [
+        {
+          "name": "id_vehicule",
+          "type": "integer",
+          "nullable": false,
+          "isPrimaryKey": true
+        },
+        {
+          "name": "immatriculation",
+          "type": "character varying",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "vin",
+          "type": "character varying",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "marque",
+          "type": "character varying",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "modele",
+          "type": "character varying",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "annee",
+          "type": "integer",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "kilometrage",
+          "type": "integer",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "prix",
+          "type": "numeric",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "date_ajout",
+          "type": "timestamp without time zone",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "statut",
+          "type": "character varying",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "id_vendeur",
+          "type": "integer",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "type",
+          "type": "character varying",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "couleur",
+          "type": "character varying",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "proprietaire",
+          "type": "character varying",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "date_achat",
+          "type": "timestamp without time zone",
+          "nullable": true,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp without time zone",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp without time zone",
+          "nullable": false,
+          "isPrimaryKey": false
+        }
+      ]
+    },
+    "ventes": {
+      "name": "ventes",
+      "rowCount": 0,
+      "columns": [
+        {
+          "name": "id_vente",
+          "type": "integer",
+          "nullable": false,
+          "isPrimaryKey": true
+        },
+        {
+          "name": "id_client",
+          "type": "integer",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "id_vehicule",
+          "type": "integer",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "prix_achat",
+          "type": "numeric",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "date_vente",
+          "type": "timestamp without time zone",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "mode_paiement",
+          "type": "character varying",
+          "nullable": false,
+          "isPrimaryKey": false
+        },
+        {
+          "name": "id_vendeur",
+          "type": "integer",
+          "nullable": false,
+          "isPrimaryKey": false
+        }
+      ]
+    }
+  },
+  "timestamp": "2026-02-12T14:17:37.783Z"
+}

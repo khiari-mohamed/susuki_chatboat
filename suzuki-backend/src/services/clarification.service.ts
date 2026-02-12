@@ -186,10 +186,20 @@ export class ClarificationService {
     const pos = lower.includes('avant') ? 'avant' : lower.includes('arrière') || lower.includes('arriere') ? 'arrière' : null;
     const side = lower.includes('gauche') ? 'gauche' : lower.includes('droite') || lower.includes('droit') ? 'droite' : null;
     if (!pos && !side) return products;
+    
     return products.filter(p => {
       const d = (p.designation || '').toLowerCase();
-      const matchPos = !pos || d.includes(pos);
-      const matchSide = !side || (side === 'gauche' && (d.includes('gauche') || d.includes(' g '))) || (side === 'droite' && (d.includes('droite') || d.includes('droit') || d.includes(' d ')));
+      
+      // CRITICAL: Check for WRONG position/side first - REJECT
+      if (pos === 'avant' && /\b(arriere|arrière|ar)\b/i.test(d)) return false;
+      if (pos === 'arrière' && /\b(avant|av)\b/i.test(d)) return false;
+      if (side === 'gauche' && /\b(droite|droit|d)\b/i.test(d)) return false;
+      if (side === 'droite' && /\b(gauche|g)\b/i.test(d)) return false;
+      
+      // Now check for CORRECT match
+      const matchPos = !pos || /\b(avant|av)\b/i.test(d) && pos === 'avant' || /\b(arriere|arrière|ar)\b/i.test(d) && pos === 'arrière';
+      const matchSide = !side || (side === 'gauche' && /\b(gauche|g)\b/i.test(d)) || (side === 'droite' && /\b(droite|droit|d)\b/i.test(d));
+      
       return matchPos && matchSide;
     });
   }

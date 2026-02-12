@@ -87,8 +87,25 @@ export class ResponseService {
     return `Bonjour! Je rencontre une difficulté technique temporaire.\n\n💡 Contactez CarPro au ☎️ 70 603 500 pour assistance immédiate.`;
   }
 
+  buildNoContextFilterResponse(): string {
+    return `Aucune recherche précédente à filtrer. Veuillez d'abord rechercher une pièce.\n\n💡 Contactez CarPro au ☎️ 70 603 500 pour assistance.`;
+  }
+
   buildNoResultsResponse(query: string, vehicle: any): string {
     const vehicleInfo = vehicle?.modele ? ` pour votre ${vehicle.marque} ${vehicle.modele}` : '';
     return `Indisponible${vehicleInfo}.\n\nContactez CarPro au ☎️ 70 603 500.`;
+  }
+
+  buildFilteredResponse(products: any[], query: string, vehicle: any): string {
+    const available = products.filter(p => p.stock > 0 && p.prixHt != null);
+    
+    if (available.length === 0) {
+      const vehicleInfo = vehicle?.modele ? ` pour votre ${vehicle.marque} ${vehicle.modele}` : '';
+      return `Aucun résultat avec les filtres appliqués${vehicleInfo}.\n\nContactez CarPro au ☎️ 70 603 500.`;
+    }
+    
+    const product = available[0];
+    const vehicleInfo = vehicle?.modele ? ` pour votre ${vehicle.marque} ${vehicle.modele}` : '';
+    return `Résultat filtré${vehicleInfo}:\n${product.designation}\nRéf: ${product.reference}\nPrix: ${product.prixHt} TND\n\n💡 Contactez CarPro au ☎️ 70 603 500 pour réserver.`;
   }
 }

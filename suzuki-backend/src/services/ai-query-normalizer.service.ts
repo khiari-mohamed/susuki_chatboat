@@ -14,17 +14,50 @@ export class AIQueryNormalizerService {
     isThanks: boolean;
     confidence: number;
   }> {
+    // CRITICAL: Rule-based pre-correction for common typos
+    const knownCorrections: Record<string, string> = {
+      ilbrequin: 'vilebrequin',
+      vilbrequin: 'vilebrequin',
+      rtaverse: 'traverse',
+      rtavers: 'traverse',
+      olle: 'tolle',
+      avlve: 'valve',
+      avse: 'vase',
+      garafe: 'agrafe',
+      garafes: 'agrafes',
+      garaffe: 'agraffe',
+      garaffes: 'agraffes',
+      graffe: 'agraffe',
+      graffes: 'agraffes',
+      garaphe: 'agraphe',
+      graphe: 'agraphe',
+      iale: 'aile',
+      ial: 'aile',
+      itre: 'vitre',
+      ivtre: 'vitre',
+      ovlant: 'volant',
+      olant: 'volant'
+    };
+    
+    let correctedQuery = query;
+    for (const [typo, correct] of Object.entries(knownCorrections)) {
+      if (correctedQuery.toLowerCase().includes(typo)) {
+        correctedQuery = correctedQuery.replace(new RegExp(typo, 'gi'), correct);
+        this.logger.log(`✅ Pre-corrected: ${typo} → ${correct}`);
+      }
+    }
+    
     try {
-      const aiResult = await this.normalizeWithAI(query);
+      const aiResult = await this.normalizeWithAI(correctedQuery);
       this.logger.log(`✅ AI: "${query}" → "${aiResult.normalized}" (${aiResult.confidence})`);
       return aiResult;
     } catch (error) {
       this.logger.warn(`⚠️ AI failed: ${error.message}`);
-      const fallbackNormalized = applyTunisianFallback(query);
+      const fallbackNormalized = applyTunisianFallback(correctedQuery);
       return { 
-        normalized: fallbackNormalized || query, 
-        isGreeting: /^(bonjour|salut|hello|hi|salem|ahla|salam)\b/i.test(query),
-        isThanks: /^(merci|thanks|3aychek|barcha)\b/i.test(query),
+        normalized: fallbackNormalized || correctedQuery, 
+        isGreeting: /^(bonjour|salut|hello|hi|salem|ahla|salam)\b/i.test(correctedQuery),
+        isThanks: /^(merci|thanks|3aychek|barcha)\b/i.test(correctedQuery),
         confidence: 0.5 
       };
     }
@@ -36,50 +69,26 @@ export class AIQueryNormalizerService {
     isThanks: boolean;
     confidence: number;
   }> {
-    const prompt = `You are a native Tunisian speaker and expert translator. Understand and translate ANY Tunisian dialect (Darija) word or phrase to French naturally.
+    const prompt = `You are a car parts query parser. Segment and translate concatenated French/Tunisian car parts queries.
 
-You understand:
-- ALL Tunisian Arabic words and slang
-- Numbers as Arabic letters (3=ع, 7=ح, 9=ق, 5=خ, 8=غ, 2=ء)
-- French-Arabic mix
-- Regional variations
-- Informal speech
+RULES:
+1. Recognize ALL position indicators: avant/av, arriere/ar, gauche/g, droite/d, superieur/sup, inferieur/inf
+2. Recognize car parts: adhesif, porte, aile, capot, phare, filtre, plaquette, disque, amortisseur, etc.
+3. PRESERVE ALL POSITIONS - if query has "ar" AND "av", keep BOTH
+4. Return properly spaced French
+5. isGreeting=true ONLY if pure greeting with NO car parts/positions
 
-Translate naturally to French for car parts context.
-
-Common Tunisian patterns (examples - you know MORE):
-- n7eb/bghit/nchri = je veux/acheter
-- chouf/choufli/wri = regarde/montre-moi
-- behi/yezzi/ok = ok/d'accord
-- famma/mawjoud = disponible/il y a
-- ch7al/9ad/9adech = combien
-- mte3/ta3/lel = de/pour
-- karhba/makina = voiture
-- miray/mirwar = rétroviseur
-- frina/frin = frein
-- batri/bataria = batterie
-- amorto/amor = amortisseur
-- plak/plakete = plaquette
-- disk/disq = disque
-- dhou/dhaw/fnar = phare
-- aile/el aile = aile
-- 9oddem/goddem = avant
-- wra/louta = arrière
-- ysar/chmel/gosh = gauche
-- ymin/limen = droite
-- ahla/salem/salam = bonjour
-- 3aychek/ya3tik/barcha = merci/beaucoup
-
-IMPORTANT:
-- isGreeting=true ONLY if it's a PURE greeting with NO car parts or positions mentioned
-- If query mentions positions (avant/arrière/gauche/droite) or actions (chouf/montre/voir), it's NOT a greeting
-- "behi choufli l'avant" = NOT a greeting (it's asking to show front parts)
-- "ahla" alone = greeting
+EXAMPLES:
+- "adhesifarporteavg" → "adhésif arrière porte avant gauche" (has AR and AV)
+- "adhesifporteavd" → "adhésif porte avant droite"
+- "plaquetteavg" → "plaquette avant gauche"
+- "ahla" → "bonjour" (isGreeting=true)
+- "choufli avant" → "montre-moi avant" (isGreeting=false)
 
 QUERY: "${query}"
 
 JSON:
-{"normalized":"French translation","isGreeting":true/false,"isThanks":true/false,"confidence":0.0-1.0}`;
+{"normalized":"French with ALL positions","isGreeting":true/false,"isThanks":true/false,"confidence":0.0-1.0}`;
 
     const response = await this.openaiService.chat(prompt, [], 'JSON only');
     const jsonMatch = response.match(/\{[^}]+\}/);

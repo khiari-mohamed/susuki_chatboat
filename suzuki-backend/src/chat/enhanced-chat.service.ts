@@ -54,7 +54,7 @@ export interface AnalyticsResponse {
 export class EnhancedChatService {
   private readonly logger = new Logger(EnhancedChatService.name);
   private rateLimitMap = new Map<string, { count: number; resetTime: number }>();
-  private readonly RATE_LIMIT = 50;
+  private readonly RATE_LIMIT = 10000; // Increased for testing kent 50 
   private readonly RATE_WINDOW = 60000;
 
   constructor(

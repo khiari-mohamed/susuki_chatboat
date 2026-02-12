@@ -7,6 +7,7 @@ import { SearchService } from './search.service';
 import { IntelligenceService } from '../chat/intelligence.service';
 import { OpenAIService } from '../chat/openai.service';
 import { AIQueryNormalizerService } from './ai-query-normalizer.service';
+import { AdvancedSearchService } from '../chat/advanced-search.service';
 import { SUZUKI_MODELS, hasModelInDesignation, matchesModel } from '../constants/vehicle-models';
 
 export interface ProcessMessageResponse {
@@ -38,9 +39,55 @@ export class ChatOrchestratorService {
     private searchService: SearchService,
     private intelligenceService: IntelligenceService,
     private openaiService: OpenAIService,
-    private aiNormalizer: AIQueryNormalizerService
+    private aiNormalizer: AIQueryNormalizerService,
+    private advancedSearch: AdvancedSearchService
   ) {
     setInterval(() => this.clarificationService.cleanup(), 300000);
+  }
+
+  private isFilterOperation(message: string): boolean {
+    const lower = message.toLowerCase();
+    const filterPhrases = [
+      'appliquer un filtre', 'ajoute un filtre', 'mettre un filtre',
+      'filtre pour', 'filtre sur', 'ne montrer que', 'seulement',
+      'filtrer', 'tri par', 'trier'
+    ];
+    return filterPhrases.some(phrase => lower.includes(phrase));
+  }
+
+  private parseFilter(message: string): any {
+    const lower = message.toLowerCase();
+    if (/\b(arriere|arrière|ar)\b/.test(lower)) return { position: 'arrière' };
+    if (/\b(avant|av)\b/.test(lower)) return { position: 'avant' };
+    if (/\b(gauche|g)\b/.test(lower)) return { side: 'gauche' };
+    if (/\b(droite|d|droit)\b/.test(lower)) return { side: 'droite' };
+    return null;
+  }
+
+  private applyFilters(products: any[], filters: any[]): any[] {
+    if (!filters || filters.length === 0) return products;
+    
+    return products.filter(p => {
+      return filters.every(f => {
+        const designation = p.designation.toLowerCase();
+        
+        if (f.position) {
+          const hasPosition = f.position === 'avant'
+            ? /\b(avant|av)\b/i.test(designation)
+            : /\b(arriere|arrière|ar)\b/i.test(designation);
+          if (!hasPosition) return false;
+        }
+        
+        if (f.side) {
+          const hasSide = f.side === 'gauche'
+            ? /\b(gauche|g)\b/i.test(designation)
+            : /\b(droite|droit|d)\b/i.test(designation);
+          if (!hasSide) return false;
+        }
+        
+        return true;
+      });
+    });
   }
 
   async processMessage(message: string, vehicle?: any, sessionId?: string): Promise<ProcessMessageResponse> {
@@ -82,7 +129,49 @@ export class ChatOrchestratorService {
       }
     }
 
-    // 3. Check for clarification answer FIRST
+    // 3. Check for filter operation BEFORE clarification
+    if (this.isFilterOperation(processedMessage)) {
+      const lastQuery = this.contextService.getLastQuery(session.id);
+      if (!lastQuery) {
+        const response = this.responseService.buildNoContextFilterResponse();
+        await this.sessionService.saveBotResponse(session.id, response, { intent: 'FILTER_NO_CONTEXT' });
+        return {
+          response,
+          sessionId: session.id,
+          products: [],
+          confidence: 'HIGH',
+          intent: 'FILTER_NO_CONTEXT',
+          metadata: { productsFound: 0, conversationLength: conversationHistory.length, queryClarity: 0 }
+        };
+      }
+      
+      // Parse and store filter
+      const filter = this.parseFilter(processedMessage);
+      if (filter) {
+        this.contextService.addFilter(session.id, filter);
+      }
+      
+      // Re-run last search
+      let products = await this.searchService.search(lastQuery, vehicle);
+      products = this.filterByVehicleModel(products, vehicle);
+      
+      // Apply all active filters
+      const activeFilters = this.contextService.getActiveFilters(session.id);
+      const filteredProducts = this.applyFilters(products, activeFilters);
+      
+      const response = this.responseService.buildFilteredResponse(filteredProducts, lastQuery, vehicle);
+      await this.sessionService.saveBotResponse(session.id, response, { intent: 'FILTER_APPLIED', productsFound: filteredProducts.length });
+      return {
+        response,
+        sessionId: session.id,
+        products: filteredProducts.slice(0, 1).map(p => ({ id: p.id, designation: p.designation, reference: p.reference, prixHt: String(p.prixHt) })),
+        confidence: 'HIGH',
+        intent: 'FILTER_APPLIED',
+        metadata: { productsFound: filteredProducts.length, conversationLength: conversationHistory.length, queryClarity: 0 }
+      };
+    }
+
+    // 4. Check for clarification answer
     const pendingClarification = this.clarificationService.getPending(session.id);
     if (pendingClarification && this.clarificationService.isAnswer(processedMessage, pendingClarification)) {
       const partName = this.clarificationService.extractPartName(pendingClarification.originalQuery);
@@ -95,91 +184,57 @@ export class ChatOrchestratorService {
       this.logger.log(`isPositionAnswer check: "${message.trim()}" → ${isPositionAnswer}`);
       
       let products: any[];
-      let finalQuery = `${partName} ${processedMessage.trim()}`;
       
+      // CRITICAL: Re-search with enriched query instead of filtering in-memory
+      const enrichedQuery = `${pendingClarification.originalQuery} ${processedMessage}`.trim();
+      products = await this.searchService.search(enrichedQuery, vehicle);
+      products = this.filterByVehicleModel(products, vehicle);
+      
+      // Apply position validation on fresh results
       if (isPositionAnswer) {
-        // CRITICAL: Filter by BOTH part type AND position
-        products = pendingClarification.products.filter(p => {
+        products = products.filter(p => {
           const designation = p.designation.toLowerCase();
           const answer = processedMessage.toLowerCase().trim();
-          const partLower = partName.toLowerCase();
           
-          // MUST contain the part type (e.g., "amortisseur")
-          const partWords = partLower.split(' ');
-          const hasPartType = partWords.some(word => word.length > 2 && designation.includes(word));
-          if (!hasPartType) return false;
+          const hasAvant = /\b(avant|av)\b/i.test(designation);
+          const hasArriere = /\b(arriere|arrière|ar)\b/i.test(designation);
+          const hasGauche = /\b(gauche|g)\b/i.test(designation);
+          const hasDroite = /\b(droite|droit|d)\b/i.test(designation);
           
-          // MUST match the position answer
-          if (answer === 'avant' || answer === 'av') return /\b(avant|av)\b/i.test(designation);
-          if (answer === 'arriere' || answer === 'arrière' || answer === 'ar') return /\b(arriere|arrière|ar)\b/i.test(designation);
-          if (answer === 'gauche' || answer === 'g') return /\b(gauche|g)\b/i.test(designation);
-          if (answer === 'droite' || answer === 'd' || answer === 'droit') return /\b(droite|droit|d)\b/i.test(designation);
+          // Reject wrong positions
+          if ((answer === 'avant' || answer === 'av') && hasArriere) return false;
+          if ((answer === 'arriere' || answer === 'arrière' || answer === 'ar') && hasAvant) return false;
+          if ((answer === 'gauche' || answer === 'g') && hasDroite) return false;
+          if ((answer === 'droite' || answer === 'd' || answer === 'droit') && hasGauche) return false;
           
-          // Combined position + side (e.g., "avant gauche")
-          if (answer.includes('avant') && answer.includes('gauche')) {
-            return /\b(avant|av)\b/i.test(designation) && /\b(gauche|g)\b/i.test(designation);
-          }
-          if (answer.includes('avant') && answer.includes('droite')) {
-            return /\b(avant|av)\b/i.test(designation) && /\b(droite|droit|d)\b/i.test(designation);
-          }
-          if (answer.includes('arriere') || answer.includes('arrière')) {
-            if (answer.includes('gauche')) {
-              return /\b(arriere|arrière|ar)\b/i.test(designation) && /\b(gauche|g)\b/i.test(designation);
-            }
-            if (answer.includes('droite')) {
-              return /\b(arriere|arrière|ar)\b/i.test(designation) && /\b(droite|droit|d)\b/i.test(designation);
-            }
-          }
+          // Accept correct positions
+          if (answer === 'avant' || answer === 'av') return hasAvant;
+          if (answer === 'arriere' || answer === 'arrière' || answer === 'ar') return hasArriere;
+          if (answer === 'gauche' || answer === 'g') return hasGauche;
+          if (answer === 'droite' || answer === 'd' || answer === 'droit') return hasDroite;
           
-          return designation.includes(answer);
+          return true;
         });
-        
-        products = this.filterByVehicleModel(products, vehicle);
-        
-        // If no match, search with combined query (part + position)
-        if (products.length === 0) {
-          finalQuery = `${partName} ${processedMessage.trim()}`;
-          products = this.filterByVehicleModel(await this.searchService.search(finalQuery, vehicle), vehicle);
-        }
-        
-        // Check if still needs clarification for side
-        const clarificationCheck = this.clarificationService.checkNeeded(products, finalQuery);
-        if (clarificationCheck.needed) {
-          const response = this.clarificationService.buildQuestion(partName, clarificationCheck.variants, clarificationCheck.dimension);
-          this.clarificationService.setPending(session.id, finalQuery, clarificationCheck.dimension, products);
-          await this.sessionService.saveBotResponse(session.id, response, { intent: 'CLARIFICATION_NEEDED' });
-          return {
-            response,
-            sessionId: session.id,
-            products: [],
-            confidence: 'MEDIUM',
-            intent: 'CLARIFICATION_NEEDED',
-            metadata: { productsFound: products.length, conversationLength: conversationHistory.length, queryClarity: 0, duration: Date.now() - startTime }
-          };
-        }
-      } else {
-        // Not a simple position answer - still combine with part name from clarification
-        finalQuery = `${partName} ${processedMessage.trim()}`;
-        products = this.filterByVehicleModel(await this.searchService.search(finalQuery, vehicle), vehicle);
-        
-        // Check if still needs clarification
-        const clarificationCheck = this.clarificationService.checkNeeded(products, finalQuery);
-        if (clarificationCheck.needed) {
-          const response = this.clarificationService.buildQuestion(partName, clarificationCheck.variants, clarificationCheck.dimension);
-          this.clarificationService.setPending(session.id, finalQuery, clarificationCheck.dimension, products);
-          await this.sessionService.saveBotResponse(session.id, response, { intent: 'CLARIFICATION_NEEDED' });
-          return {
-            response,
-            sessionId: session.id,
-            products: [],
-            confidence: 'MEDIUM',
-            intent: 'CLARIFICATION_NEEDED',
-            metadata: { productsFound: products.length, conversationLength: conversationHistory.length, queryClarity: 0, duration: Date.now() - startTime }
-          };
-        }
       }
+        
+      // Check if still needs clarification
+      const clarificationCheck = this.clarificationService.checkNeeded(products, enrichedQuery);
+      if (clarificationCheck.needed) {
+        const response = this.clarificationService.buildQuestion(partName, clarificationCheck.variants, clarificationCheck.dimension);
+        this.clarificationService.setPending(session.id, enrichedQuery, clarificationCheck.dimension, products);
+        await this.sessionService.saveBotResponse(session.id, response, { intent: 'CLARIFICATION_NEEDED' });
+        return {
+          response,
+          sessionId: session.id,
+          products: [],
+          confidence: 'MEDIUM',
+          intent: 'CLARIFICATION_NEEDED',
+          metadata: { productsFound: products.length, conversationLength: conversationHistory.length, queryClarity: 0, duration: Date.now() - startTime }
+        };
+      }
+      
       if (products.length > 0) {
-        const response = this.responseService.buildProductResponse(products, finalQuery, vehicle);
+        const response = this.responseService.buildProductResponse(products, enrichedQuery, vehicle);
         await this.sessionService.saveBotResponse(session.id, response, { intent: 'PARTS_SEARCH', productsFound: products.length });
         return {
           response,
@@ -190,7 +245,7 @@ export class ChatOrchestratorService {
           metadata: { productsFound: products.length, conversationLength: conversationHistory.length, queryClarity: 10, duration: Date.now() - startTime }
         };
       } else {
-        const response = this.responseService.buildNoResultsResponse(finalQuery, vehicle);
+        const response = this.responseService.buildNoResultsResponse(enrichedQuery, vehicle);
         await this.sessionService.saveBotResponse(session.id, response, { intent: 'NO_RESULTS' });
         return {
           response,
@@ -203,7 +258,7 @@ export class ChatOrchestratorService {
       }
     }
 
-    // 4. Detect intent using AI-powered understanding
+    // 5. Detect intent using AI-powered understanding
     const intent = await this.intelligenceService.detectIntentWithAI(processedMessage, conversationHistory, !!pendingClarification);
 
     // Store last part for context
@@ -212,7 +267,7 @@ export class ChatOrchestratorService {
       this.contextService.setLastPart(session.id, partName);
     }
 
-    // 5. Handle non-search intents
+    // 6. Handle non-search intents
     if (intent.type === 'GREETING' || intent.type === 'THANKS') {
       // CRITICAL: Final check - don't treat position queries as greetings
       const hasPositionOrAction = /\b(avant|arrière|arriere|gauche|droite|av|ar|g|d|chouf|choufli|montre|voir|regarde|wri)\b/i.test(processedMessage);
@@ -258,7 +313,7 @@ export class ChatOrchestratorService {
       return { response, sessionId: session.id, products: [], confidence: 'HIGH', intent: 'DIAGNOSTIC_REDIRECT', metadata: { productsFound: 0, conversationLength: conversationHistory.length, queryClarity: 0 } };
     }
 
-    // 6. Handle reference search
+    // 7. Handle reference search
     if (this.searchService.isReferenceQuery(processedMessage)) {
       const reference = this.searchService.extractReference(processedMessage);
       const products = this.filterByVehicleModel(await this.searchService.search(processedMessage, vehicle), vehicle);
@@ -280,8 +335,8 @@ export class ChatOrchestratorService {
       }
     }
 
-    // 7. Build search query with context - USE ORIGINAL MESSAGE for better context detection
-    const searchQuery = this.contextService.buildSearchQuery(message, context, vehicle);
+    // 8. Build search query with context - USE AI-NORMALIZED MESSAGE for search
+    const searchQuery = this.contextService.buildSearchQuery(processedMessage, context, vehicle);
     
     // CRITICAL: Check if user is asking about a different model
     if (vehicle?.modele) {
@@ -311,6 +366,17 @@ export class ChatOrchestratorService {
     const products = await this.searchService.search(searchQuery, vehicle);
     const filteredProducts = this.filterByVehicleModel(products, vehicle);
     
+    // Store lastQuery after search
+    this.contextService.setLastQuery(session.id, searchQuery);
+    
+    // Store lastPart after successful search
+    if (filteredProducts.length > 0) {
+      const partName = this.extractPartName(searchQuery) || this.extractPartName(processedMessage);
+      if (partName) {
+        this.contextService.setLastPart(session.id, partName);
+      }
+    }
+    
     // If user asks about different model, inform them politely
     if (vehicle?.modele && products.length > 0 && filteredProducts.length === 0) {
       const response = `Je vous informe que votre véhicule est un ${vehicle.marque} ${vehicle.modele}. Les pièces que vous recherchez ne sont pas compatibles avec votre modèle. Je ne peux vous renseigner que sur les pièces compatibles avec votre ${vehicle.modele}.\n\nContactez CarPro au ☎️ 70 603 500 pour plus d'informations.`;
@@ -325,7 +391,7 @@ export class ChatOrchestratorService {
       };
     }
 
-    // 8. Check if clarification needed
+    // 9. Check if clarification needed
     const clarificationCheck = this.clarificationService.checkNeeded(filteredProducts, processedMessage);
     if (clarificationCheck.needed) {
       const partName = this.clarificationService.extractPartName(processedMessage);
@@ -342,7 +408,7 @@ export class ChatOrchestratorService {
       };
     }
 
-    // 9. Build response based on intent
+    // 10. Build response based on intent
     let response: string;
     if (intent.type === 'PRICE_INQUIRY') {
       response = this.responseService.buildPriceResponse(filteredProducts, processedMessage, vehicle, context.lastTopic || 'général');
@@ -354,7 +420,7 @@ export class ChatOrchestratorService {
 
     await this.sessionService.saveBotResponse(session.id, response, { intent: intent.type, productsFound: filteredProducts.length });
 
-    // 10. Calculate confidence and suggestions
+    // 11. Calculate confidence and suggestions
     const queryClarity = this.intelligenceService.analyzeQueryClarity(processedMessage);
     const confidence = this.intelligenceService.calculateConfidence({
       productsFound: filteredProducts.length,
@@ -379,37 +445,37 @@ export class ChatOrchestratorService {
 
   private extractPartName(message: string): string {
     const lower = message.toLowerCase();
+    
+    // Common multi-word parts first
     if (lower.includes('plaquette') && lower.includes('frein')) return 'plaquettes frein';
     if (lower.includes('disque') && lower.includes('frein')) return 'disque frein';
     if (lower.includes('filtre') && lower.includes('air')) return 'filtre air';
     if (lower.includes('filtre') && lower.includes('huile')) return 'filtre huile';
     if (lower.includes('essuie') && lower.includes('glace')) return 'essuie-glace';
     if (lower.includes('pare') && lower.includes('choc')) return 'pare-choc';
-    if (lower.includes('amortisseur')) return 'amortisseur';
-    if (lower.includes('retroviseur') || lower.includes('rétroviseur')) return 'rétroviseur';
-    if (lower.includes('aile')) return 'aile';
-    if (lower.includes('porte')) return 'porte';
-    if (lower.includes('clignotant')) return 'clignotant';
-    if (lower.includes('vitre')) return 'vitre';
-    if (lower.includes('radiateur')) return 'radiateur';
-    if (lower.includes('capot')) return 'capot';
-    if (lower.includes('hayon')) return 'hayon';
-    if (lower.includes('etrier') || lower.includes('étrier')) return 'etrier';
-    if (lower.includes('enjoliveur')) return 'enjoliveur';
-    if (lower.includes('rotule')) return 'rotule';
-    if (lower.includes('charniere') || lower.includes('charnière')) return 'charniere';
-    if (lower.includes('serrure')) return 'serrure';
-    if (lower.includes('joint')) return 'joint';
-    if (lower.includes('adhesif') || lower.includes('adhésif')) return 'adhesif';
-    if (lower.includes('moulure')) return 'moulure';
-    if (lower.includes('grille')) return 'grille';
-    if (lower.includes('support')) return 'support';
-    if (lower.includes('batterie')) return 'batterie';
-    if (lower.includes('phare')) return 'phare';
-    if (lower.includes('plaquette')) return 'plaquettes frein';
-    if (lower.includes('disque')) return 'disque frein';
-    if (lower.includes('filtre')) return 'filtre';
-    return '';
+    if (lower.includes('maitre') && lower.includes('cylindre')) return 'maitre cylindre';
+    if (lower.includes('maître') && lower.includes('cylindre')) return 'maitre cylindre';
+    
+    // DYNAMIC: Use synonym map from AdvancedSearchService
+    try {
+      const synonymMap = this.advancedSearch.getSynonymMap();
+      let bestMatch: string | undefined;
+      let bestLength = 0;
+      
+      for (const [category, synonyms] of Object.entries(synonymMap)) {
+        for (const syn of synonyms as string[]) {
+          if (lower.includes(syn) && syn.length > bestLength) {
+            bestLength = syn.length;
+            bestMatch = category;
+          }
+        }
+      }
+      
+      return bestMatch || '';
+    } catch (error) {
+      // Fallback to empty if synonym map not available
+      return '';
+    }
   }
 
   private filterByVehicleModel(products: any[], vehicle?: any): any[] {
