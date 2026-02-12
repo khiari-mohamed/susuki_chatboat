@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { TUNISIAN_FALLBACK } from '../constants/tunisian-fallback';
+import { tunisianDictionary } from '../chat/tunisian-dictionary';
 
 interface CacheEntry<T> {
   data: T;
@@ -15,7 +15,7 @@ export class IntelligenceService {
   private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
   private responseTimeTracker: number[] = [];
   private readonly MAX_TRACKED_RESPONSES = 100;
-  private readonly tunisianMappings: Record<string, string> = TUNISIAN_FALLBACK;
+  private readonly tunisianMappings: Record<string, string> = tunisianDictionary;
 
   constructor(private prisma: PrismaService) {
     this.logger.log('✅ IntelligenceService initialized');

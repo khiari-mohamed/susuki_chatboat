@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { SUZUKI_MODELS } from '../constants/vehicle-models';
-import { applyTunisianFallback } from '../constants/tunisian-fallback';
+import { tunisianDictionary } from '../chat/tunisian-dictionary';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 
@@ -154,10 +154,16 @@ export class AdvancedSearchService {
     vis: ['vis', 'boulon', 'ecrou', 'bolt', 'nut', 'screw', 'fixation'],
     clip: ['clip', 'attache', 'fastener', 'rivet', 'fixation rapide'],
     agrafe: ['agrafe', 'agrafes', 'agraffe', 'agraffes', 'agraphe', 'agraphes', 'garafe', 'garafes', 'garaffe', 'garaffes', 'graffe', 'graffes', 'garaphe', 'graphe', 'garfe', 'garfes'],
+    agraphe: ['agraphe', 'agraphes', 'garaphe', 'graphe'],
+    agraffe: ['agraffe', 'agraffes', 'garaffe', 'garaffes', 'graffe', 'graffes'],
     appareil: ['appareil', 'ppareil', 'papareil', 'apareil'],
     plateau: ['plateau', 'plateaux', 'plato'],
     maitre: ['maitre', 'maître', 'master'],
     cylindre: ['cylindre', 'cylinder', 'cilindre'],
+    bouton: ['bouton', 'boutons'],
+    combin: ['combin', 'combiné', 'combine'],
+    dinstrument: ['dinstrument', 'd\'instrument'],
+    feu_detresse: ['feu de détresse', 'feu detresse'],
     para: ['para', 'pare'],
 
     // Directions/positions
@@ -174,7 +180,7 @@ export class AdvancedSearchService {
   };
 
   private readonly typeWeights: Record<string, number> = {
-    'porte': 1.2, 'joint': 1.2, 'vitesse': 1.2, 'roulement': 1.3, 'culbuteur': 1.2, 'support': 1.3, 'bielle': 1.2, 'vitre': 1.2, 'capteur': 1.2, 'pare': 1.15, 'synchro': 1.15, 'cache': 1.2, 'sup': 1.15, 'bouchon': 1.15, 'radiateur': 1.3, 'charniere': 1.15, 'inf': 1.15, 'feu': 1.15, 'boite': 1.15, 'huile': 1.15, 'aile': 1.2, 'glace': 1.15, 'moteur': 1.2, 'serrure': 1.15, 'frein': 1.5, 'agrafe': 1.2, 'agrafes': 1.2, 'agraffe': 1.2, 'agraffes': 1.2, 'agraphe': 1.2, 'roue': 1.1, 'capot': 1.2, 'baguette': 1.1, 'choc': 1.1, 'garniture': 1.1, 'tableau': 1.1, 'bord': 1.1, 'toit': 1.1, 'arbre': 1.1, 'soupape': 1.1, 'essuie': 1.1, 'cable': 1.1, 'circlip': 1.1, 'pompe': 1.2, 'panneau': 1.1, 'stdt': 1.1, 'amortisseur': 1.5, 'bas': 1.1, 'filtre': 1.3, 'embrayage': 1.3, 'carburant': 1.1, 'montant': 1.1, 'ust': 1.1, 'traverse': 1.2, 'int': 1.1, 'air': 1.1, 'malle': 1.1, 'corps': 1.1, 'dhuile': 1.1, 'reservoir': 1.1, 'deau': 1.1, 'retroviseur': 1.5, 'plaque': 1.1, 'abs': 1.1, 'batterie': 1.3, 'moyeu': 1.1, 'durite': 1.1, 'coussinet': 1.1, 'extension': 1.1, 'roulment': 1.1, 'ressort': 1.1, 'siege': 1.1, 'plancher': 1.1, 'tige': 1.1, 'clim': 1.1, 'eau': 1.1, 'carter': 1.2, 'cle': 1.1, 'longeron': 1.1, 'moustache': 1.1, 'adhesif': 1.1, 'volant': 1.2, 'anneau': 1.1, 'contre': 1.1, 'appareil': 1.1, 'monte': 1.1, 'balai': 1.1, 'caisse': 1.1, 'thermostat': 1.1, 'bouton': 1.1, 'direction': 1.1, 'pression': 1.1, 'central': 1.1, 'haute': 1.1, 'disque': 1.5, 'ecrou': 1.1, 'flexible': 1.1, 'jeu': 1.1, 'echappement': 1.2, 'passage': 1.1, 'pignonarbre': 1.1, 'dentree': 1.1, 'poignee': 1.1, 'renfort': 1.1, 'relais': 1.1, 'sigle': 1.1, 'tete': 1.1, 'para': 1.1, 'moulure': 1.1, 'bague': 1.1, 'boulon': 1.1, 'remorquage': 1.2, 'bras': 1.3, 'calculateur': 1.2, 'lampe': 1.2, 'ensemble': 1.1, 'leve': 1.1, 'caoutchouc': 1.1, 'collecteur': 1.1, 'admission': 1.1, 'ceinture': 1.1, 'synchroniseur': 1.1, 'lateral': 1.1, 'condenseur': 1.1, 'remplissage': 1.1, 'courroie': 1.3, 'faisceau': 1.1, 'complet': 1.1, 'gardeboue': 1.1, 'tablier': 1.1, 'interieur': 1.1, 'goupille': 1.1, 'jante': 1.1, 'manchon': 1.1, 'brise': 1.1, 'boue': 1.1, 'differentiel': 1.1, 'rail': 1.1, 'absorbeur': 1.1, 'rondelle': 1.1, 'soleil': 1.1, 'bag': 1.1, 'alimentateur': 1.1, 'antenne': 1.1, 'transmission': 1.1, 'dallumage': 1.1, 'boitier': 1.1, 'douille': 1.1, 'vidange': 1.1, 'ventilateur': 1.1, 'butee': 1.1, 'stationnement': 1.1, 'trappe': 1.1, 'airbag': 1.1, 'troisieme': 1.1, 'stop': 1.1, 'calandre': 1.2, 'cale': 1.1, 'calle': 1.1, 'poigne': 1.1, 'position': 1.1, 'vilebrequin': 1.1, 'dembrayage': 1.1, 'frenage': 1.1, 'dair': 1.1, 'cardan': 1.3, 'catadioptre': 1.1, 'injecteur': 1.2, 'darbre': 1.1, 'collier': 1.1, 'compresseur': 1.1, 'conduite': 1.1, 'papillon': 1.1, 'couvercle': 1.1, 'cremaillere': 1.3, 'cric': 1.1, 'culasse': 1.1, 'durit': 1.1, 'seuil': 1.1, 'etrier': 1.3, 'cote': 1.1, 'canister': 1.1, 'fourchette': 1.1, 'fusee': 1.1, 'qtr': 1.1, 'goujon': 1.1, 'chaine': 1.1, 'distribution': 1.1, 'piston': 1.1, 'acier': 1.1, 'interrieur': 1.1, 'dechappement': 1.1, 'torique': 1.1, 'eme': 1.1, 'synchronisation': 1.1, 'membre': 1.1, 'miroire': 1.1, 'module': 1.1, 'basse': 1.1, 'optique': 1.1, 'assemblage': 1.1, 'secour': 1.1, 'vase': 1.1, 'poulie': 1.1, 'tendeur': 1.1, 'demarreur': 1.2, 'section': 1.1, 'sonde': 1.1, 'lambda': 1.1, 'soufflet': 1.1, 'tocs': 1.2, 'toc': 1.2, 'tolle': 1.1, 'triangle': 1.3, 'tube': 1.1, 'tuyau': 1.2, 'vis': 1.1, 'clip': 1.1, 'plaquette': 1.5, 'coffre': 1.1, 'passager': 1.1, 'alternateur': 1.2, 'assiette': 1.1, 'attache': 1.1, 'spirale': 1.1, 'droit': 1.1, 'base': 1.1, 'berceau': 1.1, 'bloc': 1.1, 'bobine': 1.1, 'body': 1.1, 'socket': 1.1, 'outils': 1.1, 'bouchant': 1.1, 'purge': 1.1, 'suspension': 1.3, 'bougie': 1.2, 'detresse': 1.1, 'buse': 1.1, 'glasse': 1.1, 'butte': 1.1, 'selecteur': 1.1, 'fusible': 1.1, 'poussiere': 1.1, 'usb': 1.1, 'epi': 1.1, 'caprteur': 1.1, 'camme': 1.1, 'recule': 1.1, 'marche': 1.1, 'gaz': 1.1, 'mettre': 1.1, 'sortie': 1.1, 'evaporateur': 1.1, 'temp': 1.1, 'refroidissement': 1.1, 'temperature': 1.1, 'causse': 1.1, 'cerclip': 1.1, 'comptage': 1.1, 'circlips': 1.1, 'clavette': 1.1, 'demilune': 1.1, 'queue': 1.1, 'clignotant': 1.1, 'colone': 1.1, 'dinstrument': 1.1, 'commande': 1.1, 'commodo': 1.1, 'comodo': 1.1, 'lumiere': 1.1, 'contacteur': 1.1, 'controleur': 1.1, 'parking': 1.1, 'climatiseur': 1.1, 'colonne': 1.1, 'recul': 1.1, 'deflecteur': 1.1, 'enjoliveur': 1.1, 'otr': 1.1, 'mbr': 1.1, 'lwr': 1.1, 'actuateur': 1.1, 'feutre': 1.1, 'garnitrur': 1.1, 'bochon': 1.1, 'ctr': 1.1, 'gauge': 1.1, 'essence': 1.1, 'gaugon': 1.1, 'grille': 1.1, 'guide': 1.1, 'jauge': 1.1, 'niveau': 1.1, 'goupilles': 1.1, 'glissantes': 1.1, 'machoires': 1.1, 'plaquettes': 1.1, 'segments': 1.1, 'soupappe': 1.1, 'echappment': 1.1, 'corp': 1.1, 'interieure': 1.1, 'leche': 1.1, 'lecheur': 1.1, 'tampon': 1.1, 'jupe': 1.1, 'kasarole': 1.1, 'kasaroule': 1.1, 'klaxon': 1.1, 'loquet': 1.1, 'lunette': 1.1, 'manette': 1.1, 'marmite': 1.1, 'eps': 1.1, 'monogramme': 1.1, 'presso': 1.1, 'centrale': 1.1, 'feux': 1.1, 'rouge': 1.1, 'bour': 1.1, 'villebrequin': 1.1, 'vilbrequin': 1.1, 'ard': 1.1, 'pin': 1.1, 'plage': 1.1, 'planche': 1.1, 'claison': 1.1, 'poste': 1.1, 'radio': 1.1, 'protecteur': 1.1, 'chauffage': 1.1, 'retenue': 1.1, 'revettment': 1.1, 'ring': 1.1, 'rotule': 1.3, 'axial': 1.1, 'usust': 1.1, 'ustwhite': 1.1, 'ustblanc': 1.1, 'diff': 1.1, 'manivelle': 1.1, 'damortisseur': 1.1, 'sangle': 1.1, 'laterale': 1.1, 'sensor': 1.1, 'assyclutch': 1.1, 'speed': 1.1, 'male': 1.1, 'dammortisseur': 1.1, 'suzuki': 1.1, 'supp': 1.1, 'actionneur': 1.1, 'crochet': 1.1, 'inferieur': 1.1, 'tambour': 1.3, 'frien': 1.1, 'tensionneur': 1.1, 'tiran': 1.2, 'tirant': 1.2, 'train': 1.2, 'valve': 1.1, 'longerons': 1.1, 'boudain': 1.1, 'pedale': 1.1, 'plateau': 1.3, 'maitre': 1.3, 'cylindre': 1.3, 'std': 1.2, 'us': 1.2, 'white': 1.2, 'blanc': 1.2
+    'porte': 1.2, 'joint': 1.2, 'vitesse': 1.2, 'roulement': 1.3, 'culbuteur': 1.2, 'support': 1.3, 'bielle': 1.2, 'vitre': 1.2, 'capteur': 1.2, 'pare': 1.0, 'synchro': 1.15, 'cache': 1.2, 'sup': 1.15, 'bouchon': 1.15, 'radiateur': 1.3, 'charniere': 1.15, 'inf': 1.15, 'feu': 1.15, 'boite': 1.15, 'huile': 1.15, 'aile': 1.2, 'glace': 1.15, 'moteur': 1.2, 'serrure': 1.15, 'frein': 1.5, 'agrafe': 1.2, 'agrafes': 1.2, 'agraffe': 1.3, 'agraffes': 1.3, 'agraphe': 1.3, 'agraphes': 1.3, 'roue': 1.1, 'capot': 1.2, 'baguette': 1.1, 'choc': 1.1, 'garniture': 1.1, 'tableau': 1.1, 'bord': 1.1, 'toit': 1.1, 'arbre': 1.1, 'soupape': 1.1, 'essuie': 1.1, 'cable': 1.1, 'circlip': 1.1, 'pompe': 1.2, 'panneau': 1.1, 'stdt': 1.1, 'amortisseur': 1.5, 'bas': 1.1, 'filtre': 1.3, 'embrayage': 1.3, 'carburant': 1.1, 'montant': 1.1, 'ust': 1.1, 'traverse': 1.2, 'int': 1.1, 'air': 1.1, 'malle': 1.1, 'corps': 1.1, 'dhuile': 1.1, 'reservoir': 1.1, 'deau': 1.1, 'retroviseur': 1.5, 'plaque': 1.1, 'abs': 1.1, 'batterie': 1.3, 'moyeu': 1.1, 'durite': 1.1, 'coussinet': 1.1, 'extension': 1.1, 'roulment': 1.1, 'ressort': 1.1, 'siege': 1.1, 'plancher': 1.1, 'tige': 1.1, 'clim': 1.1, 'eau': 1.1, 'carter': 1.2, 'cle': 1.1, 'longeron': 1.1, 'moustache': 1.1, 'adhesif': 1.1, 'volant': 1.2, 'anneau': 1.1, 'contre': 1.1, 'appareil': 1.8, 'monte': 1.1, 'balai': 1.1, 'caisse': 1.1, 'thermostat': 1.1, 'bouton': 1.1, 'direction': 1.1, 'pression': 1.1, 'central': 1.1, 'haute': 1.1, 'disque': 1.5, 'ecrou': 1.1, 'flexible': 1.1, 'jeu': 1.1, 'echappement': 1.2, 'passage': 1.1, 'pignonarbre': 1.1, 'dentree': 1.1, 'poignee': 1.1, 'renfort': 1.1, 'relais': 1.1, 'sigle': 1.1, 'tete': 1.1, 'para': 1.1, 'moulure': 1.1, 'bague': 1.1, 'boulon': 1.1, 'remorquage': 1.2, 'bras': 1.3, 'calculateur': 1.2, 'lampe': 1.2, 'ensemble': 1.1, 'leve': 1.1, 'caoutchouc': 1.1, 'collecteur': 1.1, 'admission': 1.1, 'ceinture': 1.1, 'synchroniseur': 1.1, 'lateral': 1.1, 'condenseur': 1.1, 'remplissage': 1.1, 'courroie': 1.3, 'faisceau': 1.1, 'complet': 1.1, 'gardeboue': 1.1, 'tablier': 1.1, 'interieur': 1.1, 'goupille': 1.1, 'jante': 1.1, 'manchon': 1.1, 'brise': 1.1, 'boue': 1.1, 'differentiel': 1.1, 'rail': 1.1, 'absorbeur': 1.1, 'rondelle': 1.1, 'soleil': 1.1, 'bag': 1.1, 'alimentateur': 1.1, 'antenne': 1.1, 'transmission': 1.1, 'dallumage': 1.1, 'boitier': 1.1, 'douille': 1.1, 'vidange': 1.1, 'ventilateur': 1.1, 'butee': 1.1, 'stationnement': 1.1, 'trappe': 1.1, 'airbag': 1.1, 'troisieme': 1.1, 'stop': 1.1, 'calandre': 1.2, 'cale': 1.1, 'calle': 1.1, 'poigne': 1.1, 'position': 1.1, 'vilebrequin': 1.1, 'dembrayage': 1.1, 'frenage': 1.1, 'dair': 1.1, 'cardan': 1.3, 'catadioptre': 1.1, 'injecteur': 1.2, 'darbre': 1.1, 'collier': 1.1, 'compresseur': 1.1, 'conduite': 1.1, 'papillon': 1.1, 'couvercle': 1.1, 'cremaillere': 1.3, 'cric': 1.1, 'culasse': 1.1, 'durit': 1.1, 'seuil': 1.1, 'etrier': 1.3, 'cote': 1.1, 'canister': 1.1, 'fourchette': 1.1, 'fusee': 1.1, 'qtr': 1.1, 'goujon': 1.1, 'chaine': 1.1, 'distribution': 1.1, 'piston': 1.1, 'acier': 1.1, 'interrieur': 1.1, 'dechappement': 1.1, 'torique': 1.1, 'eme': 1.1, 'synchronisation': 1.1, 'membre': 1.1, 'miroire': 1.1, 'module': 1.1, 'basse': 1.1, 'optique': 1.1, 'assemblage': 1.1, 'secour': 1.1, 'vase': 1.1, 'poulie': 1.1, 'tendeur': 1.1, 'demarreur': 1.2, 'section': 1.1, 'sonde': 1.1, 'lambda': 1.1, 'soufflet': 1.1, 'tocs': 1.2, 'toc': 1.2, 'tolle': 1.1, 'triangle': 1.3, 'tube': 1.1, 'tuyau': 1.2, 'vis': 1.1, 'clip': 1.1, 'plaquette': 1.5, 'coffre': 1.1, 'passager': 1.1, 'alternateur': 1.2, 'assiette': 1.1, 'attache': 1.1, 'spirale': 1.1, 'droit': 1.1, 'base': 1.1, 'berceau': 1.1, 'bloc': 1.1, 'bobine': 1.1, 'body': 1.1, 'socket': 1.1, 'outils': 1.1, 'bouchant': 1.1, 'purge': 1.1, 'suspension': 1.3, 'bougie': 1.2, 'detresse': 1.1, 'buse': 1.1, 'glasse': 1.1, 'butte': 1.1, 'selecteur': 1.1, 'fusible': 1.1, 'poussiere': 1.1, 'usb': 1.1, 'epi': 1.1, 'caprteur': 1.1, 'camme': 1.1, 'recule': 1.1, 'marche': 1.1, 'gaz': 1.1, 'mettre': 1.1, 'sortie': 1.1, 'evaporateur': 1.1, 'temp': 1.1, 'refroidissement': 1.1, 'temperature': 1.1, 'causse': 1.1, 'cerclip': 1.1, 'comptage': 1.1, 'circlips': 1.1, 'clavette': 1.1, 'demilune': 1.1, 'queue': 1.1, 'clignotant': 1.1, 'colone': 1.1, 'dinstrument': 1.1, 'commande': 1.1, 'commodo': 1.1, 'comodo': 1.1, 'lumiere': 1.1, 'contacteur': 1.1, 'controleur': 1.1, 'parking': 1.1, 'climatiseur': 1.1, 'colonne': 1.1, 'recul': 1.1, 'deflecteur': 1.1, 'enjoliveur': 1.1, 'otr': 1.1, 'mbr': 1.1, 'lwr': 1.1, 'actuateur': 1.1, 'feutre': 1.1, 'garnitrur': 1.1, 'bochon': 1.1, 'ctr': 1.1, 'gauge': 1.1, 'essence': 1.1, 'gaugon': 1.1, 'grille': 1.1, 'guide': 1.1, 'jauge': 1.1, 'niveau': 1.1, 'goupilles': 1.1, 'glissantes': 1.1, 'machoires': 1.1, 'plaquettes': 1.1, 'segments': 1.1, 'soupappe': 1.1, 'echappment': 1.1, 'corp': 1.1, 'interieure': 1.1, 'leche': 1.1, 'lecheur': 1.1, 'tampon': 1.1, 'jupe': 1.1, 'kasarole': 1.1, 'kasaroule': 1.1, 'klaxon': 1.1, 'loquet': 1.1, 'lunette': 1.1, 'manette': 1.1, 'marmite': 1.1, 'eps': 1.1, 'monogramme': 1.1, 'presso': 1.1, 'centrale': 1.1, 'feux': 1.1, 'rouge': 1.1, 'bour': 1.1, 'villebrequin': 1.1, 'vilbrequin': 1.1, 'ard': 1.1, 'pin': 1.1, 'plage': 1.1, 'planche': 1.1, 'claison': 1.1, 'poste': 1.1, 'radio': 1.1, 'protecteur': 1.1, 'chauffage': 1.1, 'retenue': 1.1, 'revettment': 1.1, 'ring': 1.1, 'rotule': 1.3, 'axial': 1.1, 'usust': 1.1, 'ustwhite': 1.1, 'ustblanc': 1.1, 'diff': 1.1, 'manivelle': 1.1, 'damortisseur': 1.1, 'sangle': 1.1, 'laterale': 1.1, 'sensor': 1.1, 'assyclutch': 1.1, 'speed': 1.1, 'male': 1.1, 'dammortisseur': 1.1, 'suzuki': 1.1, 'supp': 1.1, 'actionneur': 1.1, 'crochet': 1.1, 'inferieur': 1.1, 'tambour': 1.3, 'frien': 1.1, 'tensionneur': 1.1, 'tiran': 1.2, 'tirant': 1.2, 'train': 1.2, 'valve': 1.1, 'longerons': 1.1, 'boudain': 1.1, 'pedale': 1.1, 'plateau': 1.3, 'maitre': 1.3, 'cylindre': 1.3, 'std': 1.2, 'us': 1.2, 'white': 1.2, 'blanc': 1.2
   };
 
   // Real-time stock tracking - NO CACHE
@@ -287,11 +293,20 @@ export class AdvancedSearchService {
         return b.length - a.length;
       })[0];
     console.log(`[SEARCH] Main part type detected: "${mainPartType || 'NONE'}" from tokens: [${rawTokens.join(', ')}]`);
+    
+    // --- FORCE appareil when monte glace is present ---
+    const queryLower = query.toLowerCase();
+    let forcedMainPartType = mainPartType;
+    if (queryLower.includes('monte glace') || queryLower.includes('monte-glace')) {
+      forcedMainPartType = 'appareil';
+      console.log(`[SEARCH] Forced main part type to "appareil" due to "monte glace"`);
+    }
+    
     const context: SearchContext = {
       rawTokens: allTokens, // Use ALL tokens including positions
       expandedTerms,
       positionInfo,
-      mainPartType,
+      mainPartType: forcedMainPartType,
       originalQuery: query,
       normalizedQuery: normalized,
       hasTunisianDialect
@@ -503,20 +518,31 @@ export class AdvancedSearchService {
     const designationNumbers = part.designation.match(/\d+(?:[.,]\d+)?/g) || [];
 
     if (queryNumbers.length > 0 && designationNumbers.length > 0) {
-      // CRITICAL: More flexible matching - allow close numbers (within 0.5)
-      const hasMatchingNumber = queryNumbers.some(qn => 
+      const hasExactMatch = queryNumbers.some(qn => 
         designationNumbers.some(dn => {
           const qNum = parseFloat(qn.replace(',', '.'));
           const dNum = parseFloat(dn.replace(',', '.'));
-          // Allow exact match OR close match (e.g., 3.24 matches 3.2, 3.24, 3.3)
-          return Math.abs(qNum - dNum) < 0.5;
+          // CRITICAL: Handle both "3.24" and "324" formats
+          // If query is "324" and DB is "3.24", divide query by 100
+          const qNumAdjusted = qNum >= 100 ? qNum / 100 : qNum;
+          return Math.abs(qNumAdjusted - dNum) < 0.01; // 0.01 tolerance
         })
       );
       
-      // If NO match → REJECT (false positive)
-      if (!hasMatchingNumber) {
-        return -1000000;
+      if (!hasExactMatch) {
+        return -1000000; // REJECT – wrong dimension
       }
+      
+      // Bonus for exact match (adds to score)
+      const exactBonus = queryNumbers.filter(qn => 
+        designationNumbers.some(dn => {
+          const qNum = parseFloat(qn.replace(',', '.'));
+          const dNum = parseFloat(dn.replace(',', '.'));
+          const qNumAdjusted = qNum >= 100 ? qNum / 100 : qNum;
+          return Math.abs(qNumAdjusted - dNum) < 0.01;
+        })
+      ).length * 50000;
+      score += exactBonus;
     }
     
     // Count how many query words match
@@ -552,9 +578,9 @@ export class AdvancedSearchService {
       if (matchCount === 0 && importantQueryWords.length > 0) {
         return -1000000;
       }
-      // Otherwise moderate penalty (not heavy)
+      // Double penalty for missing words
       const missingWords = importantQueryWords.length - matchCount;
-      score -= (missingWords * 15000); // was 80000 flat
+      score -= (missingWords * 30000); // was 15000 – double penalty
     }
     
     // Penalize if main part type is missing (but don't reject)
@@ -595,7 +621,7 @@ export class AdvancedSearchService {
     
     // CRITICAL: Bonus for matching ALL query words (even if designation has extra words)
     if (matchCount === queryWords.length) {
-      score += 60000; // High bonus for complete match
+      score += 80000; // was 60000 – higher bonus for complete match
     }
     
     // Good match with extra words
@@ -827,10 +853,24 @@ Segmented:`;
       const normalizedToken = this.normalize(token);
       const isKnown = this.normalizedSynonymLookup[normalizedToken] !== undefined;
       
+      // CRITICAL: Don't fuzzy expand if token has double letters OR is a known word
       if (!isKnown && !hasDoubleLetters) {
         const fuzzyMatches = this.findFuzzyMatches(token);
         if (fuzzyMatches.length > 0) {
-          expanded.add(fuzzyMatches[0]); // Best fuzzy match only
+          // CRITICAL: Filter out fuzzy matches that differ in double letters
+          const validFuzzy = fuzzyMatches.filter(fm => {
+            const tokenHasFF = token.includes('ff');
+            const tokenHasPP = token.includes('pp');
+            const tokenHasLL = token.includes('ll');
+            const fmHasFF = fm.includes('ff');
+            const fmHasPP = fm.includes('pp');
+            const fmHasLL = fm.includes('ll');
+            // Only allow if double-letter status matches
+            return (tokenHasFF === fmHasFF) && (tokenHasPP === fmHasPP) && (tokenHasLL === fmHasLL);
+          });
+          if (validFuzzy.length > 0) {
+            expanded.add(validFuzzy[0]); // Best fuzzy match only
+          }
         }
       }
       
@@ -846,6 +886,12 @@ Segmented:`;
   
   private findFuzzyMatches(token: string): string[] {
     if (token.length < 3) return [];
+    
+    // If token is already a known category, don't fuzzy expand to a different category
+    const normalizedToken = this.normalize(token);
+    if (this.normalizedSynonymLookup[normalizedToken]) {
+      return []; // Exact known word → no fuzzy matches
+    }
     
     const matches: string[] = [];
     const knownWords = [...new Set([
@@ -985,7 +1031,15 @@ Segmented:`;
     if (normalized.includes('triangle') || normalized.includes('triangl')) {
       return ''; // Return empty to skip Tunisian normalization
     }
-    return applyTunisianFallback(query);
+    
+    // Apply word-by-word Tunisian normalization using unified dictionary
+    let result = query.toLowerCase();
+    for (const [tunisian, french] of Object.entries(tunisianDictionary)) {
+      const regex = new RegExp(`\\b${tunisian}\\b`, 'gi');
+      result = result.replace(regex, french);
+    }
+    
+    return result !== query.toLowerCase() ? result : '';
   }
 
   private buildNormalizedSynonymIndex(): void {

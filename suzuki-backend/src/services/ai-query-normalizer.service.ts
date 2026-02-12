@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OpenAIService } from '../chat/openai.service';
-import { applyTunisianFallback } from '../constants/tunisian-fallback';
+import { normalizeText } from '../chat/tunisian-dictionary';
 
 @Injectable()
 export class AIQueryNormalizerService {
@@ -53,7 +53,7 @@ export class AIQueryNormalizerService {
       return aiResult;
     } catch (error) {
       this.logger.warn(`⚠️ AI failed: ${error.message}`);
-      const fallbackNormalized = applyTunisianFallback(correctedQuery);
+      const fallbackNormalized = normalizeText(correctedQuery);
       return { 
         normalized: fallbackNormalized || correctedQuery, 
         isGreeting: /^(bonjour|salut|hello|hi|salem|ahla|salam)\b/i.test(correctedQuery),
@@ -77,6 +77,8 @@ RULES:
 3. PRESERVE ALL POSITIONS - if query has "ar" AND "av", keep BOTH
 4. Return properly spaced French
 5. isGreeting=true ONLY if pure greeting with NO car parts/positions
+6. PRESERVE SINGLE-LETTER POSITIONS: if query has "g" (gauche) or "d" (droite), keep them.
+   Example: "g ar glace monte appareil" → "gauche arrière glace monte appareil" (NOT "glace arrière monte appareil")
 
 EXAMPLES:
 - "adhesifarporteavg" → "adhésif arrière porte avant gauche" (has AR and AV)
@@ -84,6 +86,7 @@ EXAMPLES:
 - "plaquetteavg" → "plaquette avant gauche"
 - "ahla" → "bonjour" (isGreeting=true)
 - "choufli avant" → "montre-moi avant" (isGreeting=false)
+- "g ar glace monte appareil" → "gauche arrière glace monte appareil"
 
 QUERY: "${query}"
 
