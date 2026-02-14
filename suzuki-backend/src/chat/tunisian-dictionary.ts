@@ -68,7 +68,7 @@ export const tunisianDictionary = {
   'fil': 'câble', 'kablo': 'câble', 'fusib': 'fusible', 'ampoul': 'ampoule',
   'kompreser': 'compresseur', 'condansa': 'condenseur', 'évaporateur': 'évaporateur',
   'durit': 'durite', 'tuyo': 'tuyau', 'flexib': 'flexible', 'vissery': 'vis de purge',
-  'calandre': 'calandre', 'gril': 'grille', 'para': 'pare-choc',
+  'calandre': 'calandre', 'gril': 'grille',
   'spoiler': 'aileron', 'jupon': 'bas de caisse', 'kit': 'kit carrosserie',
   'jante': 'jante', 'rayon': 'rayon', 'moye': 'moyeu', 'tambour': 'tambour',
   'étriye': 'étrier', 'piston': 'piston', 'cylindre': 'cylindre',

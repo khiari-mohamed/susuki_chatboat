@@ -50,21 +50,36 @@ export class AIQueryNormalizerService {
     try {
       const aiResult = await this.normalizeWithAI(correctedQuery);
       
-      // ADAPTIVE: Validate AI result - extract meaningful words from both query and result
-      const queryWords = this.extractMeaningfulWords(correctedQuery);
+      // ADAPTIVE: Validate AI result - extract meaningful words from ORIGINAL query (not corrected)
+      const originalWords = this.extractMeaningfulWords(query);
+      const correctedWords = this.extractMeaningfulWords(correctedQuery);
       const resultWords = this.extractMeaningfulWords(aiResult.normalized);
       
-      // Check if AI removed or changed any meaningful words
-      for (const qWord of queryWords) {
+      // Check if AI removed or changed any meaningful words from CORRECTED query
+      for (const qWord of correctedWords) {
         const hasExactMatch = resultWords.some(rw => rw === qWord);
         const hasPluralMatch = resultWords.some(rw => 
           rw === qWord + 's' || rw === qWord + 'es' || qWord === rw + 's' || qWord === rw + 'es'
         );
         const hasFuzzyMatch = resultWords.some(rw => this.levenshtein(qWord, rw) <= 1);
         
-        // If query word is NOT in AI result → REJECT AI result
+        // If corrected word is NOT in AI result → REJECT AI result
         if (!hasExactMatch && !hasPluralMatch && !hasFuzzyMatch) {
           this.logger.warn(`⚠️ AI changed/removed word "${qWord}" - using corrected query instead`);
+          return {
+            normalized: correctedQuery,
+            isGreeting: aiResult.isGreeting,
+            isThanks: aiResult.isThanks,
+            confidence: 0.7
+          };
+        }
+      }
+      
+      // CRITICAL: Check if AI ADDED extra letters (e.g., "agraffes" → "aaagraffes")
+      for (const rWord of resultWords) {
+        // Check if result word has repeated first letters (aaa, bbb, etc.)
+        if (rWord.length >= 4 && rWord[0] === rWord[1] && rWord[1] === rWord[2]) {
+          this.logger.warn(`⚠️ AI added extra letters "${rWord}" - using corrected query instead`);
           return {
             normalized: correctedQuery,
             isGreeting: aiResult.isGreeting,
