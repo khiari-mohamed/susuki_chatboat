@@ -549,7 +549,13 @@ export class IntelligenceService {
       
       // SERVICE QUESTIONS - hours, delivery, warranty, location
       if (/ouvrez|ouvert|heure|horaire|quand|livraison|délai|garantie|situé|adresse|où|localisation/i.test(combinedText)) {
-        return { type: 'SERVICE_QUESTION', confidence: 0.90 };
+        // CRITICAL: Check if it's a service question WITHOUT car parts
+        const hasCarPart = carPartNames.some(part => lower.includes(part) || normalized.includes(part));
+        if (!hasCarPart) {
+          return { type: 'SERVICE_QUESTION', confidence: 0.90 };
+        }
+        // If car part mentioned, treat as search
+        return { type: 'SEARCH', confidence: 0.80, subIntent: this.detectSubIntent(message) };
       }
 
       // DIAGNOSTIC REMOVED - redirect to professional service for car problems
@@ -560,6 +566,12 @@ export class IntelligenceService {
 
       // PRICE
       if (/prix|combien|cout|coute|coûte|price|cost|how much|show me price|ch7al|pris|tarif|taklfa/i.test(combinedText)) {
+        // CRITICAL: Check if it's a price query WITH a car part mentioned
+        const hasCarPart = carPartNames.some(part => lower.includes(part) || normalized.includes(part));
+        if (hasCarPart) {
+          // It's a search query with price context, not just price inquiry
+          return { type: 'SEARCH', confidence: 0.85, subIntent: this.detectSubIntent(message) };
+        }
         return { type: 'PRICE_INQUIRY', confidence: 0.82, subIntent: this.detectSubIntent(message) };
       }
 

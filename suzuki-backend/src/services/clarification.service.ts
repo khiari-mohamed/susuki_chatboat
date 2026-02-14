@@ -67,7 +67,12 @@ export class ClarificationService {
     
     // Brake pads & discs: ALWAYS ask position if not specified (BEFORE checking product count)
     if ((lower.includes('plaquette') && lower.includes('frein')) || (lower.includes('disque') && lower.includes('frein'))) {
-      if (/\b(avant|arrière|arriere|av|ar)\b/i.test(message)) return { needed: false, variants: [], dimension: '' };
+      // CRITICAL: Check if position is ALREADY specified
+      if (/\b(avant|arrière|arriere|av|ar)\b/i.test(message)) {
+        // Position specified, no clarification needed
+        return { needed: false, variants: [], dimension: '' };
+      }
+      // No position specified, ask for it
       return { needed: true, variants: ['avant', 'arrière'], dimension: 'position' };
     }
 

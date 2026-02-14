@@ -1,7 +1,9 @@
 export const tunisianDictionary = {
   // Tunisian verbs - Expanded
   'n7eb': 'je veux', 'bghit': 'je veux', 'nchri': 'acheter', 'nbi3': 'vendre',
-  'chouf': 'regarde', 'choufli': 'montre-moi', 'wri': 'montre', 'nfasakh': 'chercher',
+  'n7eb nchri': 'je veux acheter',
+  'choufli': 'montre-moi',
+  'chouf': 'regarde', 'wri': 'montre', 'nfasakh': 'chercher',
   'nla9i': 'trouver', 'nsib': 'laisser', 'n7ot': 'mettre', 'nhez': 'enlever',
   'nbaddel': 'changer', 'nsala7': 'réparer', 'nkasser': 'casser', 't9ala9': 'cassé',
   'yemchi': 'marche', 'mayemchich': 'ne marche pas', 'ye5dem': 'fonctionne',
@@ -177,7 +179,7 @@ export const tunisianDictionary = {
   'ch7al 9adech': 'combien ça coûte', 'ch7al b9adech': 'combien ça coûte',
   'ch7al fi': 'combien pour', 'ch7al 3la': 'combien pour',
   'bch nchri': 'pour acheter', 'bch nbi3': 'pour vendre',
-  '3andi bch nbi3': 'je veux vendre', 'n7eb nchri': 'je veux acheter',
+  '3andi bch nbi3': 'je veux vendre', '3andi bch nchri': 'je veux acheter',
   'bghit nchri': 'je veux acheter', 'bch nfassekh': 'pour chercher',
   'winti': 'toi', 'wintina': 'nous', 'wintouma': 'vous',
   'wintou': 'eux', 'mt3i': 'à moi', 'mt3ek': 'à toi',

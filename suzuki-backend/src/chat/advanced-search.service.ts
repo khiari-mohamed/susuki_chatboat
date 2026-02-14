@@ -60,7 +60,7 @@ export class AdvancedSearchService {
     lunette: ['lunette', 'vitre arriere', 'vitre arrière', 'glace arriere', 'glace arrière'],
 
     // Suspension & direction
-    amortisseur: ['amortisseur', 'amortiseur', 'amorsteur', 'amorto', 'amort', 'suspension', 'amor', 'amortisseure'],
+    amortisseur: ['amortisseur', 'amortiseur', 'amorsteur', 'amorto', 'amort', 'suspension', 'amor', 'amortisseure', 'amortos', 'amortisseurs'],
     biellette: ['biellette', 'biellette de direction', 'tirant', 'bielette', 'bielle direction', 'biel'],
     rotule: ['rotule', 'rotule de direction', 'rot', 'rotul', 'boule direction'],
     triangle: ['triangle', 'triangl', 'bras suspension', 'triangles', 'tiangle', 'trangle', 'riangle', 'rtiangle'],

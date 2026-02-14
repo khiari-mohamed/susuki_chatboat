@@ -203,6 +203,7 @@ export class ChatOrchestratorService {
       
       // CRITICAL: Re-search with enriched query instead of filtering in-memory
       const enrichedQuery = `${pendingClarification.originalQuery} ${processedMessage}`.trim();
+      this.logger.log(`Enriched query: "${enrichedQuery}"`);
       products = await this.searchService.search(enrichedQuery, vehicle);
       products = this.filterByVehicleModel(products, vehicle);
       

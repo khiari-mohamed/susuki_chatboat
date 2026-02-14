@@ -57,8 +57,10 @@ export class AIQueryNormalizerService {
       iale: 'aile',
       ial: 'aile',
       ivtre: 'vitre',
+      amorto: 'amortisseur',
       ovlant: 'volant',
-      olant: 'volant'
+      olant: 'volant',
+     
     };
     
     // Sort corrections by typo length (longest first) to prevent overlaps
