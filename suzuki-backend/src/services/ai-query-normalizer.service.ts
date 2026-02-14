@@ -15,6 +15,7 @@ export class AIQueryNormalizerService {
     confidence: number;
   }> {
     // CRITICAL: Rule-based pre-correction for common typos
+    // Sort by length (longest first) to avoid overlapping replacements
     const knownCorrections: Record<string, string> = {
       ilbrequin: 'vilebrequin',
       vilbrequin: 'vilebrequin',
@@ -23,26 +24,34 @@ export class AIQueryNormalizerService {
       olle: 'tolle',
       avlve: 'valve',
       avse: 'vase',
-      garafe: 'agrafe',
+      garaffes: 'agraffes',  // Longest first
       garafes: 'agrafes',
       garaffe: 'agraffe',
-      garaffes: 'agraffes',
-      graffe: 'agraffe',
+      garafe: 'agrafe',
       graffes: 'agraffes',
+      graffe: 'agraffe',
       garaphe: 'agraphe',
       graphe: 'agraphe',
       iale: 'aile',
       ial: 'aile',
-      itre: 'vitre',
       ivtre: 'vitre',
+      itre: 'vitre',
       ovlant: 'volant',
       olant: 'volant'
     };
     
+    // Sort corrections by typo length (longest first) to prevent overlaps
+    const sortedCorrections = Object.entries(knownCorrections)
+      .sort(([a], [b]) => b.length - a.length);
+    
     let correctedQuery = query;
-    for (const [typo, correct] of Object.entries(knownCorrections)) {
-      if (correctedQuery.toLowerCase().includes(typo)) {
+    const appliedCorrections = new Set<string>();
+    
+    for (const [typo, correct] of sortedCorrections) {
+      const lowerQuery = correctedQuery.toLowerCase();
+      if (lowerQuery.includes(typo) && !appliedCorrections.has(correct)) {
         correctedQuery = correctedQuery.replace(new RegExp(typo, 'gi'), correct);
+        appliedCorrections.add(correct);
         this.logger.log(`✅ Pre-corrected: ${typo} → ${correct}`);
       }
     }
@@ -79,13 +88,28 @@ export class AIQueryNormalizerService {
       for (const rWord of resultWords) {
         // Check if result word has repeated first letters (aaa, bbb, etc.)
         if (rWord.length >= 4 && rWord[0] === rWord[1] && rWord[1] === rWord[2]) {
-          this.logger.warn(`⚠️ AI added extra letters "${rWord}" - using corrected query instead`);
+          this.logger.warn(`⚠️ AI added triple letters "${rWord}" - rejecting AI result`);
+          this.logger.warn(`   Returning correctedQuery: "${correctedQuery}"`);
           return {
             normalized: correctedQuery,
             isGreeting: aiResult.isGreeting,
             isThanks: aiResult.isThanks,
             confidence: 0.7
           };
+        }
+        
+        // Check if result word starts with "a" or "aa" + corrected word (e.g., "aagraphe" when corrected is "agraphe")
+        for (const cWord of correctedWords) {
+          if (rWord === 'a' + cWord || rWord === 'aa' + cWord) {
+            this.logger.warn(`⚠️ AI added prefix to "${cWord}" → "${rWord}" - rejecting AI result`);
+            this.logger.warn(`   Returning correctedQuery: "${correctedQuery}"`);
+            return {
+              normalized: correctedQuery,
+              isGreeting: aiResult.isGreeting,
+              isThanks: aiResult.isThanks,
+              confidence: 0.7
+            };
+          }
         }
       }
       
