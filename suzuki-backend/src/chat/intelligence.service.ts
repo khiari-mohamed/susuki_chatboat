@@ -497,10 +497,30 @@ export class IntelligenceService {
         };
       }
 
+      // CRITICAL: Check for car part names FIRST (before greeting detection)
+      const carPartNames = [
+        'maitre', 'maître', 'cylindre', 'etrier', 'étrier', 'toit', 'cremaillere', 'crémaillère',
+        'filtre', 'plaquette', 'disque', 'amortisseur', 'phare', 'batterie', 'courroie', 'bougie',
+        'alternateur', 'démarreur', 'capteur', 'pneu', 'joint', 'durite', 'radiateur', 'pompe',
+        'injecteur', 'embrayage', 'roulement', 'rotule', 'biellette', 'bras', 'triangle',
+        'ressort', 'silentbloc', 'soufflet', 'cache', 'support', 'agrafe', 'agraffe', 'agraphe'
+      ];
+      
+      const hasCarPart = carPartNames.some(part => lower.includes(part) || normalized.includes(part));
+      if (hasCarPart) {
+        return { type: 'SEARCH', confidence: 0.90, subIntent: this.detectSubIntent(message) };
+      }
+
       // CRITICAL: Check for position-related queries ("show me front", "choufli l'avant")
       // These should be SEARCH, not GREETING
       if (/\b(montre|montrer|chouf|choufli|voir|regarde|affiche|afficher)\b.*\b(avant|arriere|arrière|gauche|droite|av|ar|g|d)\b/i.test(combinedText)) {
         return { type: 'SEARCH', confidence: 0.90, subIntent: this.detectSubIntent(message) };
+      }
+      
+      // CRITICAL: Check for single-word position queries ("avant", "arriere", "gauche", "droite")
+      // These should be SEARCH when user is asking about parts, not FILTER_NO_CONTEXT
+      if (/^\s*(avant|arriere|arrière|gauche|droite|av|ar|g|d|gosh|droit)\s*$/i.test(combinedText.trim())) {
+        return { type: 'SEARCH', confidence: 0.85, subIntent: this.detectSubIntent(message) };
       }
       
       // GREETING - only pure greetings without any search context

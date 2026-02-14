@@ -47,6 +47,22 @@ export class ChatOrchestratorService {
 
   private isFilterOperation(message: string): boolean {
     const lower = message.toLowerCase();
+    
+    // CRITICAL: Don't treat single car part names as filter operations
+    const carPartNames = [
+      'maitre', 'maître', 'cylindre', 'etrier', 'étrier', 'toit', 'cremaillere', 'crémaillère',
+      'filtre', 'plaquette', 'disque', 'amortisseur', 'phare', 'batterie', 'courroie', 'bougie',
+      'alternateur', 'démarreur', 'capteur', 'pneu', 'joint', 'durite', 'radiateur', 'pompe',
+      'injecteur', 'embrayage', 'roulement', 'rotule', 'biellette', 'bras', 'triangle',
+      'ressort', 'silentbloc', 'soufflet', 'cache', 'support', 'agrafe', 'agraffe', 'agraphe',
+      'valve', 'soupape', 'culasse', 'piston', 'segment', 'bielle', 'vilebrequin'
+    ];
+    
+    const isCarPart = carPartNames.some(part => lower === part || lower === part + 's');
+    if (isCarPart) {
+      return false; // Car parts are not filter operations
+    }
+    
     const filterPhrases = [
       'appliquer un filtre', 'ajoute un filtre', 'mettre un filtre',
       'filtre pour', 'filtre sur', 'ne montrer que', 'seulement',

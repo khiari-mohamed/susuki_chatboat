@@ -14,6 +14,28 @@ export class AIQueryNormalizerService {
     isThanks: boolean;
     confidence: number;
   }> {
+    // CRITICAL: Check if query is a car part name FIRST
+    const carPartNames = [
+      'maitre', 'maître', 'cylindre', 'etrier', 'étrier', 'toit', 'cremaillere', 'crémaillère',
+      'filtre', 'plaquette', 'disque', 'amortisseur', 'phare', 'batterie', 'courroie', 'bougie',
+      'alternateur', 'démarreur', 'capteur', 'pneu', 'joint', 'durite', 'radiateur', 'pompe',
+      'injecteur', 'embrayage', 'roulement', 'rotule', 'biellette', 'bras', 'triangle',
+      'ressort', 'silentbloc', 'soufflet', 'cache', 'support', 'agrafe', 'agraffe', 'agraphe',
+      'valve', 'soupape', 'culasse', 'piston', 'segment', 'bielle', 'vilebrequin'
+    ];
+    
+    const lowerQuery = query.toLowerCase();
+    const isCarPart = carPartNames.some(part => lowerQuery.includes(part));
+    
+    if (isCarPart) {
+      // Don't treat car parts as greetings
+      return {
+        normalized: query,
+        isGreeting: false,
+        isThanks: false,
+        confidence: 0.9
+      };
+    }
     // CRITICAL: Rule-based pre-correction for common typos
     // Sort by length (longest first) to avoid overlapping replacements
     const knownCorrections: Record<string, string> = {
@@ -35,7 +57,6 @@ export class AIQueryNormalizerService {
       iale: 'aile',
       ial: 'aile',
       ivtre: 'vitre',
-      itre: 'vitre',
       ovlant: 'volant',
       olant: 'volant'
     };
