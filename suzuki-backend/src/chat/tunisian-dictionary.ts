@@ -2,8 +2,7 @@ export const tunisianDictionary = {
   // Tunisian verbs - Expanded
   'n7eb': 'je veux', 'bghit': 'je veux', 'nchri': 'acheter', 'nbi3': 'vendre',
   'n7eb nchri': 'je veux acheter',
-  'choufli': 'montre-moi',
-  'chouf': 'regarde', 'wri': 'montre', 'nfasakh': 'chercher',
+  'chouf': 'regarde', 'choufli': 'montre-moi', 'wri': 'montre', 'nfasakh': 'chercher',
   'nla9i': 'trouver', 'nsib': 'laisser', 'n7ot': 'mettre', 'nhez': 'enlever',
   'nbaddel': 'changer', 'nsala7': 'réparer', 'nkasser': 'casser', 't9ala9': 'cassé',
   'yemchi': 'marche', 'mayemchich': 'ne marche pas', 'ye5dem': 'fonctionne',
@@ -15,6 +14,7 @@ export const tunisianDictionary = {
   'na3ref': 'savoir', 'mana3refch': 'je ne sais pas', 'n7es': 'sentir',
   'nchedd': 'tirer', 'ndeffa3': 'pousser', 'nfetta7': 'ouvrir', 'nsekker': 'fermer',
   'nghsel': 'laver', 'nnadhaf': 'nettoyer', 'nsawwek': 'réparer', 'nzid': 'ajouter',
+  'frina': 'frein',
   'nna99es': 'réduire', 'nghatti': 'couvrir', 'nkallem': 'parler', 'nesma3': 'écouter',
   'n9ra': 'lire', 'nektoub': 'écrire', 'n7seb': 'calculer', 'nchouf': 'voir',
   'nghammez': 'réfléchir', 'n7awel': 'essayer', 'njarréb': 'tester', 'nbadal': 'changer',
@@ -42,7 +42,7 @@ export const tunisianDictionary = {
 
   // Tunisian car parts slang - Expanded
   'miray': 'rétroviseur', 'mirwar': 'rétroviseur', 'mirwer': 'rétroviseur',
-  'frina': 'frein', 'frin': 'frein', 'zit': 'huile', 'batri': 'batterie', 'bataria': 'batterie',
+ 'frin': 'frein', 'zit': 'huile', 'batri': 'batterie', 'bataria': 'batterie',
   'korna': 'klaxon', 'kapo': 'capot', 'kabout': 'capot', 'rwida': 'roue', 'pnio': 'pneu',
   'filtr': 'filtre', 'filtere': 'filtre', 'bouji': 'bougie', 'bugi': 'bougie',
   'kouraya': 'courroie', 'amorto': 'amortisseur', 'amor': 'amortisseur',

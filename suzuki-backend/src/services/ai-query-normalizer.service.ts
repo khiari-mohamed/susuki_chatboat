@@ -21,14 +21,27 @@ export class AIQueryNormalizerService {
       'alternateur', 'démarreur', 'capteur', 'pneu', 'joint', 'durite', 'radiateur', 'pompe',
       'injecteur', 'embrayage', 'roulement', 'rotule', 'biellette', 'bras', 'triangle',
       'ressort', 'silentbloc', 'soufflet', 'cache', 'support', 'agrafe', 'agraffe', 'agraphe',
-      'valve', 'soupape', 'culasse', 'piston', 'segment', 'bielle', 'vilebrequin'
+      'valve', 'soupape', 'culasse', 'piston', 'segment', 'bielle', 'vilebrequin', 'frein', 'frina'
     ];
     
     const lowerQuery = query.toLowerCase();
     const isCarPart = carPartNames.some(part => lowerQuery.includes(part));
     
+    // CRITICAL: Check if it's a service question (hours, location, etc.)
+    const isServiceQuestion = /ouvrez|ouvert|heure|horaire|livraison|délai|garantie|situé|adresse|où|localisation/i.test(lowerQuery);
+    
     if (isCarPart) {
       // Don't treat car parts as greetings
+      return {
+        normalized: query,
+        isGreeting: false,
+        isThanks: false,
+        confidence: 0.9
+      };
+    }
+    
+    if (isServiceQuestion) {
+      // Don't treat service questions as greetings
       return {
         normalized: query,
         isGreeting: false,

@@ -72,7 +72,10 @@ export class ClarificationService {
         // Position specified, no clarification needed
         return { needed: false, variants: [], dimension: '' };
       }
-      // No position specified, ask for it
+      // No position specified, ask for it (but don't set as needed if only 1 product)
+      if (products.length === 1) {
+        return { needed: false, variants: [], dimension: '' };
+      }
       return { needed: true, variants: ['avant', 'arrière'], dimension: 'position' };
     }
 

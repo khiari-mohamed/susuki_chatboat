@@ -435,8 +435,23 @@ export class AdvancedSearchService {
       return 100000;
     }
     
+    // CRITICAL: Penalize accessories when user asks for main part
+    const accessoryWords = ['sangle', 'support', 'causse', 'clip', 'jeu', 'kit', 'ensemble', 'set', 'boitier', 'cache', 'couvercle'];
+    const queryWords = context.rawTokens.filter(w => w.length >= 3);
     const designationWords = designation.split(' ').filter(w => w.length >= 1);
-    const queryWords = context.rawTokens.filter(w => w.length >= 1);
+    
+    // Check if user explicitly asked for accessory
+    const userAskedForAccessory = queryWords.some(qw => accessoryWords.includes(qw));
+    const hasAccessoryWord = accessoryWords.some(acc => designationWords.includes(acc));
+    
+    // If user explicitly asks for accessory ("sangle batterie", "jeu plaquette"), boost it
+    if (userAskedForAccessory && hasAccessoryWord) {
+      score += 100000; // HUGE boost for accessories when user explicitly asks
+    }
+    // If user did NOT ask for accessory, REJECT accessories (regardless of query length)
+    else if (!userAskedForAccessory && hasAccessoryWord) {
+      return -1000000; // ABSOLUTE REJECTION of accessories when user wants main part
+    }
     
     // ADAPTIVE: Extract ALL meaningful words from query (length >= 3, not positions)
     const meaningfulQueryWords = queryWords.filter(w => 
@@ -699,10 +714,16 @@ export class AdvancedSearchService {
       !['avant','arriere','gauche','droite','av','ar','g','d'].includes(t)
     );
     
-    // CRITICAL: Much lower thresholds to allow multi-word matches like "agraphe para soleil"
-    if (contentTokens.length >= 3) return 200; // was 500
-    if (contentTokens.length === 2) return 100; // was 300
-    return 50; // was 100
+    // CRITICAL: Check if query has extra words from Tunisian normalization
+    const hasExtraWords = context.expandedTerms.some(t => 
+      ['veux', 'feux', 'acheter', 'prix', 'combien', 'disponible', 'stock', 'montre-moi', 'montre'].includes(t)
+    );
+    
+    // CRITICAL: Much lower thresholds to allow multi-word matches
+    if (hasExtraWords) return 50; // Very low for Tunisian queries
+    if (contentTokens.length >= 3) return 200;
+    if (contentTokens.length === 2) return 100;
+    return 50;
   }
 
   private calculateOptimalResultLimit(context: SearchContext, availableResults: number): number {
@@ -1052,6 +1073,12 @@ Segmented:`;
       const regex = new RegExp(`\\b${tunisian}\\b`, 'gi');
       result = result.replace(regex, french);
     }
+    
+    // CRITICAL: Remove extra words that don't exist in database
+    const extraWords = ['je', 'veux', 'acheter', 'il', 'y', 'a', 'montre-moi', 'montre', 'combien', 'prix', 'disponible', 'stock', 'ch7al', 'coute'];
+    const words = result.split(/\s+/);
+    const filtered = words.filter(w => !extraWords.includes(w));
+    result = filtered.join(' ');
     
     return result !== query.toLowerCase() ? result : '';
   }
