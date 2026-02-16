@@ -78,6 +78,10 @@ const conversations = [
   {
     title: 'Test 17: Clip plaquette frein (accessory)',
     messages: ['clip plaquette frein']
+  },
+  {
+    title: 'Test 18: Greetings vs Goodbyes',
+    messages: ['bonjour', 'ahla', 'au revoir', 'bye', 'besslema', 'à bientôt', 'bonne journée']
   }
 ];
 

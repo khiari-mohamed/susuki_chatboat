@@ -157,7 +157,7 @@ export class AIQueryNormalizerService {
       return { 
         normalized: fallbackNormalized || correctedQuery, 
         isGreeting: /^(bonjour|salut|hello|hi|salem|ahla|salam)\b/i.test(correctedQuery),
-        isThanks: /^(merci|thanks|3aychek|barcha)\b/i.test(correctedQuery),
+        isThanks: /\b(merci|thanks|3aychek|barcha|au revoir|bye|à bientôt|bonne journée|besslema|sahha|ciao|adieu)\b/i.test(correctedQuery),
         confidence: 0.5 
       };
     }
@@ -225,7 +225,8 @@ CRITICAL RULES:
 6. PRESERVE ALL POSITIONS - if query has "ar" AND "av", keep BOTH
 7. Return properly spaced French
 8. isGreeting=true ONLY if pure greeting with NO car parts/positions
-9. PRESERVE SINGLE-LETTER POSITIONS: if query has "g" (gauche) or "d" (droite), keep them.
+9. isThanks=true for goodbyes (au revoir, bye, besslema, à bientôt, bonne journée) AND thanks (merci, thank you)
+10. PRESERVE SINGLE-LETTER POSITIONS: if query has "g" (gauche) or "d" (droite), keep them.
    Example: "g ar glace monte appareil" → "gauche arrière glace monte appareil" (NOT "glace arrière monte appareil")
 
 EXAMPLES:
@@ -236,6 +237,9 @@ EXAMPLES:
 - "garafe feu ar" → "agrafe feu arrière"
 - "àlimentàteur toit" → "alimentateur toit"
 - "ahla" → "bonjour" (isGreeting=true)
+- "au revoir" → "au revoir" (isThanks=true)
+- "bye" → "bye" (isThanks=true)
+- "merci" → "merci" (isThanks=true)
 - "choufli avant" → "montre-moi avant" (isGreeting=false)
 - "g ar glace monte appareil" → "gauche arrière glace monte appareil"
 

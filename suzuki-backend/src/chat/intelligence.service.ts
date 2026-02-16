@@ -523,16 +523,15 @@ export class IntelligenceService {
         return { type: 'SEARCH', confidence: 0.85, subIntent: this.detectSubIntent(message) };
       }
       
+      // GOODBYE - au revoir, bye, besslema, etc. (CHECK BEFORE GREETING)
+      if (/\b(au revoir|bye|à bientôt|bonne journée|besslema|sahha|ciao|adieu|à plus)\b/i.test(combinedText.trim())) {
+        return { type: 'THANKS', confidence: 0.95 };
+      }
+      
       // GREETING - only pure greetings without any search context
       if (!hasPendingClarification && this.isGreetingWord(lower) && 
           !/filtre|plaquette|disque|frein|amortisseur|batterie|pneu|phare|courroie|bougie|capteur|radiateur|pompe|nchri|acheter|cherche|besoin|n7eb|stock|prix|disponible|famma|choufli|montre|voir|avant|arriere|arrière|gauche|droite/i.test(combinedText)) {
         return { type: 'GREETING', confidence: 0.95 };
-      }
-      
-      // GOODBYE - au revoir, bye, besslema, etc.
-      if (/^(au revoir|bye|à bientôt|bonne journée|besslema|sahha|ciao|adieu|à plus|salut bye)$/i.test(combinedText.trim()) ||
-          /^(bye|au revoir|besslema)$/i.test(lower.trim())) {
-        return { type: 'THANKS', confidence: 0.95 };
       }
       
       // GREETING - prioritize polite greetings with help requests
