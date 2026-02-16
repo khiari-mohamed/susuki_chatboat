@@ -19,29 +19,31 @@ export class ResponseService {
   }
 
   buildProductResponse(products: any[], query: string, vehicle: any): string {
-    const available = products.filter(p => p.stock > 0 && p.prixHt != null);
+    // Show products even if stock is 0 - let user contact CarPro
+    const withPrice = products.filter(p => p.prixHt != null);
     
-    if (available.length === 0) {
+    if (withPrice.length === 0) {
       const vehicleInfo = vehicle?.modele ? ` pour votre ${vehicle.marque} ${vehicle.modele}` : '';
       return `Indisponible${vehicleInfo}.\n\nContactez CarPro au ☎️ 70 603 500.`;
     }
     
     // Show ONLY 1 exact product
-    const product = available[0];
+    const product = withPrice[0];
     const vehicleInfo = vehicle?.modele ? ` pour votre ${vehicle.marque} ${vehicle.modele}` : '';
     return `${product.designation}${vehicleInfo}\nRéf: ${product.reference}\nPrix: ${product.prixHt} TND\n\n💡 Contactez CarPro au ☎️ 70 603 500 pour réserver.`;
   }
 
   buildPriceResponse(products: any[], query: string, vehicle: any, lastTopic: string): string {
-    const available = products.filter(p => p.stock > 0 && p.prixHt != null);
+    // Show products even if stock is 0 - let user contact CarPro
+    const withPrice = products.filter(p => p.prixHt != null);
     
-    if (available.length === 0) {
+    if (withPrice.length === 0) {
       const vehicleInfo = vehicle?.modele ? ` pour votre ${vehicle.marque} ${vehicle.modele}` : '';
       return `Indisponible${vehicleInfo}.\n\nContactez CarPro au ☎️ 70 603 500.`;
     }
     
     // Show ONLY 1 exact product
-    const product = available[0];
+    const product = withPrice[0];
     const vehicleInfo = vehicle?.modele ? ` pour votre ${vehicle.marque} ${vehicle.modele}` : '';
     return `${product.designation}${vehicleInfo}\nPrix: ${product.prixHt} TND\n\n💡 Contactez CarPro au ☎️ 70 603 500 pour réserver.`;
   }
