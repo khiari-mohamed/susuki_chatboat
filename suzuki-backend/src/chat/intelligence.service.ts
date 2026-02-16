@@ -529,6 +529,12 @@ export class IntelligenceService {
         return { type: 'GREETING', confidence: 0.95 };
       }
       
+      // GOODBYE - au revoir, bye, besslema, etc.
+      if (/^(au revoir|bye|à bientôt|bonne journée|besslema|yesser|barka|sahha|ciao|adieu|à plus|salut bye)$/i.test(combinedText.trim()) ||
+          /^(bye|au revoir|besslema)$/i.test(lower.trim())) {
+        return { type: 'THANKS', confidence: 0.95 };
+      }
+      
       // GREETING - prioritize polite greetings with help requests
       if (/^(bonjour|salut|hello|hi|salam|assalam)/i.test(message) && 
           /aide|help|assistance|trouver.*pièces|j'aurais besoin/i.test(lower) &&
