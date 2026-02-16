@@ -530,7 +530,7 @@ export class IntelligenceService {
       }
       
       // GOODBYE - au revoir, bye, besslema, etc.
-      if (/^(au revoir|bye|à bientôt|bonne journée|besslema|yesser|barka|sahha|ciao|adieu|à plus|salut bye)$/i.test(combinedText.trim()) ||
+      if (/^(au revoir|bye|à bientôt|bonne journée|besslema|sahha|ciao|adieu|à plus|salut bye)$/i.test(combinedText.trim()) ||
           /^(bye|au revoir|besslema)$/i.test(lower.trim())) {
         return { type: 'THANKS', confidence: 0.95 };
       }
