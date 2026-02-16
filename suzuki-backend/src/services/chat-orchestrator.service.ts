@@ -23,6 +23,7 @@ export interface ProcessMessageResponse {
     conversationLength: number;
     queryClarity: number;
     duration?: number;
+    userMessageId?: string;
     error?: string;
   };
 }
@@ -117,7 +118,7 @@ export class ChatOrchestratorService {
 
     // 1. Get/create session
     const session = await this.sessionService.getOrCreate(sessionId, vehicle);
-    await this.sessionService.saveUserMessage(session.id, message);
+    const userMessageId = await this.sessionService.saveUserMessage(session.id, message);
     this.contextService.invalidateCache(session.id);
 
     // 2. Get context
@@ -140,7 +141,7 @@ export class ChatOrchestratorService {
           products: [], 
           confidence: 'HIGH', 
           intent: normalized.isGreeting ? 'GREETING' : 'THANKS', 
-          metadata: { productsFound: 0, conversationLength: conversationHistory.length, queryClarity: 0 } 
+          metadata: { productsFound: 0, conversationLength: conversationHistory.length, queryClarity: 0, userMessageId } 
         };
       }
     }
@@ -294,7 +295,7 @@ export class ChatOrchestratorService {
           ? this.responseService.buildGreetingResponse() 
           : this.responseService.buildThanksResponse();
         await this.sessionService.saveBotResponse(session.id, response, { intent: intent.type });
-        return { response, sessionId: session.id, products: [], confidence: 'HIGH', intent: intent.type, metadata: { productsFound: 0, conversationLength: conversationHistory.length, queryClarity: 0 } };
+        return { response, sessionId: session.id, products: [], confidence: 'HIGH', intent: intent.type, metadata: { productsFound: 0, conversationLength: conversationHistory.length, queryClarity: 0, userMessageId } };
       }
     }
     
@@ -456,7 +457,7 @@ export class ChatOrchestratorService {
       confidenceScore: confidence.score,
       suggestions: [],
       intent: intent.type,
-      metadata: { productsFound: filteredProducts.length, conversationLength: conversationHistory.length, queryClarity, duration: Date.now() - startTime }
+      metadata: { productsFound: filteredProducts.length, conversationLength: conversationHistory.length, queryClarity, duration: Date.now() - startTime, userMessageId }
     };
   }
 
