@@ -10,7 +10,7 @@ const ChatWidget = () => {
   const [messages, setMessages] = useState([
     {
       id: 1,
-      text: "Bonjour! Je suis votre assistant chatbot de Suzuki House of Cars. Comment puis-je vous aider aujourd'hui?",
+      text: "Bonjour! Je suis votre assistant AI de Suzuki Tunisie. Quelles pièces de rechange vous cherchez aujourd'hui?",
       sender: 'bot',
       timestamp: new Date()
     }
