@@ -9,12 +9,18 @@ async function bootstrap() {
   app.useGlobalPipes(new ValidationPipe());
   
   // Enable CORS with proper file upload support
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
   const allowedOrigins = [
-    process.env.FRONTEND_URL || 'http://localhost:3000',
-    'http://localhost:3001',
+    frontendUrl,
     'http://localhost:3000',
-    'https://susuki-chatboat.vercel.app' // Ajout explicite
+    'http://localhost:3001',
+    'http://5.199.136.2:3000'
   ];
+  
+  // Add production frontend if different from FRONTEND_URL
+  if (process.env.NODE_ENV === 'production' && process.env.PRODUCTION_FRONTEND_URL) {
+    allowedOrigins.push(process.env.PRODUCTION_FRONTEND_URL);
+  }
   
   app.enableCors({
     origin: allowedOrigins,
@@ -27,7 +33,7 @@ async function bootstrap() {
   app.use(require('express').json({ limit: '25mb' }));
   app.use(require('express').urlencoded({ limit: '25mb', extended: true }));
   
-  await app.listen(process.env.PORT ?? 8000);
+  await app.listen(process.env.PORT ?? 8000, '0.0.0.0');
   console.log(`🚀 Backend running on port ${process.env.PORT ?? 8000}`);
   console.log(`📡 CORS enabled for: ${allowedOrigins.join(', ')}`);
   console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);

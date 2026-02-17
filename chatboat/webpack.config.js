@@ -48,7 +48,7 @@ module.exports = {
     }),
     new webpack.DefinePlugin({
       'process.env': {
-        'REACT_APP_API_URL': JSON.stringify(process.env.REACT_APP_API_URL || 'https://suzuki-backend-lui3.onrender.com')
+        'REACT_APP_API_URL': JSON.stringify(process.env.REACT_APP_API_URL || 'http://localhost:8000')
       }
     })
   ],
