@@ -363,26 +363,49 @@ const ChatWidget = () => {
 
   if (!isVerified) {
     return (
-      <div className={`verification-modal ${isDark ? 'dark' : ''}`}>
-        <div className="verification-card">
-          <div className="verification-header" style={{ background: 'linear-gradient(to bottom right, #f8fafc, #e0f2fe)', padding: '48px 30px', borderBottom: '1px solid #e2e8f0' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px', marginBottom: '24px' }}>
-              <div style={{ width: '80px', height: '80px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <img src={logoUrl} alt="Suzuki Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+      <>
+        <div className={`chat-bubble ${isOpen ? 'hidden' : ''}`} onClick={() => setIsOpen(true)}>
+          <FiMessageCircle className="bubble-icon" />
+          <div className="bubble-badge">1</div>
+          <div className="bubble-pulse"></div>
+        </div>
+
+        <div className={`chat-container ${isOpen ? 'open' : ''} ${isDark ? 'dark' : ''}`}>
+          <div className="chat-header">
+            <div className="header-content">
+              <div className="header-logo">
+                <div className="logo-circle">
+                  <img src={logoUrl} alt="Suzuki" style={{ width: '28px', height: '28px', objectFit: 'contain' }} />
+                </div>
+                <div className="header-text">
+                  <h3>Suzuki AI Assistant</h3>
+                  <span className="status">
+                    <span className="status-dot"></span>
+                    Vérification requise
+                  </span>
+                </div>
               </div>
-              <div style={{ textAlign: 'left' }}>
-                <h1 style={{ fontSize: '32px', fontWeight: '700', background: 'linear-gradient(90deg, #1a73e8 0%, #7c4dff 50%, #c2185b 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', marginBottom: '4px' }}>Suzuki AI Assistant</h1>
-                <p style={{ fontSize: '14px', color: '#64748b', margin: 0 }}>Votre expert intelligent en pièces de rechanges</p>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button className="theme-btn" onClick={() => setIsDark(!isDark)}>
+                  {isDark ? <FiSun /> : <FiMoon />}
+                </button>
+                <button className="close-btn" onClick={() => setIsOpen(false)}>
+                  <FiX />
+                </button>
               </div>
-            </div>
-            <p style={{ fontSize: '14px', color: '#64748b' }}>Bonjour merci de télécharger votre carte grise Suzuki</p>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginTop: '8px' }}>
-              <MdOutlineCalendarMonth style={{ color: '#94a3b8', fontSize: '16px' }} />
-              <p style={{ fontSize: '12px', color: '#94a3b8', margin: 0 }}>Limite: 3 téléchargements par mois</p>
             </div>
           </div>
 
-          <div className="verification-content">
+          <div className="verification-content-inline">
+            <div className="verification-header-inline">
+              <h3 style={{ color: 'var(--suzuki-blue)' }}>Votre expert intelligent en pièces de rechanges</h3>
+              <p>Bonjour merci de télécharger votre carte grise Suzuki</p>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginTop: '12px' }}>
+                <MdOutlineCalendarMonth style={{ color: 'var(--suzuki-red)', fontSize: '16px' }} />
+                <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0 }}>Limite: 3 téléchargements par mois</p>
+              </div>
+            </div>
+
             <div 
               className={`upload-zone ${isDragging ? 'dragging' : ''} ${uploadedFile ? 'uploaded' : ''}`}
               onDragOver={handleDragOver}
@@ -425,8 +448,12 @@ const ChatWidget = () => {
               </div>
             )}
           </div>
+
+          <div className="chat-footer">
+            <span>Powered by Suzuki AI</span>
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 
@@ -443,7 +470,7 @@ const ChatWidget = () => {
           <div className="header-content">
             <div className="header-logo">
               <div className="logo-circle">
-                <img src={logoUrl} alt="Suzuki" style={{ width: '32px', height: '32px', objectFit: 'contain' }} />
+                <img src={logoUrl} alt="Suzuki" style={{ width: '28px', height: '28px', objectFit: 'contain' }} />
               </div>
               <div className="header-text">
                 <h3>Suzuki AI Assistant</h3>
@@ -453,18 +480,25 @@ const ChatWidget = () => {
                 </span>
               </div>
             </div>
-            <button className="theme-btn" onClick={() => setIsDark(!isDark)}>
-              {isDark ? <FiSun /> : <FiMoon />}
-            </button>
-            <button className="close-btn" onClick={() => setIsOpen(false)}>
-              <FiX />
-            </button>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button className="theme-btn" onClick={() => setIsDark(!isDark)}>
+                {isDark ? <FiSun /> : <FiMoon />}
+              </button>
+              <button className="close-btn" onClick={() => setIsOpen(false)}>
+                <FiX />
+              </button>
+            </div>
           </div>
         </div>
 
         <div className="chat-messages">
           {messages.map((msg) => (
             <div key={msg.id} className={`message ${msg.sender}`}>
+              {msg.sender === 'bot' && (
+                <div className="bot-avatar">
+                  <img src={logoUrl} alt="Suzuki" />
+                </div>
+              )}
               {msg.text === 'VEHICLE_INFO' ? (
                 <div className="message-content vehicle-info-card">
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>

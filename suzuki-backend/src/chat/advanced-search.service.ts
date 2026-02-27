@@ -89,7 +89,7 @@ export class AdvancedSearchService {
     optique: ['optique', 'bloc optique', 'bloc phare', 'lighthouse'],
 
     // Electricité
-    batterie: ['batterie', 'battery', 'batri', 'bateri', 'bataria', 'accumulator', 'accu'],
+    batterie: ['batterie', 'battery', 'batri', 'bateri', 'bataria', 'batrie', 'accumulator', 'accu'],
     alternateur: ['alternateur', 'alternator', 'alter', 'alterno', 'alternato'],
     demarreur: ['demarreur', 'démarreur', 'starter', 'start', 'demar', 'démar'],
     capteur: ['capteur', 'sensor', 'sonde', 'detecteur', 'détecteur', 'capt'],
@@ -136,7 +136,7 @@ export class AdvancedSearchService {
     papillon: ['papillon', 'throttle', 'throttle body', 'boitier papillon', 'corps papillon'],
 
     // Échappement
-    echappement: ['echappement', 'tuyau echappement', 'silencieux', 'exhaust', 'pot', 'systeme echappement', 'sortie', 'tuyau'],
+    echappement: ['echappement', 'échappement', 'chapement', 'tuyau echappement', 'silencieux', 'exhaust', 'pot', 'systeme echappement', 'sortie', 'tuyau'],
     catalyseur: ['catalyseur', 'catalytic', 'cat', 'convertisseur catalytique', 'depollution'],
     marmite: ['marmite echappement', 'marmite', 'silencieux arriere', 'pot arriere', 'rear silencer'],
     ligne: ['ligne echappement', 'ligne complete', 'full system', 'systeme complet'],
@@ -354,10 +354,14 @@ export class AdvancedSearchService {
   private detectPositionRequirements(rawTokens: string[], expandedTerms: string[]): PositionRequirements {
     const text = rawTokens.join(' ').toLowerCase();
     
+    // CRITICAL: Check rawTokens for "ar" since it gets filtered out (2 chars)
+    const hasArToken = rawTokens.some(t => t === 'ar');
+    const hasAvToken = rawTokens.some(t => t === 'av');
+    
     return {
-      avant: this.hasPosition(expandedTerms, ['avant', 'av']) || 
+      avant: hasAvToken || this.hasPosition(expandedTerms, ['avant', 'av']) || 
              /(droite|gauche|d|g)[\s-]*(avant|av)|(avant|av)[\s-]*(droite|gauche|d|g)/i.test(text),
-      arriere: this.hasPosition(expandedTerms, ['arriere', 'arrière', 'ar']) ||
+      arriere: hasArToken || this.hasPosition(expandedTerms, ['arriere', 'arrière', 'ar']) ||
                /(droite|gauche|d|g)[\s-]*(arriere|arrière|ar)|(arriere|arrière|ar)[\s-]*(droite|gauche|d|g)/i.test(text),
       gauche: this.hasPosition(expandedTerms, ['gauche', 'g', 'conducteur']) ||
               /(avant|av|arriere|arrière|ar)[\s-]*(gauche|g)|(gauche|g)[\s-]*(avant|av|arriere|arrière|ar)/i.test(text),
@@ -437,7 +441,18 @@ export class AdvancedSearchService {
     
     // CRITICAL: Penalize accessories when user asks for main part
     const accessoryWords = ['sangle', 'support', 'causse', 'clip', 'jeu', 'kit', 'ensemble', 'set', 'boitier', 'cache', 'couvercle'];
-    const queryWords = context.rawTokens.filter(w => w.length >= 3);
+    // CRITICAL FIX: Use expandedTerms but filter out synonym words when the main category is present
+    const queryWords = context.expandedTerms.filter(w => {
+      if (w.length < 3) return false;
+      // Check if this word is a synonym of another word in expandedTerms
+      for (const [category, syns] of Object.entries(this.synonyms)) {
+        if (syns.includes(w) && context.expandedTerms.includes(category) && w !== category) {
+          // This word is a synonym and the main category is present - skip it
+          return false;
+        }
+      }
+      return true;
+    });
     const designationWords = designation.split(' ').filter(w => w.length >= 1);
     
     // Check if user explicitly asked for accessory
@@ -465,7 +480,7 @@ export class AdvancedSearchService {
       const hasPluralMatch = designationWords.some(dw => 
         dw === qw + 's' || dw === qw + 'es' || qw === dw + 's' || qw === dw + 'es'
       );
-      const hasFuzzyMatch = designationWords.some(dw => this.levenshtein(qw, dw) <= 1);
+      const hasFuzzyMatch = designationWords.some(dw => this.levenshtein(qw, dw) <= 2);
       
       // If query word is NOT in designation at all → REJECT
       if (!hasExactMatch && !hasPluralMatch && !hasFuzzyMatch) {
@@ -669,24 +684,21 @@ export class AdvancedSearchService {
     const hasGauche = /\b(gauche|g|conducteur)\b/i.test(designation);
     const hasDroite = /\b(droite|d|passager)\b/i.test(designation);
     
-    // CRITICAL: Parts can have MULTIPLE positions (e.g., "ADHESIF AR PORTE AV G")
-    // Only reject if part has WRONG position AND doesn't have the RIGHT one
-    if (positionInfo.avant && !hasAvant && hasArriere) return -100000;
-    if (positionInfo.arriere && !hasArriere && hasAvant) return -100000;
-    if (positionInfo.gauche && !hasGauche && hasDroite) return -100000;
-    if (positionInfo.droite && !hasDroite && hasGauche) return -100000;
+    // CRITICAL: ABSOLUTE REJECTION if user asks for specific position but part has OPPOSITE position
+    // User asks AVANT → reject if part ONLY has ARRIERE
+    if (positionInfo.avant && hasArriere && !hasAvant) return -1000000;
+    // User asks ARRIERE → reject if part ONLY has AVANT
+    if (positionInfo.arriere && hasAvant && !hasArriere) return -1000000;
+    // User asks GAUCHE → reject if part ONLY has DROITE
+    if (positionInfo.gauche && hasDroite && !hasGauche) return -1000000;
+    // User asks DROITE → reject if part ONLY has GAUCHE
+    if (positionInfo.droite && hasGauche && !hasDroite) return -1000000;
     
-    // Reduced bonus for correct position (was 8000, now 500)
+    // Bonus for correct position
     if (positionInfo.avant && hasAvant) score += 500;
     if (positionInfo.arriere && hasArriere) score += 500;
     if (positionInfo.gauche && hasGauche) score += 500;
     if (positionInfo.droite && hasDroite) score += 500;
-    
-    // Penalty for containing opposite position when query specifies position
-    if (positionInfo.avant && hasArriere) score -= 20000;
-    if (positionInfo.arriere && hasAvant) score -= 20000;
-    if (positionInfo.gauche && hasDroite) score -= 20000;
-    if (positionInfo.droite && hasGauche) score -= 20000;
     
     return score;
   }
