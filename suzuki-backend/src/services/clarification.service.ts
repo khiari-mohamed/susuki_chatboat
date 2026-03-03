@@ -54,6 +54,8 @@ export class ClarificationService {
     if (context.dimension === 'position') return ['avant', 'arriere', 'arrière', 'av', 'ar'].includes(lower);
     if (context.dimension === 'side') return ['gauche', 'droite', 'g', 'd', 'droit'].includes(lower);
     if (context.dimension === 'type') {
+      const filterTypes = ['air', 'huile', 'gazoile', 'habitacle', 'carburant', 'essence', 'climatiseur'];
+      if (filterTypes.some(t => lower.includes(t))) return true;
       return context.products.some(p => {
         const d = (p.designation || '').toLowerCase();
         return d.includes(lower) || ['support', 'joint', 'roulement', 'toc', 'kit'].includes(lower) && d.includes(lower);

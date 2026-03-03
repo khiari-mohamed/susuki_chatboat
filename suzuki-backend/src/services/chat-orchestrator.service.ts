@@ -210,19 +210,45 @@ export class ChatOrchestratorService {
     if (pendingClarification && this.clarificationService.isAnswer(processedMessage, pendingClarification)) {
       const partName = this.clarificationService.extractPartName(pendingClarification.originalQuery);
       this.logger.log(`Clarification answer: "${processedMessage}" for original: "${pendingClarification.originalQuery}"`);
-      this.clarificationService.clearPending(session.id);
-      
-      this.contextService.setLastPart(session.id, partName);
       
       const isPositionAnswer = /^\s*(avant|arriere|arrière|av|ar|gauche|droite|g|d|droit|gosh)\s*(avant|arriere|arrière|av|ar|gauche|droite|g|d|droit|gosh)?\s*$/i.test(message.trim());
       this.logger.log(`isPositionAnswer check: "${message.trim()}" → ${isPositionAnswer}`);
       
-      let products: any[];
-      
-      // CRITICAL: Re-search with enriched query instead of filtering in-memory
+      // CRITICAL: Combine original query with answer BEFORE clearing pending
       const enrichedQuery = `${pendingClarification.originalQuery} ${processedMessage}`.trim();
       this.logger.log(`Enriched query: "${enrichedQuery}"`);
-      products = await this.searchService.search(enrichedQuery, vehicle);
+      
+      let products: any[];
+      
+      // CRITICAL: For TYPE clarifications, filter pending products instead of new search
+      if (pendingClarification.dimension === 'type') {
+        this.logger.log(`TYPE clarification - filtering ${pendingClarification.products.length} pending products by "${processedMessage}"`);
+        const answerLower = processedMessage.toLowerCase().trim();
+        const mainTypes = ['air', 'huile', 'gazoile', 'habitacle', 'carburant', 'essence', 'climatiseur'];
+        const matchedType = mainTypes.find(t => answerLower.includes(t));
+        
+        products = pendingClarification.products.filter(p => {
+          const designation = p.designation.toLowerCase();
+          if (matchedType) {
+            return designation.includes(matchedType);
+          }
+          // Fuzzy match: check if any word in designation contains answer or vice versa
+          const words = designation.split(/\s+/);
+          return words.some(word => 
+            word.includes(answerLower) || answerLower.includes(word) ||
+            this.levenshteinDistance(word, answerLower) <= 2
+          );
+        });
+        this.logger.log(`After type filtering: ${products.length} products (matched: ${matchedType || 'general'})`);
+      } else {
+        // For position/side clarifications, do enriched search
+        products = await this.searchService.search(enrichedQuery, vehicle);
+      }
+      
+      // Clear pending AFTER using products
+      this.clarificationService.clearPending(session.id);
+      this.contextService.setLastPart(session.id, partName);
+      
       products = this.filterByVehicleModel(products, vehicle);
       
       // Apply position validation on fresh results
@@ -486,5 +512,27 @@ export class ChatOrchestratorService {
       const hasModel = hasModelInDesignation(designation);
       return !hasModel || matchesModel(designation, model);
     });
+  }
+
+  private levenshteinDistance(a: string, b: string): number {
+    if (a.length === 0) return b.length;
+    if (b.length === 0) return a.length;
+    const matrix: number[][] = [];
+    for (let i = 0; i <= b.length; i++) matrix[i] = [i];
+    for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
+    for (let i = 1; i <= b.length; i++) {
+      for (let j = 1; j <= a.length; j++) {
+        if (b.charAt(i - 1) === a.charAt(j - 1)) {
+          matrix[i][j] = matrix[i - 1][j - 1];
+        } else {
+          matrix[i][j] = Math.min(
+            matrix[i - 1][j - 1] + 1,
+            matrix[i][j - 1] + 1,
+            matrix[i - 1][j] + 1
+          );
+        }
+      }
+    }
+    return matrix[b.length][a.length];
   }
 }

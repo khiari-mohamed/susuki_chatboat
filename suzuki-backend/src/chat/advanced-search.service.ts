@@ -108,7 +108,7 @@ export class AdvancedSearchService {
     courroie: ['courroie', 'courroies', 'belt', 'courroi', 'distribution', 'timing belt', 'accessoires'],
     pompeeau: ['pompe a eau', 'pompe à eau', 'water pump', 'pompe eau', 'pump water', 'pompe refroidissement'],
     pompehuile: ['pompe a huile', 'pompe à huile', 'oil pump', 'pompe huile', 'lubrification'],
-    bougie: ['bougie', 'bougies', 'spark plug', 'bougi', 'sparkplug', 'allumage'],
+    bougie: ['bougie', 'bougies', 'spark plug', 'bougi', 'boujie', 'sparkplug', 'allumage'],
     embrayage: ['embrayage', 'kit embrayage', 'clutch', 'emb', 'embrayag', 'embreyage', 'debrayage'],
     volantmoteur: ['volant moteur', 'volant bimasse', 'flywheel', 'volant', 'bimasse'],
     butee: ['butee', 'butée', 'butée embrayage', 'release bearing'],
@@ -600,6 +600,9 @@ export class AdvancedSearchService {
     let mainPartMatched = false;
     const matchedWords = new Set<string>();
     
+    // CRITICAL: Track which query words are matched
+    const unmatchedQueryWords = new Set(queryWords);
+    
     queryWords.forEach(qw => {
       const variants = positionMap[qw] || [qw];
       const withPlural = [...variants, ...variants.map(v => v + 's'), ...variants.map(v => v + 'es')];
@@ -609,11 +612,24 @@ export class AdvancedSearchService {
       if (allVariants.some(v => designationWords.some(dw => wordMatches(v, dw)))) {
         matchCount++;
         matchedWords.add(qw);
+        unmatchedQueryWords.delete(qw);
         if (context.mainPartType && qw === context.mainPartType) {
           mainPartMatched = true;
         }
       }
     });
+    
+    // CRITICAL: Penalize if query words appear in wrong context
+    // Example: "filtre air" should NOT match "CLE A FILTRE" (air is missing)
+    if (unmatchedQueryWords.size > 0) {
+      // Check if unmatched words are important (not positions)
+      const unmatchedImportant = Array.from(unmatchedQueryWords).filter(w => 
+        w.length > 2 && !['avant','arriere','gauche','droite','av','ar','g','d','sup','inf','para','de'].includes(w)
+      );
+      if (unmatchedImportant.length > 0) {
+        return -1000000; // REJECT if important query words missing
+      }
+    }
     
     // If NO query words match at all → reject
     if (matchCount === 0) {
@@ -722,8 +738,8 @@ export class AdvancedSearchService {
   }
 
   private getMinimumScore(context: SearchContext): number {
-    // CRITICAL: References should have NO minimum score (they already matched by reference)
-    const isReference = /^[A-Z0-9]{8,}/.test(context.originalQuery.toUpperCase());
+    // CRITICAL: References should have NO minimum score
+    const isReference = /^[A-Z0-9]{5,}/.test(context.originalQuery.toUpperCase().replace(/[^A-Z0-9]/g, ''));
     if (isReference) return 0;
     
     const isOnlyPosition = context.expandedTerms.length === 1 && 
