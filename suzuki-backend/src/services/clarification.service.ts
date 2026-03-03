@@ -42,17 +42,17 @@ export class ClarificationService {
     }
     
     // CRITICAL: Combined position + side answers (e.g., "arriere gauche")
-    const hasBoth = /\b(avant|arriere|arrière|av|ar)\s+(gauche|droite|g|d|droit|gosh)\b/i.test(lower) ||
-                    /\b(gauche|droite|g|d|droit|gosh)\s+(avant|arriere|arrière|av|ar)\b/i.test(lower);
+    const hasBoth = /\b(avant|arriere|arrière|av|ar)\s+(gauche|droite|g|d|droit)\b/i.test(lower) ||
+                    /\b(gauche|droite|g|d|droit)\s+(avant|arriere|arrière|av|ar)\b/i.test(lower);
     if (hasBoth) return true;
     
     // Direct position/side answers
     const hasPosition = /\b(avant|arriere|arrière|av|ar)\b/i.test(lower);
-    const hasSide = /\b(gauche|droite|g|d|droit|gosh)\b/i.test(lower);
+    const hasSide = /\b(gauche|droite|g|d|droit)\b/i.test(lower);
     
     if (hasPosition || hasSide) return true;
     if (context.dimension === 'position') return ['avant', 'arriere', 'arrière', 'av', 'ar'].includes(lower);
-    if (context.dimension === 'side') return ['gauche', 'droite', 'g', 'd', 'droit', 'gosh'].includes(lower);
+    if (context.dimension === 'side') return ['gauche', 'droite', 'g', 'd', 'droit'].includes(lower);
     if (context.dimension === 'type') {
       return context.products.some(p => {
         const d = (p.designation || '').toLowerCase();
@@ -65,18 +65,15 @@ export class ClarificationService {
   checkNeeded(products: any[], message: string): { needed: boolean; variants: string[]; dimension: string } {
     const lower = message.toLowerCase();
     
-    // Brake pads & discs: ALWAYS ask position if not specified (BEFORE checking product count)
-    if ((lower.includes('plaquette') && lower.includes('frein')) || (lower.includes('disque') && lower.includes('frein'))) {
-      // CRITICAL: Check if position is ALREADY specified
-      if (/\b(avant|arrière|arriere|av|ar)\b/i.test(message)) {
-        // Position specified, no clarification needed
-        return { needed: false, variants: [], dimension: '' };
+    // Brake parts: Ask position if not specified AND multiple products with positions
+    const isBrakePart = lower.includes('plaquette') || lower.includes('disque');
+    if (isBrakePart && !/\b(avant|arrière|arriere|av|ar)\b/i.test(message)) {
+      if (products.length > 1) {
+        const dims = this.extractDimensions(products);
+        if (dims.positions.length > 1) {
+          return { needed: true, variants: dims.positions, dimension: 'position' };
+        }
       }
-      // No position specified, ask for it (but don't set as needed if only 1 product)
-      if (products.length === 1) {
-        return { needed: false, variants: [], dimension: '' };
-      }
-      return { needed: true, variants: ['avant', 'arrière'], dimension: 'position' };
     }
 
     if (!products || products.length <= 1) return { needed: false, variants: [], dimension: '' };
@@ -93,20 +90,22 @@ export class ClarificationService {
     if (filtered.length === 1) return { needed: false, variants: [], dimension: '' };
     
     const toAnalyze = filtered.length > 0 ? filtered : products;
-    const hasPos = /\b(avant|arrière|arriere|av)\b/i.test(message);
-    const hasSide = /\b(gauche|droite|g|d|droit|gosh)\b/i.test(message);
+    const hasPos = /\b(avant|arrière|arriere|av|ar)\b/i.test(message);
+    const hasSide = /\b(gauche|droite|g|d|droit)\b/i.test(message);
     const dims = this.extractDimensions(toAnalyze);
     
-    // CRITICAL: Only ask position if >5 products AND multiple positions exist
-    if (!hasPos && dims.positions.length > 1 && toAnalyze.length > 5) {
+    // DATA-DRIVEN: Ask position if multiple positions exist
+    if (!hasPos && dims.positions.length > 1) {
       return { needed: true, variants: dims.positions, dimension: 'position' };
     }
     
-    if (hasPos && !hasSide && dims.sides.length > 1 && this.isBilateralPart(toAnalyze)) {
+    // DATA-DRIVEN: Ask side if multiple sides exist
+    if (!hasSide && dims.sides.length > 1) {
       return { needed: true, variants: dims.sides, dimension: 'side' };
     }
     
-    if (dims.types.length > 1 && toAnalyze.length > 8) {
+    // DATA-DRIVEN: Ask type if multiple types exist
+    if (dims.types.length > 1) {
       return { needed: true, variants: dims.types, dimension: 'type' };
     }
 
@@ -218,25 +217,26 @@ export class ClarificationService {
     const types = new Set<string>();
     products.forEach(p => {
       const d = (p.designation || '').toUpperCase();
-      const posMatch = d.match(/\b(?:AV|AVANT|AR|ARRI[ÈE]RE)\b/);
-      if (posMatch) {
-        const pos = posMatch[0];
-        if (pos === 'AV' || pos === 'AVANT') positions.add('avant');
-        if (pos === 'AR' || pos.startsWith('ARRI')) positions.add('arrière');
-      }
-      const sideMatch = d.match(/\b(?:G|GAUCHE|D|DROIT[E]?)\b/);
-      if (sideMatch) {
-        const side = sideMatch[0];
-        if (side === 'G' || side === 'GAUCHE') sides.add('gauche');
-        if (side === 'D' || side.startsWith('DROIT')) sides.add('droite');
-      }
+      
+      // SMART: Detect ALL position variants
+      if (/\b(AV|AVANT)\b/.test(d)) positions.add('avant');
+      if (/\b(AR|ARRI[ÈE]RE)\b/.test(d)) positions.add('arrière');
+      
+      // SMART: Detect ALL side variants (including GH, DR) - but exclude single D if it's part of other words
+      if (/\b(G|GAUCHE|GH)\b/.test(d) && !/\b(AVD|ARD)\b/.test(d)) sides.add('gauche');
+      if (/\b(DR|DROIT[E])\b/.test(d) || /\bD\b/.test(d) && !/\b(AVD|ARD)\b/.test(d)) sides.add('droite');
+      
       const words = d.split(/\s+/);
       words.forEach(w => {
+        // Generic types
         if (['SUPPORT', 'SUPPORTS'].includes(w)) types.add('support');
         if (['JOINT', 'JOINTS'].includes(w)) types.add('joint');
         if (['ROULEMENT', 'ROULEMENTS'].includes(w)) types.add('roulement');
         if (w === 'TOC') types.add('toc');
         if (w === 'KIT') types.add('kit');
+        
+        // Filter types
+        if (['AIR', 'HUILE', 'GAZOILE', 'HABITACLE', 'CARBURANT', 'ESSENCE'].includes(w)) types.add(w.toLowerCase());
       });
     });
     return { positions: Array.from(positions), sides: Array.from(sides), types: Array.from(types) };

@@ -722,6 +722,10 @@ export class AdvancedSearchService {
   }
 
   private getMinimumScore(context: SearchContext): number {
+    // CRITICAL: References should have NO minimum score (they already matched by reference)
+    const isReference = /^[A-Z0-9]{8,}/.test(context.originalQuery.toUpperCase());
+    if (isReference) return 0;
+    
     const isOnlyPosition = context.expandedTerms.length === 1 && 
                           (context.positionInfo.avant || context.positionInfo.arriere || 
                            context.positionInfo.gauche || context.positionInfo.droite);
