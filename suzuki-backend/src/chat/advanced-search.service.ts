@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { SUZUKI_MODELS } from '../constants/vehicle-models';
+import { Prisma } from '@prisma/client';
+import { SUZUKI_MODELS, normalizeModel } from '../constants/vehicle-models';
 import { tunisianDictionary } from '../chat/tunisian-dictionary';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
@@ -195,6 +196,34 @@ export class AdvancedSearchService {
     this.buildNormalizedSynonymIndex();
   }
 
+  private getSearchTerms(rawTokens: string[], expandedTerms: string[]): string[] {
+    const positionWords = ['avant', 'arriere', 'gauche', 'droite', 'av', 'ar', 'g', 'd', 'sup', 'inf'];
+    const terms = expandedTerms.filter(t => t.length >= 3 && !positionWords.includes(t));
+    return Array.from(new Set(terms)).slice(0, 10);
+  }
+
+  private async queryPartsByTerms(terms: string[], vehicleModel?: string): Promise<any[]> {
+    if (!terms.length) return [];
+    const likeTerms = terms.map(t => `%${t}%`);
+    const termSql = Prisma.join(
+      likeTerms.map(t => Prisma.sql`(designation ILIKE ${t} OR reference ILIKE ${t})`),
+      ' OR '
+    );
+
+    const model = normalizeModel(vehicleModel);
+    const modelSql = model
+      ? Prisma.sql`AND (model_code = ${model} OR match_rule = 'unknown_model')`
+      : Prisma.sql``;
+
+    return this.prisma.$queryRaw<any[]>`
+      SELECT id, reference, designation, prixht AS "prixHt", stock, model_code, match_rule, confidence
+      FROM mart.chatbot_parts_with_fitment
+      WHERE ${termSql}
+      ${modelSql}
+      LIMIT 500
+    `;
+  }
+
   async searchParts(query: string, vehicle?: any): Promise<any[]> {
     if (!query || query.trim().length < 2) {
       return [];
@@ -243,30 +272,9 @@ export class AdvancedSearchService {
     console.log(`[SEARCH] Expanded terms: [${expandedTerms.join(', ')}]`);
     const positionInfo = this.detectPositionRequirements(allTokens, expandedTerms);
     console.log(`[SEARCH] Position info - avant: ${positionInfo.avant}, arrière: ${positionInfo.arriere}, gauche: ${positionInfo.gauche}, droite: ${positionInfo.droite}`);
-    const searchConditions = this.buildSearchConditions(rawTokens, expandedTerms);
     
-    let whereCondition: any;
-    if (vehicle?.modele && searchConditions.length > 0) {
-      const modelUpper = vehicle.modele.toUpperCase();
-      whereCondition = {
-        AND: [
-          { OR: searchConditions },
-          {
-            OR: [
-              ...SUZUKI_MODELS.map(model => ({ NOT: { designation: { contains: model } } })),
-              { designation: { contains: modelUpper } }
-            ]
-          }
-        ]
-      };
-    } else {
-      whereCondition = searchConditions.length > 0 ? { OR: searchConditions } : {};
-    }
-    
-    const parts = await this.prisma.piecesRechange.findMany({
-      where: whereCondition,
-      take: 500
-    });
+    const terms = this.getSearchTerms(rawTokens, expandedTerms);
+    const parts = await this.queryPartsByTerms(terms, vehicle?.modele);
     console.log(`[SEARCH] Database returned ${parts.length} raw results`);
     if (parts.length > 0) {
       console.log(`[SEARCH] Sample DB results: ${parts.slice(0, 1).map(p => `"${p.designation}"`).join(', ')}`);
@@ -1133,46 +1141,26 @@ Segmented:`;
     
     console.log(`[SEARCH] Searching for reference: original="${originalRef}", clean="${cleanRef}"`);
     
-    // Try exact matches first
-    let results = await this.prisma.piecesRechange.findMany({
-      where: {
-        OR: [
-          { reference: { equals: originalRef, mode: 'insensitive' } },
-          { reference: { equals: cleanRef, mode: 'insensitive' } }
-        ]
-      },
-      take: 5
-    });
+    const model = normalizeModel(vehicle?.modele);
+
+    // Try exact match first (case-insensitive)
+    let results = await this.prisma.$queryRaw<any[]>`
+      SELECT id, reference, designation, prixht AS "prixHt", stock, model_code, match_rule, confidence
+      FROM mart.chatbot_parts_with_fitment
+      WHERE UPPER(reference) = ${originalRef} OR UPPER(reference) = ${cleanRef}
+      LIMIT 5
+    `;
     
-    // If no exact match, try partial matches
+    // If no exact match, try ILIKE with wildcards
     if (results.length === 0) {
-      let partialWhere: any = {
-        OR: [
-          { reference: { contains: cleanRef, mode: 'insensitive' } },
-          { reference: { contains: originalRef, mode: 'insensitive' } }
-        ]
-      };
-      
-      // Add vehicle model filter
-      if (vehicle?.modele) {
-        const modelUpper = vehicle.modele.toUpperCase();
-        partialWhere = {
-          AND: [
-            partialWhere,
-            {
-              OR: [
-                ...SUZUKI_MODELS.map(model => ({ NOT: { designation: { contains: model } } })),
-                { designation: { contains: modelUpper } }
-              ]
-            }
-          ]
-        };
-      }
-      
-      results = await this.prisma.piecesRechange.findMany({
-        where: partialWhere,
-        take: 10
-      });
+      const likeClean = `%${cleanRef}%`;
+      const likeOriginal = `%${originalRef}%`;
+      results = await this.prisma.$queryRaw<any[]>`
+        SELECT id, reference, designation, prixht AS "prixHt", stock, model_code, match_rule, confidence
+        FROM mart.chatbot_parts_with_fitment
+        WHERE reference ILIKE ${likeClean} OR reference ILIKE ${likeOriginal}
+        LIMIT 10
+      `;
     }
     
     console.log(`[SEARCH] Reference search found ${results.length} results`);

@@ -8,7 +8,7 @@ import { IntelligenceService } from '../chat/intelligence.service';
 import { OpenAIService } from '../chat/openai.service';
 import { AIQueryNormalizerService } from './ai-query-normalizer.service';
 import { AdvancedSearchService } from '../chat/advanced-search.service';
-import { SUZUKI_MODELS, hasModelInDesignation, matchesModel } from '../constants/vehicle-models';
+import { hasModelInDesignation, matchesModel, normalizeModel, detectModelInText } from '../constants/vehicle-models';
 
 export interface ProcessMessageResponse {
   response: string;
@@ -144,6 +144,23 @@ export class ChatOrchestratorService {
           metadata: { productsFound: 0, conversationLength: conversationHistory.length, queryClarity: 0, userMessageId } 
         };
       }
+    }
+
+    // Model mismatch blocking
+    const vehicleModel = normalizeModel(vehicle?.modele);
+    const requestedModel = detectModelInText(processedMessage);
+
+    if (vehicleModel && requestedModel && vehicleModel !== requestedModel) {
+      const response = this.responseService.buildModelMismatchResponse(vehicleModel, requestedModel);
+      await this.sessionService.saveBotResponse(session.id, response, { intent: 'MODEL_MISMATCH' });
+      return {
+        response,
+        sessionId: session.id,
+        products: [],
+        confidence: 'HIGH',
+        intent: 'MODEL_MISMATCH',
+        metadata: { productsFound: 0, conversationLength: conversationHistory.length, queryClarity: 0, userMessageId }
+      };
     }
 
     // 3. Check for filter operation BEFORE clarification
@@ -355,32 +372,6 @@ export class ChatOrchestratorService {
 
     // 8. Build search query with context - USE AI-NORMALIZED MESSAGE for search
     const searchQuery = this.contextService.buildSearchQuery(processedMessage, context, vehicle);
-    
-    // CRITICAL: Check if user is asking about a different model
-    if (vehicle?.modele) {
-      const userModel = vehicle.modele.toUpperCase();
-      const queryUpper = processedMessage.toUpperCase();
-      const mentionedModel = SUZUKI_MODELS.find(model => {
-        const modelUpper = model.toUpperCase();
-        if (modelUpper === userModel) return false; // Skip their own model
-        if (modelUpper === 'S-PRESSO' && queryUpper.includes('SPRESSO')) return true;
-        return queryUpper.includes(modelUpper);
-      });
-      
-      if (mentionedModel) {
-        const response = `Je vous informe que votre véhicule est un ${vehicle.marque} ${vehicle.modele}. Les pièces que vous recherchez ne sont pas compatibles avec votre modèle. Je ne peux vous renseigner que sur les pièces compatibles avec votre ${vehicle.modele}.\n\nContactez CarPro au ☎️ 70 603 500 pour plus d'informations.`;
-        await this.sessionService.saveBotResponse(session.id, response, { intent: 'MODEL_MISMATCH' });
-        return {
-          response,
-          sessionId: session.id,
-          products: [],
-          confidence: 'HIGH',
-          intent: 'MODEL_MISMATCH',
-          metadata: { productsFound: 0, conversationLength: conversationHistory.length, queryClarity: 0 }
-        };
-      }
-    }
-    
     const products = await this.searchService.search(searchQuery, vehicle);
     const filteredProducts = this.filterByVehicleModel(products, vehicle);
     
@@ -395,19 +386,6 @@ export class ChatOrchestratorService {
       }
     }
     
-    // If user asks about different model, inform them politely
-    if (vehicle?.modele && products.length > 0 && filteredProducts.length === 0) {
-      const response = `Je vous informe que votre véhicule est un ${vehicle.marque} ${vehicle.modele}. Les pièces que vous recherchez ne sont pas compatibles avec votre modèle. Je ne peux vous renseigner que sur les pièces compatibles avec votre ${vehicle.modele}.\n\nContactez CarPro au ☎️ 70 603 500 pour plus d'informations.`;
-      await this.sessionService.saveBotResponse(session.id, response, { intent: 'MODEL_MISMATCH' });
-      return {
-        response,
-        sessionId: session.id,
-        products: [],
-        confidence: 'HIGH',
-        intent: 'MODEL_MISMATCH',
-        metadata: { productsFound: 0, conversationLength: conversationHistory.length, queryClarity: 0 }
-      };
-    }
 
     // 9. Check if clarification needed
     const clarificationCheck = this.clarificationService.checkNeeded(filteredProducts, processedMessage);
@@ -497,12 +475,14 @@ export class ChatOrchestratorService {
   }
 
   private filterByVehicleModel(products: any[], vehicle?: any): any[] {
-    if (!vehicle?.modele) return products;
-    
-    const model = vehicle.modele.toUpperCase();
-    
+    const model = normalizeModel(vehicle?.modele);
+    if (!model) return products;
+
     return products.filter(p => {
-      const designation = p.designation.toUpperCase();
+      if (p.model_code) return p.model_code.toUpperCase() === model;
+      if (p.match_rule === 'unknown_model') return true;
+
+      const designation = (p.designation || '').toUpperCase();
       const hasModel = hasModelInDesignation(designation);
       return !hasModel || matchesModel(designation, model);
     });

@@ -1,5 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { Prisma } from '@prisma/client';
+import { normalizeModel } from '../constants/vehicle-models';
 
 interface ValidationResult {
   query: string;
@@ -82,21 +84,27 @@ export class SearchValidatorService {
         return;
       }
       
-      // Build search conditions EXACTLY like AdvancedSearchService.buildSearchConditions
-      const searchConditions: any[] = [];
-      finalTokens.slice(0, 10).forEach(term => {
-        searchConditions.push({
-          OR: [
-            { designation: { contains: term, mode: 'insensitive' } },
-            { reference: { contains: term, mode: 'insensitive' } }
-          ]
-        });
-      });
-      
-      const dbResults = await this.prisma.piecesRechange.findMany({
-        where: { OR: searchConditions },
-        take: 100
-      });
+      const terms = finalTokens.slice(0, 10);
+      if (terms.length === 0) return;
+
+      const likeTerms = terms.map(t => `%${t}%`);
+      const termSql = Prisma.join(
+        likeTerms.map(t => Prisma.sql`(designation ILIKE ${t} OR reference ILIKE ${t})`),
+        ' OR '
+      );
+
+      const model = normalizeModel(vehicle?.modele);
+      const modelSql = model
+        ? Prisma.sql`AND (model_code = ${model} OR match_rule = 'unknown_model')`
+        : Prisma.sql``;
+
+      const dbResults = await this.prisma.$queryRaw<any[]>`
+        SELECT reference, designation, prixht AS "prixHt", stock
+        FROM mart.chatbot_parts_with_fitment
+        WHERE ${termSql}
+        ${modelSql}
+        LIMIT 100
+      `;
 
       const aiCount = aiResults.length;
       const dbCount = dbResults.length;
@@ -108,8 +116,6 @@ export class SearchValidatorService {
       // Since both use EXACT same logic, they should match closely
       // IMPORTANT: AI applies scoring/filtering, so it returns FEWER results than raw DB
       // This is CORRECT behavior - AI filters out low-quality matches
-      const difference = Math.abs(aiCount - dbCount);
-      const percentDiff = dbCount > 0 ? (difference / dbCount) * 100 : 0;
       
       if (aiCount === 0 && dbCount > 0) {
         status = 'AI_MISS';

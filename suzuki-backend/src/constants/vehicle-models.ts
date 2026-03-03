@@ -12,10 +12,41 @@ export const SUZUKI_MODELS = [
   'DZIRE',
   'CIAZ',
   'WAGON R',
-  'S-CROSS'
+  'S-CROSS',
+  'FRONX'
 ] as const;
 
 export type SuzukiModel = typeof SUZUKI_MODELS[number];
+
+export const MODEL_ALIASES: Record<string, string> = {
+  'NEW CIAZ': 'CIAZ',
+  'NEW CELERIO POP 6AB': 'CELERIO',
+  'SWIFT IV': 'SWIFT',
+  'JIMNY 5D AT': 'JIMNY',
+  'FRONX': 'FRONX',
+  'SPRESSO': 'S-PRESSO',
+  'S PRESSO': 'S-PRESSO',
+  'WAGONR': 'WAGON R'
+};
+
+export function normalizeModel(model?: string): string | null {
+  if (!model) return null;
+  const up = model.toUpperCase().trim();
+  return MODEL_ALIASES[up] || up;
+}
+
+export function detectModelInText(text: string): string | null {
+  const up = text.toUpperCase();
+  if (up.includes('SPRESSO') || up.includes('S-PRESSO')) return 'S-PRESSO';
+  if (up.includes('WAGONR')) return 'WAGON R';
+  for (const model of Object.values(MODEL_ALIASES)) {
+    if (up.includes(model)) return model;
+  }
+  for (const model of SUZUKI_MODELS) {
+    if (up.includes(model)) return model;
+  }
+  return null;
+}
 
 /**
  * Check if a designation contains any Suzuki model name

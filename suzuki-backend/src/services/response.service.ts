@@ -49,15 +49,11 @@ export class ResponseService {
   }
 
   buildReferenceResponse(reference: string, product: any, vehicle: any): string {
-    const isAvailable = product.stock > 0;
     const vehicleInfo = vehicle?.modele ? ` pour votre ${vehicle.marque} ${vehicle.modele}` : '';
-    
-    if (!isAvailable) {
-      return `Bonjour! Référence "${reference}" indisponible${vehicleInfo}.\n\n💡 Contactez CarPro au ☎️ 70 603 500.`;
-    }
-    
     const price = product.prixHt != null ? `${product.prixHt} TND` : 'Prix sur demande';
-    return `Bonjour! Référence trouvée${vehicleInfo} :\n\n• ${product.designation} (Réf: ${product.reference}) — ${price}\n\n💡 Contactez CarPro au ☎️ 70 603 500 pour réserver.`;
+    const stockNote = product.stock > 0 ? 'Disponible' : 'Indisponible';
+
+    return `Bonjour! Référence trouvée${vehicleInfo} :\n\n• ${product.designation} (Réf: ${product.reference}) — ${price}\nStatut: ${stockNote}\n\n💡 Contactez CarPro au ☎️ 70 603 500 pour réserver.`;
   }
 
   buildReferenceNotFoundResponse(reference: string, vehicle?: any): string {
@@ -109,5 +105,9 @@ export class ResponseService {
     const product = available[0];
     const vehicleInfo = vehicle?.modele ? ` pour votre ${vehicle.marque} ${vehicle.modele}` : '';
     return `Résultat filtré${vehicleInfo}:\n${product.designation}\nRéf: ${product.reference}\nPrix: ${product.prixHt} TND\n\n💡 Contactez CarPro au ☎️ 70 603 500 pour réserver.`;
+  }
+
+  buildModelMismatchResponse(vehicleModel: string, requestedModel: string): string {
+    return `Votre carte grise indique ${vehicleModel}. Vous demandez des pièces pour ${requestedModel}.\n\nJe peux vous aider avec ${vehicleModel}. Voulez‑vous changer de modèle ?`;
   }
 }

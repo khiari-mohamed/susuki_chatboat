@@ -1,0 +1,12 @@
+db:
+  host: localhost
+  port: 5432
+  name: suzuki_parts
+  user: postgres
+  password: 23044943
+
+paths:
+  prod_csv: D:\house_md\Suzuki\etl\data\incoming\2026-02-27\prod.csv
+  item_prod_csv: D:\house_md\Suzuki\etl\data\incoming\2026-02-27\item_prod.csv
+  articles_csv: D:\house_md\Suzuki\etl\data\converted\2026-02-27\articles.csv
+  vehicles_csv: D:\house_md\Suzuki\etl\data\converted\2026-02-27\vehicles.csv

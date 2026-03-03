@@ -57,10 +57,22 @@ export class SearchService {
   }
 
   private filterAvailable(products: any[]): any[] {
-    // Return all products but mark those without stock
-    return products.map(p => ({
-      ...p,
-      available: typeof p.stock === 'number' && p.stock > 0 && p.prixHt !== undefined && p.prixHt !== null
-    }));
+    return products.map(p => {
+      const stockNum =
+        typeof p.stock === 'number'
+          ? p.stock
+          : Number.parseFloat(p.stock ?? '0');
+
+      const hasPrice = p.prixHt !== undefined && p.prixHt !== null;
+
+      // Convert BigInt to string for JSON serialization
+      const safeId = typeof p.id === 'bigint' ? p.id.toString() : p.id;
+
+      return {
+        ...p,
+        id: safeId,
+        available: stockNum > 0 && hasPrice
+      };
+    });
   }
 }

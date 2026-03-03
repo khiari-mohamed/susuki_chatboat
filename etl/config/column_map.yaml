@@ -1,0 +1,36 @@
+prod_csv:
+  delimiter: ";"
+  columns:
+    - reference
+    - designation
+    - unit_price
+    - make_code
+    - model_code
+    - version
+    - a_scanner_cb
+
+articles_xlsx:
+  delimiter: ";"
+  expected_columns:
+    - "N°"
+    - "Désignation"
+    - "Désignation 2"
+    - "Code marque"
+    - "Prix unitaire"
+    - "Stocks"
+    - "Stock consolidé"
+    - "Date dern. modification"
+    - "Bloqué"
+
+vehicles_xlsx:
+  delimiter: ";"
+  expected_columns:
+    - "VIN"
+    - "N° de série"
+    - "Code marque"
+    - "Code modèle"
+    - "N° Immatriculation"
+    - "Code statut"
+    - "Type vehicule"
+    - "Type Mine"
+    - "Date de livraison"

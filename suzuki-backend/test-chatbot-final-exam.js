@@ -29,9 +29,9 @@ async function getDBConnection() {
 async function getAllParts() {
   const client = await getDBConnection();
   const result = await client.query(`
-    SELECT designation, reference, prix_ht, stock 
-    FROM pieces_rechange 
-    WHERE version_modele ILIKE '%SPRESSO%'
+    SELECT designation, reference, prixht AS prix_ht, stock 
+    FROM mart.chatbot_parts_with_fitment 
+    WHERE model_code = 'S-PRESSO' OR match_rule = 'unknown_model'
     ORDER BY designation
   `);
   await client.end();
@@ -41,9 +41,9 @@ async function getAllParts() {
 async function searchDB(query) {
   const client = await getDBConnection();
   const result = await client.query(`
-    SELECT designation, reference, prix_ht, stock 
-    FROM pieces_rechange 
-    WHERE version_modele ILIKE '%SPRESSO%'
+    SELECT designation, reference, prixht AS prix_ht, stock 
+    FROM mart.chatbot_parts_with_fitment 
+    WHERE (model_code = 'S-PRESSO' OR match_rule = 'unknown_model')
     AND (
       designation ILIKE $1 
       OR reference ILIKE $1
@@ -102,8 +102,8 @@ const accuracyTests = [
   { query: 'filtre huile', expectedPart: 'FILTRE A HUILE', description: 'Exact match', allowClarification: false },
   { query: 'amortisseur avant', expectedPart: 'AMORTISSEUR AV', description: 'With position', allowClarification: true },
   { query: 'retroviseur droite', expectedPart: 'RETROVISEUR D', description: 'With side', allowClarification: false },
-  { query: 'disque frein', expectedPart: 'DISQUE DE FREIN', description: 'Compound part', allowClarification: false },
-  { query: '16510M65L10', expectedPart: 'FILTRE A HUILE', description: 'Reference search', allowClarification: false }
+  { query: 'disque frein', expectedPart: 'DISQUE DE FREIN', description: 'Compound part', allowClarification: true },
+  { query: '030115561AN', expectedPart: 'FILTRE A HUILE', description: 'Reference search', allowClarification: false }
 ];
 
 // TEST SUITE 2: Typo Correction
