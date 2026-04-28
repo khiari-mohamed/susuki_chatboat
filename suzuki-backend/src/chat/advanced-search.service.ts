@@ -841,7 +841,7 @@ Segmented:`;
       const words = segmented.split(/\s+/).filter(Boolean);
       console.log(`[AI-SEGMENT] "${text}" → [${words.join(', ')}]`);
       return words.length > 1 ? words : [text];
-    } catch (error) {
+    } catch (error: any) {
       console.error('[AI-SEGMENT] Error:', error.message);
       return this.fallbackSegmentation(text);
     }
