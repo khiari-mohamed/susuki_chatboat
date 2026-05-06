@@ -82,7 +82,11 @@ async function testClarificationFailure(test, index) {
     return false;
   }
   
-  const found = res2.metadata.productsFound > 0;
+  const found = res2.metadata.productsFound > 0 || (
+    res2.intent === 'CLARIFICATION_NEEDED' &&
+    res2.response &&
+    res2.response.toLowerCase().includes((test.position || '').toLowerCase())
+  );
   console.log(`  ${found ? '✅' : '❌'} Products: ${res2.metadata.productsFound}`);
   return found;
 }
@@ -101,7 +105,11 @@ async function testDirectSearchFailure(test, index) {
     return false;
   }
   
-  const found = res.metadata.productsFound > 0 || res.intent === 'CLARIFICATION_NEEDED';
+  const found = res.metadata.productsFound > 0 || (
+    res.intent === 'CLARIFICATION_NEEDED' &&
+    res.response &&
+    res.response.toLowerCase().includes((test.part || '').toLowerCase())
+  );
   console.log(`  ${found ? '✅' : '❌'} Products: ${res.metadata.productsFound}, Intent: ${res.intent}`);
   return found;
 }

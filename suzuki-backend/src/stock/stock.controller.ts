@@ -1,22 +1,21 @@
-import { Controller, Post, Get, Body, Param } from '@nestjs/common';
+import { Controller, Get, Param, HttpCode, HttpStatus, NotFoundException } from '@nestjs/common';
 import { StockService } from './stock.service';
 
 @Controller('stock')
 export class StockController {
   constructor(private readonly stockService: StockService) {}
 
-  @Post('update')
-  updateStock(@Body() data: { reference: string; quantity: number }) {
-    return this.stockService.updateStock(data.reference, data.quantity);
-  }
-
-  @Post('decrement')
-  decrementStock(@Body() data: { reference: string; amount?: number }) {
-    return this.stockService.decrementStock(data.reference, data.amount);
-  }
-
+  /**
+   * Returns Disponible/Indisponible for a single part reference.
+   * Never exposes raw stock quantities.
+   * TODO: Protect with an API key guard before public deployment.
+   */
   @Get(':reference')
-  getStockStatus(@Param('reference') reference: string) {
-    return this.stockService.getStockStatus(reference);
+  @HttpCode(HttpStatus.OK)
+  async getStockStatus(@Param('reference') reference: string) {
+    if (!reference || reference.trim().length < 3) {
+      throw new NotFoundException('Référence invalide.');
+    }
+    return this.stockService.getStockStatus(reference.trim().toUpperCase());
   }
 }

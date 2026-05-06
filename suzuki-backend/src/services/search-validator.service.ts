@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
-import { normalizeModel } from '../constants/vehicle-models';
+import { VehicleModelsService } from '../constants/vehicle-models.service';
 
 interface ValidationResult {
   query: string;
@@ -38,7 +38,10 @@ export class SearchValidatorService {
     batterie: ['batterie', 'battery', 'batri', 'bateri', 'bataria', 'accumulator', 'accu'],
   };
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private vehicleModels: VehicleModelsService,
+  ) {}
 
   async validateSearch(query: string, aiResults: any[], vehicle?: any): Promise<void> {
     console.log(`🔍 VALIDATING: "${query}" - AI found ${aiResults.length} results`);
@@ -93,7 +96,7 @@ export class SearchValidatorService {
         ' OR '
       );
 
-      const model = normalizeModel(vehicle?.modele);
+      const model = this.vehicleModels.normalize(vehicle?.modele);
       const modelSql = model
         ? Prisma.sql`AND (model_code = ${model} OR match_rule = 'unknown_model')`
         : Prisma.sql``;

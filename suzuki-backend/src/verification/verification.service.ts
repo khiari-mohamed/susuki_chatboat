@@ -8,10 +8,10 @@ export class VerificationService {
   constructor(
     private prisma: PrismaService,
     private gemini: GeminiService,
-    private openai: OpenAIService,
+    private openai: OpenAIService,  // reserved for future cross-validation
   ) {}
 
-  async verifyDocument(file: Express.Multer.File, userIp?: string) {
+  async verifyDocument(file: any, userIp?: string) {
     const startTime = Date.now();
     
     try {
@@ -21,6 +21,8 @@ export class VerificationService {
         Promise.resolve(`data:${file.mimetype};base64,${file.buffer.toString('base64')}`)
       ]);
       
+      // Only successful uploads count toward the monthly limit.
+      // Failed/rejected uploads are tracked but not counted.
       if (userIp && ipUploadCount >= 3) {
         return {
           success: false,
@@ -32,7 +34,40 @@ export class VerificationService {
 
       // OCR extraction
       const geminiResult = await this.gemini.extractVehicleInfo(imageBase64, file.mimetype);
-      const vehicleInfo = { ...geminiResult, confidence: 'HIGH', source: 'Gemini 2.5-flash' };
+      // Preserve any confidence set by Gemini; default to HIGH only if not provided.
+      const vehicleInfo = {
+        ...geminiResult,
+        confidence: geminiResult.confidence ?? 'HIGH',
+        source: geminiResult.source ?? 'Gemini 2.5-flash',
+      };
+      
+      // Validate VIN against database (if VIN was extracted)
+      if (vehicleInfo.vin) {
+        const dbVehicle = await this.prisma.vehicle.findFirst({
+          where: { vin: vehicleInfo.vin },
+          select: {
+            vin: true,
+            marque: true,
+            modele: true,
+            modeleDescription: true,
+            vehicleNo: true,
+          },
+        });
+        
+        if (dbVehicle) {
+          // VIN found in database - enrich vehicleInfo with DB data
+          vehicleInfo.marque = dbVehicle.marque || vehicleInfo.marque;
+          vehicleInfo.modele = dbVehicle.modele || vehicleInfo.modele;
+          vehicleInfo.modeleDescription = dbVehicle.modeleDescription || vehicleInfo.modeleDescription;
+          vehicleInfo.vehicleNo = dbVehicle.vehicleNo;
+          vehicleInfo.vinValidated = true;
+          console.log(`✅ VIN ${vehicleInfo.vin} validated against database`);
+        } else {
+          // VIN not found - still allow (might be a new vehicle)
+          vehicleInfo.vinValidated = false;
+          console.log(`⚠️ VIN ${vehicleInfo.vin} not found in database (new vehicle?)`);
+        }
+      }
       
       // Check carte grise limit
       if (vehicleInfo.immatriculation) {
@@ -65,7 +100,7 @@ export class VerificationService {
         }
       };
       
-    } catch (error) {
+    } catch (error: any) {
       return {
         success: false,
         message: error.message === 'INVALID_BRAND' 
@@ -77,6 +112,11 @@ export class VerificationService {
     }
   }
 
+  /**
+   * @deprecated Not currently wired — preserved for future dual-AI cross-validation.
+   * To activate: replace the single gemini.extractVehicleInfo call in verifyDocument
+   * with a Promise.all([gemini, openai]) and pass both results here.
+   */
   private crossValidateResults(geminiResult: any, openaiResult: any): any {
     // If Gemini failed, use OpenAI only with HIGH confidence
     if (!geminiResult && openaiResult) {
@@ -138,6 +178,10 @@ export class VerificationService {
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     
+    // NOTE: This JSON path filter requires pg_trgm or a GIN index on vehicleInfo
+    // for production performance. Add to migration:
+    // CREATE INDEX IF NOT EXISTS upload_tracking_immat_idx
+    //   ON upload_tracking USING gin (vehicle_info);
     const count = await this.prisma.uploadTracking.count({
       where: {
         vehicleInfo: {
@@ -177,11 +221,13 @@ export class VerificationService {
         data: {
           userIp,
           success: true,
-          vehicleInfo
-        }
+          vehicleInfo,
+        },
       });
     } catch (error) {
-      console.error('Failed to track upload:', error);
+      // Non-fatal: tracking failure must never block the user response.
+      // Log with enough detail for ops to investigate if uploads are consistently lost.
+      console.error('[VerificationService] Failed to track upload for IP', userIp, ':', error);
     }
   }
 }

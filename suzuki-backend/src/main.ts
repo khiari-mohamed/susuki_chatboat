@@ -40,11 +40,30 @@ async function bootstrap() {
   app.use(require('express').json({ limit: '25mb' }));
   app.use(require('express').urlencoded({ limit: '25mb', extended: true }));
   
+  // Request logging middleware for production debugging
+  app.use((req: any, res: any, next: any) => {
+    const start = Date.now();
+    const { method, originalUrl } = req;
+    
+    res.on('finish', () => {
+      const duration = Date.now() - start;
+      const { statusCode } = res;
+      const logLevel = statusCode >= 500 ? 'ERROR' : statusCode >= 400 ? 'WARN' : 'INFO';
+      console.log(`[${logLevel}] ${method} ${originalUrl} ${statusCode} ${duration}ms`);
+    });
+    
+    next();
+  });
+  
+  // Enable graceful shutdown
+  app.enableShutdownHooks();
+  
   await app.listen(process.env.PORT ?? 8000, '0.0.0.0');
   console.log(`🚀 Backend running on port ${process.env.PORT ?? 8000}`);
   console.log(`📡 CORS enabled for: ${allowedOrigins.join(', ')}`);
   console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`📷 Max file upload: 25MB`);
   console.log(`📝 Supported formats: PNG, JPG, JPEG, WEBP, GIF, BMP, TIFF, SVG, HEIC, PDF`);
+  console.log(`✅ Health check available at /health`);
 }
 bootstrap();

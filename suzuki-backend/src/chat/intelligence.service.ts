@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { tunisianDictionary } from '../chat/tunisian-dictionary';
+import { SynonymsService } from '../synonyms/synonyms.service';
 
 interface CacheEntry<T> {
   data: T;
@@ -15,9 +15,11 @@ export class IntelligenceService {
   private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
   private responseTimeTracker: number[] = [];
   private readonly MAX_TRACKED_RESPONSES = 100;
-  private readonly tunisianMappings: Record<string, string> = tunisianDictionary;
 
-  constructor(private prisma: PrismaService) {
+  constructor(
+    private prisma: PrismaService,
+    private synonymsService: SynonymsService,
+  ) {
     this.logger.log('✅ IntelligenceService initialized');
   }
   /**
@@ -164,10 +166,14 @@ export class IntelligenceService {
   private normalizeTunisian(query: string): string {
     let normalized = query.toLowerCase();
     
+    // Get Tunisian mappings from database via SynonymsService
+    const tunisianMappings = this.synonymsService.getTunisianMap();
+    
     // Minimal fallback replacements
-    for (const [tunisian, french] of Object.entries(this.tunisianMappings)) {
+    for (const [tunisian, french] of Object.entries(tunisianMappings)) {
       if (french) {
-        const regex = new RegExp(`\\b${tunisian}\\b`, 'gi');
+        const escaped = tunisian.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = new RegExp(`\\b${escaped}\\b`, 'gi');
         normalized = normalized.replace(regex, french);
       }
     }
@@ -464,6 +470,8 @@ export class IntelligenceService {
     }
   }
 
+  // TODO: replace hardcoded Tunisian word list with this.synonymsService.getTunisianMap() keys
+  // once we confirm performance is acceptable (1173 entries × regex per message).
   private needsAIUnderstanding(message: string): boolean {
     // Always use AI for Tunisian - it understands everything
     const hasTunisian = /\b[a-z]*[0-9]+[a-z]*\b|\b(salem|ahla|n7eb|famma|ch7al|bghit|kifech|ta3|mte3|chouf|behi|yezzi|karhba|9ad|3aychek|barcha|ken|wach|zeda|mouch|mech)\b/i.test(message);
@@ -570,7 +578,8 @@ export class IntelligenceService {
       }
 
       // PRICE
-      if (/prix|combien|cout|coute|coûte|price|cost|how much|show me price|ch7al|pris|tarif|taklfa/i.test(combinedText)) {
+      if (/prix|combien|cout|coute|coûte|price|cost|how much|show me price|ch7al|pris|tarif|taklfa/i.test(combinedText) ||
+          /prix|combien|cout|coute|coûte|price|cost|how much|show me price|ch7al|pris|tarif|taklfa/i.test(lower)) {
         // CRITICAL: Check if it's a price query WITH a car part mentioned
         const hasCarPart = carPartNames.some(part => lower.includes(part) || normalized.includes(part));
         if (hasCarPart) {

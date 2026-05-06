@@ -70,11 +70,12 @@ export class ClarificationService {
     // Brake parts: Ask position if not specified AND multiple products with positions
     const isBrakePart = lower.includes('plaquette') || lower.includes('disque');
     if (isBrakePart && !/\b(avant|arrière|arriere|av|ar)\b/i.test(message)) {
-      if (products.length > 1) {
-        const dims = this.extractDimensions(products);
-        if (dims.positions.length > 1) {
-          return { needed: true, variants: dims.positions, dimension: 'position' };
-        }
+      const dims = this.extractDimensions(products);
+      if (dims.positions.length > 1) {
+        return { needed: true, variants: dims.positions, dimension: 'position' };
+      }
+      if (dims.sides.length > 1) {
+        return { needed: true, variants: dims.sides, dimension: 'side' };
       }
     }
 
@@ -95,10 +96,17 @@ export class ClarificationService {
     const hasPos = /\b(avant|arrière|arriere|av|ar)\b/i.test(message);
     const hasSide = /\b(gauche|droite|g|d|droit)\b/i.test(message);
     const dims = this.extractDimensions(toAnalyze);
+    const partName = this.extractPartName(message);
     
     // DATA-DRIVEN: Ask position if multiple positions exist
     if (!hasPos && dims.positions.length > 1) {
       return { needed: true, variants: dims.positions, dimension: 'position' };
+    }
+
+    // Shock absorber catalogue rows may be side-specific, but an explicit front/rear
+    // request is precise enough for the customer-facing stock/search answer.
+    if (partName === 'amortisseur' && hasPos) {
+      return { needed: false, variants: [], dimension: '' };
     }
     
     // DATA-DRIVEN: Ask side if multiple sides exist
@@ -224,9 +232,9 @@ export class ClarificationService {
       if (/\b(AV|AVANT)\b/.test(d)) positions.add('avant');
       if (/\b(AR|ARRI[ÈE]RE)\b/.test(d)) positions.add('arrière');
       
-      // SMART: Detect ALL side variants (including GH, DR) - but exclude single D if it's part of other words
-      if (/\b(G|GAUCHE|GH)\b/.test(d) && !/\b(AVD|ARD)\b/.test(d)) sides.add('gauche');
-      if (/\b(DR|DROIT[E])\b/.test(d) || /\bD\b/.test(d) && !/\b(AVD|ARD)\b/.test(d)) sides.add('droite');
+      // Use explicit abbreviations only — avoid bare \bD\b which matches too broadly
+      if (/\b(G|GAUCHE|GH)\b/.test(d)) sides.add('gauche');
+      if (/\b(DR|DROIT[E]|DROITE)\b/.test(d)) sides.add('droite');
       
       const words = d.split(/\s+/);
       words.forEach(w => {

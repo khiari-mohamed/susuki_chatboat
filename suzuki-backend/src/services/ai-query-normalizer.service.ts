@@ -1,12 +1,25 @@
+// src/services/ai-query-normalizer.service.ts
+
 import { Injectable, Logger } from '@nestjs/common';
 import { OpenAIService } from '../chat/openai.service';
-import { normalizeText } from '../chat/tunisian-dictionary';
+import { SynonymsService } from '../synonyms/synonyms.service';
 
 @Injectable()
 export class AIQueryNormalizerService {
   private readonly logger = new Logger(AIQueryNormalizerService.name);
+  private tunisianWordSet: Set<string> | null = null;
 
-  constructor(private openaiService: OpenAIService) {}
+  constructor(
+    private openaiService: OpenAIService,
+    private synonymsService: SynonymsService,
+  ) {}
+
+  private getTunisianWordSet(): Set<string> {
+    if (!this.tunisianWordSet) {
+      this.tunisianWordSet = new Set(Object.keys(this.synonymsService.getTunisianMap()));
+    }
+    return this.tunisianWordSet;
+  }
 
   async normalizeQuery(query: string): Promise<{
     normalized: string;
@@ -14,43 +27,36 @@ export class AIQueryNormalizerService {
     isThanks: boolean;
     confidence: number;
   }> {
-    // CRITICAL: Check if query is a car part name FIRST
     const carPartNames = [
       'maitre', 'maître', 'cylindre', 'etrier', 'étrier', 'toit', 'cremaillere', 'crémaillère',
       'filtre', 'plaquette', 'disque', 'amortisseur', 'phare', 'batterie', 'courroie', 'bougie',
       'alternateur', 'démarreur', 'capteur', 'pneu', 'joint', 'durite', 'radiateur', 'pompe',
       'injecteur', 'embrayage', 'roulement', 'rotule', 'biellette', 'bras', 'triangle',
       'ressort', 'silentbloc', 'soufflet', 'cache', 'support', 'agrafe', 'agraffe', 'agraphe',
-      'valve', 'soupape', 'culasse', 'piston', 'segment', 'bielle', 'vilebrequin', 'frein', 'frina'
+      'valve', 'soupape', 'culasse', 'piston', 'segment', 'bielle', 'vilebrequin', 'frein', 'frina',
+      'silencieux', 'echappement',
     ];
-    
+
     const lowerQuery = query.toLowerCase();
-    const isCarPart = carPartNames.some(part => lowerQuery.includes(part));
-    
-    // CRITICAL: Check if it's a service question (hours, location, etc.)
-    const isServiceQuestion = /ouvrez|ouvert|heure|horaire|livraison|délai|garantie|situé|adresse|où|localisation/i.test(lowerQuery);
-    
-    if (isCarPart) {
-      // Don't treat car parts as greetings
-      return {
-        normalized: query,
-        isGreeting: false,
-        isThanks: false,
-        confidence: 0.9
-      };
+    const isCarPart = carPartNames.some((part) => lowerQuery.includes(part));
+    const isServiceQuestion =
+      /ouvrez|ouvert|heure|horaire|livraison|délai|garantie|situé|adresse|où|localisation/i.test(lowerQuery);
+
+    // If the query contains Tunisian markers, always go through full normalization
+    // even when a car part name is detected.
+    const hasTunisianMarker = /[0-9]/.test(lowerQuery.replace(/\s/g, '')) ||
+      /\b(n7eb|ch7al|bghit|famma|choufli|chouf|wach|mte3|ken|behi|barcha|ahla|salem|yezzi|mouch|mech|3aychek|ta3|9ad|zeda|wri)\b/i.test(lowerQuery) ||
+      [...this.getTunisianWordSet()].some(
+        (tn) => new RegExp(`\\b${tn.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(lowerQuery),
+      );
+
+    if (isCarPart && !hasTunisianMarker) {
+      return { normalized: query, isGreeting: false, isThanks: false, confidence: 0.9 };
     }
-    
-    if (isServiceQuestion) {
-      // Don't treat service questions as greetings
-      return {
-        normalized: query,
-        isGreeting: false,
-        isThanks: false,
-        confidence: 0.9
-      };
+    if (isServiceQuestion && !hasTunisianMarker) {
+      return { normalized: query, isGreeting: false, isThanks: false, confidence: 0.9 };
     }
-    // CRITICAL: Rule-based pre-correction for common typos
-    // Sort by length (longest first) to avoid overlapping replacements
+
     const knownCorrections: Record<string, string> = {
       ilbrequin: 'vilebrequin',
       vilbrequin: 'vilebrequin',
@@ -59,7 +65,7 @@ export class AIQueryNormalizerService {
       olle: 'tolle',
       avlve: 'valve',
       avse: 'vase',
-      garaffes: 'agraffes',  // Longest first
+      garaffes: 'agraffes',
       garafes: 'agrafes',
       garaffe: 'agraffe',
       garafe: 'agrafe',
@@ -73,105 +79,120 @@ export class AIQueryNormalizerService {
       amorto: 'amortisseur',
       ovlant: 'volant',
       olant: 'volant',
-     
     };
-    
-    // Sort corrections by typo length (longest first) to prevent overlaps
-    const sortedCorrections = Object.entries(knownCorrections)
-      .sort(([a], [b]) => b.length - a.length);
-    
+
+    const sortedCorrections = Object.entries(knownCorrections).sort(([a], [b]) => b.length - a.length);
+
     let correctedQuery = query;
     const appliedCorrections = new Set<string>();
-    
+
     for (const [typo, correct] of sortedCorrections) {
-      const lowerQuery = correctedQuery.toLowerCase();
-      if (lowerQuery.includes(typo) && !appliedCorrections.has(correct)) {
+      const lq = correctedQuery.toLowerCase();
+      if (lq.includes(typo) && !appliedCorrections.has(correct)) {
         correctedQuery = correctedQuery.replace(new RegExp(typo, 'gi'), correct);
         appliedCorrections.add(correct);
         this.logger.log(`✅ Pre-corrected: ${typo} → ${correct}`);
       }
     }
-    
+
     try {
       const aiResult = await this.normalizeWithAI(correctedQuery);
-      
-      // ADAPTIVE: Validate AI result - extract meaningful words from ORIGINAL query (not corrected)
-      const originalWords = this.extractMeaningfulWords(query);
       const correctedWords = this.extractMeaningfulWords(correctedQuery);
       const resultWords = this.extractMeaningfulWords(aiResult.normalized);
-      
-      // Check if AI removed or changed any meaningful words from CORRECTED query
+
+      // Tunisian tokens (containing digits, or known Tunisian words) are ALLOWED to be
+      // transformed/removed by the AI — do not require them to survive verbatim.
+      const tunisianPattern = /[0-9]|^(n7eb|ch7al|bghit|famma|choufli|chouf|wach|mte3|ken|behi|barcha|ahla|salem|salam|yezzi|mouch|mech|3aychek|ta3|9ad|zeda|wri)$/i;
+      const tunisianMap = this.synonymsService.getTunisianMap();
+
       for (const qWord of correctedWords) {
-        const hasExactMatch = resultWords.some(rw => rw === qWord);
-        const hasPluralMatch = resultWords.some(rw => 
-          rw === qWord + 's' || rw === qWord + 'es' || qWord === rw + 's' || qWord === rw + 'es'
+        // Skip check for Tunisian words — AI is allowed to translate them
+        if (tunisianPattern.test(qWord) || tunisianMap[qWord] !== undefined) continue;
+
+        const hasExactMatch = resultWords.some((rw) => rw === qWord);
+        const hasPluralMatch = resultWords.some(
+          (rw) => rw === qWord + 's' || rw === qWord + 'es' || qWord === rw + 's' || qWord === rw + 'es',
         );
-        const hasFuzzyMatch = resultWords.some(rw => this.levenshtein(qWord, rw) <= 1);
-        
-        // If corrected word is NOT in AI result → REJECT AI result
+        const hasFuzzyMatch = resultWords.some((rw) => this.levenshtein(qWord, rw) <= 1);
+
         if (!hasExactMatch && !hasPluralMatch && !hasFuzzyMatch) {
           this.logger.warn(`⚠️ AI changed/removed word "${qWord}" - using corrected query instead`);
           return {
             normalized: correctedQuery,
             isGreeting: aiResult.isGreeting,
             isThanks: aiResult.isThanks,
-            confidence: 0.7
+            confidence: 0.7,
           };
         }
       }
-      
-      // CRITICAL: Check if AI ADDED extra letters (e.g., "agraffes" → "aaagraffes")
+
       for (const rWord of resultWords) {
-        // Check if result word has repeated first letters (aaa, bbb, etc.)
         if (rWord.length >= 4 && rWord[0] === rWord[1] && rWord[1] === rWord[2]) {
           this.logger.warn(`⚠️ AI added triple letters "${rWord}" - rejecting AI result`);
-          this.logger.warn(`   Returning correctedQuery: "${correctedQuery}"`);
           return {
             normalized: correctedQuery,
             isGreeting: aiResult.isGreeting,
             isThanks: aiResult.isThanks,
-            confidence: 0.7
+            confidence: 0.7,
           };
         }
-        
-        // Check if result word starts with "a" or "aa" + corrected word (e.g., "aagraphe" when corrected is "agraphe")
         for (const cWord of correctedWords) {
           if (rWord === 'a' + cWord || rWord === 'aa' + cWord) {
             this.logger.warn(`⚠️ AI added prefix to "${cWord}" → "${rWord}" - rejecting AI result`);
-            this.logger.warn(`   Returning correctedQuery: "${correctedQuery}"`);
             return {
               normalized: correctedQuery,
               isGreeting: aiResult.isGreeting,
               isThanks: aiResult.isThanks,
-              confidence: 0.7
+              confidence: 0.7,
             };
           }
         }
       }
-      
+
       this.logger.log(`✅ AI: "${query}" → "${aiResult.normalized}" (${aiResult.confidence})`);
       return aiResult;
-    } catch (error) {
+    } catch (error: any) {
       this.logger.warn(`⚠️ AI failed: ${error.message}`);
-      const fallbackNormalized = normalizeText(correctedQuery);
-      return { 
-        normalized: fallbackNormalized || correctedQuery, 
+      // Fallback: apply Tunisian normalization using DB-driven map
+      const fallbackNormalized = this.applyTunisianNormalization(correctedQuery);
+      return {
+        normalized: fallbackNormalized || correctedQuery,
         isGreeting: /^(bonjour|salut|hello|hi|salem|ahla|salam)\b/i.test(correctedQuery),
-        isThanks: /\b(merci|thanks|3aychek|barcha|au revoir|bye|à bientôt|bonne journée|besslema|sahha|ciao|adieu)\b/i.test(correctedQuery),
-        confidence: 0.5 
+        isThanks:
+          /\b(merci|thanks|3aychek|barcha|au revoir|bye|à bientôt|bonne journée|besslema|sahha|ciao|adieu)\b/i.test(
+            correctedQuery,
+          ),
+        confidence: 0.5,
       };
     }
   }
-  
+
+  /**
+   * Replaces Tunisian words in the query with their French equivalents.
+   * Uses the DB-driven TN map from SynonymsService — replaces the old normalizeText() import.
+   */
+  private applyTunisianNormalization(query: string): string {
+    const tunisianMap = this.synonymsService.getTunisianMap();
+    let result = query.toLowerCase().trim();
+    for (const [tunisian, french] of Object.entries(tunisianMap)) {
+      const escaped = tunisian.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(`\\b${escaped}\\b`, 'gi');
+      result = result.replace(regex, french);
+    }
+    return result;
+  }
+
   private extractMeaningfulWords(text: string): string[] {
     const normalized = this.normalizeForComparison(text);
-    const words = normalized.split(/\s+/).filter(w => 
-      w.length >= 3 && 
-      !['avant','arriere','gauche','droite','pour','avec','sans','tout','tous','des','les','une'].includes(w)
-    );
-    return words;
+    return normalized
+      .split(/\s+/)
+      .filter(
+        (w) =>
+          w.length >= 3 &&
+          !['avant', 'arriere', 'gauche', 'droite', 'pour', 'avec', 'sans', 'tout', 'tous', 'des', 'les', 'une', 'stock', 'disponible'].includes(w),
+      );
   }
-  
+
   private normalizeForComparison(text: string): string {
     return text
       .toLowerCase()
@@ -181,27 +202,19 @@ export class AIQueryNormalizerService {
       .replace(/\s+/g, ' ')
       .trim();
   }
-  
+
   private levenshtein(a: string, b: string): number {
     if (a.length === 0) return b.length;
     if (b.length === 0) return a.length;
     const matrix: number[][] = [];
-    for (let i = 0; i <= b.length; i++) {
-      matrix[i] = [i];
-    }
-    for (let j = 0; j <= a.length; j++) {
-      matrix[0][j] = j;
-    }
+    for (let i = 0; i <= b.length; i++) matrix[i] = [i];
+    for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
     for (let i = 1; i <= b.length; i++) {
       for (let j = 1; j <= a.length; j++) {
         if (b.charAt(i - 1) === a.charAt(j - 1)) {
           matrix[i][j] = matrix[i - 1][j - 1];
         } else {
-          matrix[i][j] = Math.min(
-            matrix[i - 1][j - 1] + 1,
-            matrix[i][j - 1] + 1,
-            matrix[i - 1][j] + 1
-          );
+          matrix[i][j] = Math.min(matrix[i - 1][j - 1] + 1, matrix[i][j - 1] + 1, matrix[i - 1][j] + 1);
         }
       }
     }
@@ -227,20 +240,13 @@ CRITICAL RULES:
 8. isGreeting=true ONLY if pure greeting with NO car parts/positions
 9. isThanks=true for goodbyes (au revoir, bye, besslema, à bientôt, bonne journée) AND thanks (merci, thank you)
 10. PRESERVE SINGLE-LETTER POSITIONS: if query has "g" (gauche) or "d" (droite), keep them.
-   Example: "g ar glace monte appareil" → "gauche arrière glace monte appareil" (NOT "glace arrière monte appareil")
 
 EXAMPLES:
-- "adhesifarporteavg" → "adhésif arrière porte avant gauche" (has AR and AV)
-- "adhesifporteavd" → "adhésif porte avant droite"
+- "adhesifarporteavg" → "adhésif arrière porte avant gauche"
 - "plaquetteavg" → "plaquette avant gauche"
-- "àgràffes feu àr" → "agraffes feu arrière" (NOT "àgraves feu arrière")
 - "garafe feu ar" → "agrafe feu arrière"
-- "àlimentàteur toit" → "alimentateur toit"
 - "ahla" → "bonjour" (isGreeting=true)
-- "au revoir" → "au revoir" (isThanks=true)
-- "bye" → "bye" (isThanks=true)
 - "merci" → "merci" (isThanks=true)
-- "choufli avant" → "montre-moi avant" (isGreeting=false)
 - "g ar glace monte appareil" → "gauche arrière glace monte appareil"
 
 QUERY: "${query}"
@@ -257,9 +263,7 @@ JSON:
       normalized: result.normalized || query,
       isGreeting: !!result.isGreeting,
       isThanks: !!result.isThanks,
-      confidence: result.confidence || 0.9
+      confidence: result.confidence || 0.9,
     };
   }
-
-
 }

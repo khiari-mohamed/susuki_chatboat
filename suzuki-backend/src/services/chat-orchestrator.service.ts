@@ -8,7 +8,9 @@ import { IntelligenceService } from '../chat/intelligence.service';
 import { OpenAIService } from '../chat/openai.service';
 import { AIQueryNormalizerService } from './ai-query-normalizer.service';
 import { AdvancedSearchService } from '../chat/advanced-search.service';
-import { hasModelInDesignation, matchesModel, normalizeModel, detectModelInText } from '../constants/vehicle-models';
+import { VehicleModelsService } from '../constants/vehicle-models.service';
+
+import { StrictValidatorService } from '../chat/strict-validator.service';
 
 export interface ProcessMessageResponse {
   response: string;
@@ -32,6 +34,16 @@ export interface ProcessMessageResponse {
 export class ChatOrchestratorService {
   private readonly logger = new Logger(ChatOrchestratorService.name);
 
+  private readonly carPartNames = [
+    'maitre', 'maître', 'cylindre', 'etrier', 'étrier', 'toit', 'cremaillere', 'crémaillère',
+    'filtre', 'plaquette', 'disque', 'amortisseur', 'phare', 'batterie', 'courroie', 'bougie',
+    'alternateur', 'démarreur', 'capteur', 'pneu', 'joint', 'durite', 'radiateur', 'pompe',
+    'injecteur', 'embrayage', 'roulement', 'rotule', 'biellette', 'bras', 'triangle',
+    'ressort', 'silentbloc', 'soufflet', 'cache', 'support', 'agrafe', 'agraffe', 'agraphe',
+    'valve', 'soupape', 'culasse', 'piston', 'segment', 'bielle', 'vilebrequin',
+    'silencieux', 'clignotant',
+  ];
+
   constructor(
     private sessionService: SessionService,
     private clarificationService: ClarificationService,
@@ -41,7 +53,9 @@ export class ChatOrchestratorService {
     private intelligenceService: IntelligenceService,
     private openaiService: OpenAIService,
     private aiNormalizer: AIQueryNormalizerService,
-    private advancedSearch: AdvancedSearchService
+    private advancedSearch: AdvancedSearchService,
+    private vehicleModels: VehicleModelsService,
+    private strictValidator: StrictValidatorService,
   ) {
     setInterval(() => this.clarificationService.cleanup(), 300000);
   }
@@ -49,17 +63,8 @@ export class ChatOrchestratorService {
   private isFilterOperation(message: string): boolean {
     const lower = message.toLowerCase();
     
-    // CRITICAL: Don't treat single car part names as filter operations
-    const carPartNames = [
-      'maitre', 'maître', 'cylindre', 'etrier', 'étrier', 'toit', 'cremaillere', 'crémaillère',
-      'filtre', 'plaquette', 'disque', 'amortisseur', 'phare', 'batterie', 'courroie', 'bougie',
-      'alternateur', 'démarreur', 'capteur', 'pneu', 'joint', 'durite', 'radiateur', 'pompe',
-      'injecteur', 'embrayage', 'roulement', 'rotule', 'biellette', 'bras', 'triangle',
-      'ressort', 'silentbloc', 'soufflet', 'cache', 'support', 'agrafe', 'agraffe', 'agraphe',
-      'valve', 'soupape', 'culasse', 'piston', 'segment', 'bielle', 'vilebrequin'
-    ];
-    
-    const isCarPart = carPartNames.some(part => lower === part || lower === part + 's');
+    // CRITICAL: Don't treat car part queries as filter operations
+    const isCarPart = this.carPartNames.some(part => lower.includes(part));
     if (isCarPart) {
       return false; // Car parts are not filter operations
     }
@@ -147,10 +152,24 @@ export class ChatOrchestratorService {
     }
 
     // Model mismatch blocking
-    const vehicleModel = normalizeModel(vehicle?.modele);
-    const requestedModel = detectModelInText(processedMessage);
+    const vehicleModel = this.vehicleModels.normalize(vehicle?.modele);
+    const requestedModel = this.vehicleModels.detectModelInText(processedMessage);
 
-    if (vehicleModel && requestedModel && vehicleModel !== requestedModel) {
+    // Check if it's a car part query first
+    const isCarPartQuery = this.carPartNames.some(part => processedMessage.toLowerCase().includes(part));
+    
+    const isPriceOrAvailabilityQuery =
+      !isCarPartQuery && (
+        /\b(prix|ch7al|combien|cout|tarif|disponible|famma|avoir)\b/i.test(message) ||
+        /\b(prix|ch7al|combien|cout|tarif|disponible|famma|avoir)\b/i.test(processedMessage)
+      );
+
+    if (
+      !isPriceOrAvailabilityQuery &&
+      vehicleModel &&
+      requestedModel &&
+      vehicleModel !== requestedModel
+    ) {
       const response = this.responseService.buildModelMismatchResponse(vehicleModel, requestedModel);
       await this.sessionService.saveBotResponse(session.id, response, { intent: 'MODEL_MISMATCH' });
       return {
@@ -187,6 +206,9 @@ export class ChatOrchestratorService {
       
       // Re-run last search
       let products = await this.searchService.search(lastQuery, vehicle);
+      
+      // CRITICAL: Apply strict validation
+      products = this.strictValidator.validateResults(products, lastQuery, context);
       products = this.filterByVehicleModel(products, vehicle);
       
       // Apply all active filters
@@ -249,6 +271,8 @@ export class ChatOrchestratorService {
       this.clarificationService.clearPending(session.id);
       this.contextService.setLastPart(session.id, partName);
       
+      // CRITICAL: Apply strict validation BEFORE vehicle filtering
+      products = this.strictValidator.validateResults(products, enrichedQuery, context);
       products = this.filterByVehicleModel(products, vehicle);
       
       // Apply position validation on fresh results
@@ -342,12 +366,25 @@ export class ChatOrchestratorService {
       }
     }
     
+    // Handle diagnostic queries BEFORE building search query
+    const isDiagnostic = /\b(ne\s+d[eé]marre\s+pas|ne\s+fonctionne\s+pas|bruit|fuite|probleme|problème|panne|defectueux|cass[eé]|voyant|vibration|surchauffe|entretien|maintenance|bizarre|t9allek|ralenti|saccade|perte.*puissance|voiture.*mort|moteur.*fum[eé]e|démarre|démarre pas|démarrer|ne démarre|ne part pas|ne s'allume|caler|cale)\b/i.test(processedMessage);
+    if (isDiagnostic) {
+      const response = this.responseService.buildDiagnosticRedirectResponse();
+      await this.sessionService.saveBotResponse(session.id, response, { intent: 'DIAGNOSTIC_REDIRECT' });
+      return { response, sessionId: session.id, products: [], confidence: 'HIGH', intent: 'DIAGNOSTIC_REDIRECT', metadata: { productsFound: 0, conversationLength: conversationHistory.length, queryClarity: 0, duration: Date.now() - startTime, userMessageId } };
+    }
+    
     // Handle availability check with context
     if (intent.type === 'STOCK_CHECK' && context.lastPart) {
       const availabilityQuery = `${context.lastPart} ${vehicle?.modele || 'S-PRESSO'}`;
-      const products = this.filterByVehicleModel(await this.searchService.search(availabilityQuery, vehicle), vehicle);
-      if (products.length > 0) {
-        const available = products.filter(p => p.stock > 0);
+      let stockProducts = await this.searchService.search(availabilityQuery, vehicle);
+      
+      // CRITICAL: Apply strict validation
+      stockProducts = this.strictValidator.validateResults(stockProducts, availabilityQuery, context);
+      stockProducts = this.filterByVehicleModel(stockProducts, vehicle);
+      
+      if (stockProducts.length > 0) {
+        const available = stockProducts.filter(p => p.stock?.statut === 'Disponible' || p.available);
         const vehicleInfo = vehicle?.modele ? ` pour votre ${vehicle.marque} ${vehicle.modele}` : '';
         const response = available.length > 0 
           ? `Oui, ${context.lastPart} est disponible${vehicleInfo}.\n\nPRODUITS DISPONIBLES:\n${available.slice(0, 1).map(p => `• ${p.designation} — ${p.prixHt} TND`).join('\n')}\n\nContactez CarPro au ☎️ 70 603 500 pour réserver.`
@@ -366,28 +403,26 @@ export class ChatOrchestratorService {
       await this.sessionService.saveBotResponse(session.id, response, { intent: 'SERVICE_QUESTION' });
       return { response, sessionId: session.id, products: [], confidence: 'HIGH', intent: 'SERVICE_QUESTION', metadata: { productsFound: 0, conversationLength: conversationHistory.length, queryClarity: 0 } };
     }
-    
-    // Handle diagnostic queries - redirect to professional service
-    if (/bruit|fuite|probleme|problème|panne|ne marche pas|defectueux|casse|cassé|voyant|vibration|surchauffe|entretien|maintenance|bizarre|t9allek|ralenti|saccade|perte.*puissance/i.test(processedMessage)) {
-      const response = this.responseService.buildDiagnosticRedirectResponse();
-      await this.sessionService.saveBotResponse(session.id, response, { intent: 'DIAGNOSTIC_REDIRECT' });
-      return { response, sessionId: session.id, products: [], confidence: 'HIGH', intent: 'DIAGNOSTIC_REDIRECT', metadata: { productsFound: 0, conversationLength: conversationHistory.length, queryClarity: 0 } };
-    }
 
     // 7. Handle reference search
     if (this.searchService.isReferenceQuery(processedMessage)) {
       const reference = this.searchService.extractReference(processedMessage);
-      const products = this.filterByVehicleModel(await this.searchService.search(processedMessage, vehicle), vehicle);
-      if (products.length > 0) {
-        const response = this.responseService.buildReferenceResponse(reference, products[0], vehicle);
-        await this.sessionService.saveBotResponse(session.id, response, { intent: 'PARTS_SEARCH', productsFound: products.length });
+      let refProducts = await this.searchService.search(processedMessage, vehicle);
+      
+      // CRITICAL: Apply strict validation
+      refProducts = this.strictValidator.validateResults(refProducts, processedMessage, context);
+      refProducts = this.filterByVehicleModel(refProducts, vehicle);
+      
+      if (refProducts.length > 0) {
+        const response = this.responseService.buildReferenceResponse(reference, refProducts[0], vehicle);
+        await this.sessionService.saveBotResponse(session.id, response, { intent: 'PARTS_SEARCH', productsFound: refProducts.length });
         return {
           response,
           sessionId: session.id,
-          products: products.slice(0, 1).map(p => ({ id: p.id, designation: p.designation, reference: p.reference, prixHt: String(p.prixHt) })),
+          products: refProducts.slice(0, 1).map(p => ({ id: p.id, designation: p.designation, reference: p.reference, prixHt: String(p.prixHt) })),
           confidence: 'HIGH',
           intent: 'PARTS_SEARCH',
-          metadata: { productsFound: products.length, conversationLength: conversationHistory.length, queryClarity: 10 }
+          metadata: { productsFound: refProducts.length, conversationLength: conversationHistory.length, queryClarity: 10 }
         };
       } else {
         const response = this.responseService.buildReferenceNotFoundResponse(reference, vehicle);
@@ -398,8 +433,13 @@ export class ChatOrchestratorService {
 
     // 8. Build search query with context - USE AI-NORMALIZED MESSAGE for search
     const searchQuery = this.contextService.buildSearchQuery(processedMessage, context, vehicle);
-    const products = await this.searchService.search(searchQuery, vehicle);
-    const filteredProducts = this.filterByVehicleModel(products, vehicle);
+    let products = await this.searchService.search(searchQuery, vehicle);
+    
+    // CRITICAL: Apply strict validation BEFORE vehicle filtering
+    products = this.strictValidator.validateResults(products, searchQuery, context);
+    products = this.filterByVehicleModel(products, vehicle);
+    
+    const filteredProducts = products;
     
     // Store lastQuery after search
     this.contextService.setLastQuery(session.id, searchQuery);
@@ -501,16 +541,18 @@ export class ChatOrchestratorService {
   }
 
   private filterByVehicleModel(products: any[], vehicle?: any): any[] {
-    const model = normalizeModel(vehicle?.modele);
+    const model = this.vehicleModels.normalize(vehicle?.modele);
     if (!model) return products;
 
     return products.filter(p => {
-      if (p.model_code) return p.model_code.toUpperCase() === model;
-      if (p.match_rule === 'unknown_model') return true;
-
+      // If the part has fitment rows, use them for precise model matching
+      if (Array.isArray(p.fitments) && p.fitments.length > 0) {
+        return p.fitments.some((f: any) => this.vehicleModels.normalize(f.modelName) === model);
+      }
+      // Universal part (no fitment restrictions): fall back to designation text
       const designation = (p.designation || '').toUpperCase();
-      const hasModel = hasModelInDesignation(designation);
-      return !hasModel || matchesModel(designation, model);
+      const hasModel = this.vehicleModels.hasModelInDesignation(designation);
+      return !hasModel || this.vehicleModels.matchesModel(designation, model);
     });
   }
 

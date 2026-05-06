@@ -2,8 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import { GEMINI_CHAT_PROMPT, GEMINI_OCR_PROMPT } from './prompt-templates';
-import { SUZUKI_MODELS } from '../constants/vehicle-models';
-
+import { VehicleModelsService } from '../constants/vehicle-models.service';
 @Injectable()
 export class GeminiService {
   private readonly logger = new Logger(GeminiService.name);
@@ -28,7 +27,10 @@ export class GeminiService {
   };
 
 
-  constructor(private config: ConfigService) {
+  constructor(private config: ConfigService,
+      private vehicleModels: VehicleModelsService, 
+  ) {
+    
     this.apiKey = this.config.get<string>('GEMINI_API_KEY') || '';
     if (!this.apiKey) {
       this.logger.error('❌ GEMINI_API_KEY not configured');
@@ -84,8 +86,10 @@ export class GeminiService {
       const modeleNorm = modeleRaw.toUpperCase().replace(/\s+/g, '').replace(/\./g, '').replace(/-/g, '');
       
       // Normalize extracted model against centralized SUZUKI_MODELS list
+           // Normalize the OCR‑extracted model against the database‑driven model list
       let modeleCanon = modeleRaw.toUpperCase();
-      for (const model of SUZUKI_MODELS) {
+      const dynamicModels = this.vehicleModels.getAll();
+      for (const model of dynamicModels) {
         const modelNorm = model.replace(/\s+/g, '').replace(/-/g, '');
         if (modeleNorm.includes(modelNorm)) {
           modeleCanon = model;
@@ -93,10 +97,11 @@ export class GeminiService {
         }
       }
       
-      // Special cases for common variations
-      if (modeleNorm.includes('SPRESSO')) modeleCanon = 'S-PRESSO';
-      if (modeleNorm.includes('SCROSS')) modeleCanon = 'S-CROSS';
-      if (modeleNorm.includes('WAGON')) modeleCanon = 'WAGON R';
+      // Fallback: use the service's own normaliser (handles S‑PRESSO/SPRESSO, etc.)
+      const normalizedFromService = this.vehicleModels.normalize(modeleRaw);
+      if (normalizedFromService) {
+        modeleCanon = normalizedFromService;
+      }
 
       return {
         immatriculation: parsed.immatriculation?.trim().toUpperCase() || null,

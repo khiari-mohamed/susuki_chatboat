@@ -1,26 +1,34 @@
 import { Injectable } from '@nestjs/common';
 import { AdvancedSearchService } from '../chat/advanced-search.service';
 import { SearchValidatorService } from './search-validator.service';
+import { StrictValidatorService } from '../chat/strict-validator.service';
 
 @Injectable()
 export class SearchService {
   constructor(
     private advancedSearch: AdvancedSearchService,
-    private validator: SearchValidatorService
+    private validator: SearchValidatorService,
+    private strictValidator: StrictValidatorService,
   ) {}
 
   async search(query: string, vehicle?: any): Promise<any[]> {
     console.log(`🔍 SearchService.search called with: "${query}"`);
     const products = await this.advancedSearch.searchParts(query, vehicle);
     console.log(`📦 Found ${products.length} products`);
+
+    // ── STRICT VALIDATION ──────────────────────────────────────
+    const validated = this.strictValidator.validateResults(products, query, { vehicle });
+    if (validated.length < products.length) {
+      console.log(`[STRICT] Filtered out ${products.length - validated.length} invalid parts for: "${query}"`);
+    }
+    // ───────────────────────────────────────────────────────────
     
-    // ALWAYS validate (don't check env var - it's optional)
     console.log(`🧪 Calling validator...`);
-    this.validator.validateSearch(query, products, vehicle).catch(err => {
+    this.validator.validateSearch(query, validated, vehicle).catch(err => {
       console.error('❌ Validation error:', err);
     });
     
-    return this.filterAvailable(products || []);
+    return this.filterAvailable(validated);
   }
 
   isReferenceQuery(message: string): boolean {
@@ -57,21 +65,19 @@ export class SearchService {
   }
 
   private filterAvailable(products: any[]): any[] {
+    if (!Array.isArray(products)) return [];
     return products.map(p => {
-      const stockNum =
-        typeof p.stock === 'number'
-          ? p.stock
-          : Number.parseFloat(p.stock ?? '0');
-
+      // p.stock is now a relation object { statut: 'Disponible' | 'Indisponible' } or null
+      const statut: string = p.stock?.statut ?? 'Indisponible';
       const hasPrice = p.prixHt !== undefined && p.prixHt !== null;
-
-      // Convert BigInt to string for JSON serialization
+      // Prisma Int id is safe; guard BigInt just in case
       const safeId = typeof p.id === 'bigint' ? p.id.toString() : p.id;
 
       return {
         ...p,
         id: safeId,
-        available: stockNum > 0 && hasPrice
+        stockStatut: statut,          // expose the label, never the quantity
+        available: statut === 'Disponible' && hasPrice,
       };
     });
   }

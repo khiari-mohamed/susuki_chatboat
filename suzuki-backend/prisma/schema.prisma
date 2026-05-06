@@ -7,178 +7,154 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// NEW DATA TABLES (production data)
+// ═══════════════════════════════════════════════════════════════════
+
 // ============================================
-// Vehicles Database (vehicules)
+// Parts Catalog
+// Source: 01_PROD_Item + 02_PARTS_Item (merged, deduplicated)
+// ============================================
+model Part {
+  id                Int       @id @default(autoincrement())
+  reference         String    @unique @db.VarChar(50)
+  designation       String    @db.Text
+  searchDescription String?   @map("search_description") @db.VarChar(100)
+  designation2      String?   @map("designation_2") @db.VarChar(100)
+  prixHt            Decimal?  @map("prix_ht") @db.Decimal(10, 3)
+  prixTtc           Decimal?  @map("prix_ttc") @db.Decimal(10, 3)
+  unite             String?   @db.VarChar(20)
+  categorie         String?   @db.VarChar(50)
+  fabricant         String?   @db.VarChar(100)
+  fournisseurCode   String?   @map("fournisseur_code") @db.VarChar(50)
+  source            String    @db.VarChar(20)    // '01_PROD' or '02_CARPRO'
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  stock             Stock?
+  fitments          Fitment[]
+  itemReferences    ItemReference[]
+
+  @@map("parts")
+  @@index([categorie])
+  @@index([fabricant])
+  @@index([fournisseurCode])
+  @@index([designation(ops: raw("gin_trgm_ops"))], type: Gin)
+  @@index([reference(ops: raw("gin_trgm_ops"))], type: Gin)
+}
+
+// ============================================
+// Stock (aggregated per reference)
+// Source: 05_Stock (GROUP BY Item No_, SUM Quantity)
+// ============================================
+model Stock {
+  id            Int      @id @default(autoincrement())
+  reference     String   @unique @db.VarChar(50)
+  totalQuantity Int      @default(0) @map("total_quantity")
+  statut        String   @default("Indisponible") @db.VarChar(20)
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  part          Part     @relation(fields: [reference], references: [reference])
+
+  @@map("stock")
+  @@index([statut])
+}
+
+// ============================================
+// Vehicle Type Master
+// Source: bloker_Vehicle Type master.csv (43 rows)
+// ============================================
+model VehicleTypeMaster {
+  id        Int       @id @default(autoincrement())
+  typeCode  String    @unique @map("type_code") @db.VarChar(30)
+  modelName String    @map("model_name") @db.VarChar(100)
+
+  fitments  Fitment[]
+
+  @@map("vehicle_type_master")
+}
+
+// ============================================
+// Fitment – part to vehicle type compatibility
+// Source: 03_Vehicle_Fitment (9,504 rows)
+// ============================================
+model Fitment {
+  id            Int               @id @default(autoincrement())
+  partReference String            @map("part_reference") @db.VarChar(50)
+  typeCode      String            @map("type_code") @db.VarChar(30)
+  modelName     String            @map("model_name") @db.VarChar(100)
+
+  part          Part              @relation(fields: [partReference], references: [reference])
+  vehicleType   VehicleTypeMaster @relation(fields: [typeCode], references: [typeCode])
+
+  @@unique([partReference, typeCode])
+  @@map("fitment")
+  @@index([typeCode])
+  @@index([modelName])
+  @@index([partReference])
+}
+
+// ============================================
+// Vehicles – master registry
+// Source: 11_Vehicle (28,830 rows)
 // ============================================
 model Vehicle {
-  id              Int      @id @default(autoincrement()) @map("id_vehicule")
-  immatriculation String   @unique @db.VarChar(20)
-  vin             String?  @unique @db.VarChar(17)
-  marque          String   @db.VarChar(50)
-  modele          String   @db.VarChar(50)
-  annee           Int
-  kilometrage     Int?
-  prix            Decimal? @db.Decimal(10, 3)
-  dateAjout       DateTime @default(now()) @map("date_ajout")
-  statut          String   @default("disponible") @db.VarChar(50)
-  idVendeur       Int?     @map("id_vendeur")
-  type            String?  @db.VarChar(50)
-  couleur         String?  @db.VarChar(30)
-  proprietaire    String?  @db.VarChar(100)
-  dateAchat       DateTime? @map("date_achat")
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
+  id                 Int     @id @default(autoincrement())
+  vehicleNo          String  @unique @map("vehicle_no") @db.VarChar(20)
+  vin                String? @db.VarChar(25)  // Changed from 17 to 25 to accommodate longer VINs
+  marque             String? @db.VarChar(20)
+  modele             String? @db.VarChar(20)
+  modeleDescription  String? @map("modele_description") @db.VarChar(100)
+  statut             String? @db.VarChar(20)
 
-  vendeur         Employe?  @relation(fields: [idVendeur], references: [id])
-  ventes          Vente[]
-  reparations     Reparation[]
-  documents       Document[]
-
-  @@map("vehicules")
-  @@index([marque, modele])
-  @@index([statut])
-  @@index([idVendeur])
+  @@map("vehicles")
+  @@index([vin])
+  @@index([modele])
 }
 
 // ============================================
-// Parts Catalog (pieces_rechange)
+// Item References – alternate barcodes / OEM references
+// Source: 04_Item_Reference (7,194 rows)
 // ============================================
-model PiecesRechange {
-  id              Int      @id @default(autoincrement()) @map("id_piece")
-  reference       String   @unique @db.VarChar(50)
-  nomPiece        String?  @map("nom_piece")
-  designation     String
-  quantiteStock   Int      @default(0) @map("quantite_stock")
-  prixUnitaire    Decimal? @map("prix_unitaire") @db.Decimal(10, 3)
-  dateAjout       DateTime @default(now()) @map("date_ajout")
-  fournisseur     String?  @db.VarChar(100)
-  versionModele   String   @map("version_modele") @db.VarChar(50)
-  typeVehicule    String   @map("type_vehicule") @db.VarChar(50)
-  prixHt          Decimal  @map("prix_ht") @db.Decimal(10, 3)
-  stock           Int      @default(0)
-  createdAt       DateTime @default(now()) @map("created_at")
+model ItemReference {
+  id             Int    @id @default(autoincrement())
+  partReference  String @map("part_reference") @db.VarChar(50)
+  referenceNo    String @map("reference_no") @db.VarChar(50)
+  referenceType  String? @map("reference_type") @db.VarChar(20)
 
-  @@map("pieces_rechange")
-  @@index([versionModele])
-  @@index([quantiteStock])
-  @@index([fournisseur])
+  part           Part   @relation(fields: [partReference], references: [reference])
+
+  @@unique([partReference, referenceNo])
+  @@map("item_references")
+  @@index([referenceNo])
 }
 
 // ============================================
-// Clients (clients)
+// Synonyms – NLP dialect/synonym expansion
+// Seeded manually after import
 // ============================================
-model Client {
-  id              Int      @id @default(autoincrement()) @map("id_client")
-  nom             String   @db.VarChar(100)
-  prenom          String   @db.VarChar(100)
-  email           String?  @db.VarChar(150)
-  telephone       String?  @db.VarChar(20)
-  adresse         String?  @db.Text
-  typeClient      String   @default("particulier") @map("type_client") @db.VarChar(50)
-  dateInscription DateTime @default(now()) @map("date_inscription")
+model Synonym {
+  id        Int    @id @default(autoincrement())
+  mot       String @db.VarChar(100)      // user input
+  canonical String @db.VarChar(100)      // DB search term
+  langue    String @default("fr") @db.VarChar(5) // 'fr' | 'tn'
 
-  ventes          Vente[]
-  reparations     Reparation[]
-  documents       Document[]
-
-  @@map("clients")
-  @@index([email])
-  @@index([telephone])
+  @@unique([mot, langue])
+  @@map("synonyms")
+  @@index([mot])
+  @@index([canonical])
 }
 
-// ============================================
-// Employes (employes)
-// ============================================
-model Employe {
-  id              Int      @id @default(autoincrement()) @map("id_employe")
-  nom             String   @db.VarChar(100)
-  prenom          String   @db.VarChar(100)
-  poste           String   @db.VarChar(50)
-  email           String?  @db.VarChar(150)
-  telephone       String?  @db.VarChar(20)
+// ═══════════════════════════════════════════════════════════════════
+// CHAT / INFRASTRUCTURE TABLES (unchanged)
+// ═══════════════════════════════════════════════════════════════════
 
-  vehicules       Vehicle[]
-  ventes          Vente[]
-  reparations     Reparation[]
-
-  @@map("employes")
-  @@index([poste])
-}
-
-// ============================================
-// Ventes (ventes)
-// ============================================
-model Vente {
-  id              Int      @id @default(autoincrement()) @map("id_vente")
-  idClient        Int      @map("id_client")
-  idVehicule      Int      @map("id_vehicule")
-  prixAchat       Decimal  @map("prix_achat") @db.Decimal(10, 3)
-  dateVente       DateTime @default(now()) @map("date_vente")
-  modePaiement    String   @map("mode_paiement") @db.VarChar(50)
-  idVendeur       Int      @map("id_vendeur")
-
-  client          Client   @relation(fields: [idClient], references: [id])
-  vehicule        Vehicle  @relation(fields: [idVehicule], references: [id])
-  vendeur         Employe  @relation(fields: [idVendeur], references: [id])
-
-  @@map("ventes")
-  @@index([idClient])
-  @@index([idVehicule])
-  @@index([idVendeur])
-  @@index([dateVente])
-}
-
-// ============================================
-// Reparations/Entretien (reparations)
-// ============================================
-model Reparation {
-  id              Int      @id @default(autoincrement()) @map("id_entretien")
-  idVehicule      Int      @map("id_vehicule")
-  idClient        Int      @map("id_client")
-  dateEntretien   DateTime @default(now()) @map("date_entretien")
-  typeEntretien   String   @map("type_entretien") @db.VarChar(100)
-  cout            Decimal  @db.Decimal(10, 3)
-  idVendeur       Int?     @map("id_vendeur")
-
-  vehicule        Vehicle  @relation(fields: [idVehicule], references: [id])
-  client          Client   @relation(fields: [idClient], references: [id])
-  employe         Employe? @relation(fields: [idVendeur], references: [id])
-
-  @@map("reparations")
-  @@index([idVehicule])
-  @@index([idClient])
-  @@index([dateEntretien])
-}
-
-// ============================================
-// Documents (documents)
-// ============================================
-model Document {
-  id              Int      @id @default(autoincrement()) @map("id_document")
-  typeDocument    String   @map("type_document") @db.VarChar(100)
-  dateCreation    DateTime @default(now()) @map("date_creation")
-  lienDocument    String?  @map("lien_document") @db.Text
-  idClient        Int?     @map("id_client")
-  idVehicule      Int?     @map("id_vehicule")
-
-  client          Client?  @relation(fields: [idClient], references: [id])
-  vehicule        Vehicle? @relation(fields: [idVehicule], references: [id])
-
-  @@map("documents")
-  @@index([idClient])
-  @@index([idVehicule])
-  @@index([typeDocument])
-}
-
-// ============================================
-// Chat Sessions
-// ============================================
 model ChatSession {
   id          String        @id @default(uuid())
-  vehicleInfo Json?         @map("vehicle_info") // Store car details
+  vehicleInfo Json?         @map("vehicle_info")
   startedAt   DateTime      @default(now()) @map("started_at")
   endedAt     DateTime?     @map("ended_at")
-  metadata    Json?         // Browser, IP, etc.
+  metadata    Json?
   messages    ChatMessage[]
   prompts     ChatPrompt[]
 
@@ -186,16 +162,13 @@ model ChatSession {
   @@index([startedAt])
 }
 
-// ============================================
-// Chat Messages
-// ============================================
 model ChatMessage {
   id        String      @id @default(uuid())
   sessionId String      @map("session_id")
-  sender    String      // 'user' or 'bot'
+  sender    String
   message   String      @db.Text
   timestamp DateTime    @default(now())
-  metadata  Json?       // Tokens, model used, etc.
+  metadata  Json?
   session   ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   feedback  ChatFeedback?
 
@@ -204,16 +177,13 @@ model ChatMessage {
   @@index([timestamp])
 }
 
-// ============================================
-// Chat Prompts (for GPT tracking)
-// ============================================
 model ChatPrompt {
   id           String      @id @default(uuid())
   sessionId    String      @map("session_id")
   promptText   String      @map("prompt_text") @db.Text
   responseText String      @map("response_text") @db.Text
-  model        String?     // gpt-4, gpt-3.5-turbo, etc.
-  tokens       Int?        // Token count
+  model        String?
+  tokens       Int?
   createdAt    DateTime    @default(now()) @map("created_at")
   session      ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
@@ -222,13 +192,10 @@ model ChatPrompt {
   @@index([createdAt])
 }
 
-// ============================================
-// Chat Feedback
-// ============================================
 model ChatFeedback {
   id        String      @id @default(uuid())
   messageId String      @unique @map("message_id")
-  rating    Int?        // 1-5 or thumbs up/down
+  rating    Int?
   comment   String?     @db.Text
   createdAt DateTime    @default(now()) @map("created_at")
   message   ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
@@ -237,12 +204,9 @@ model ChatFeedback {
   @@index([rating])
 }
 
-// ============================================
-// Upload Tracking (3 uploads per month limit)
-// ============================================
 model UploadTracking {
   id        String   @id @default(uuid())
-  userIp    String   @map("user_ip") @db.VarChar(45) // IPv4 or IPv6
+  userIp    String   @map("user_ip") @db.VarChar(45)
   uploadedAt DateTime @default(now()) @map("uploaded_at")
   success   Boolean  @default(true)
   vehicleInfo Json?  @map("vehicle_info")

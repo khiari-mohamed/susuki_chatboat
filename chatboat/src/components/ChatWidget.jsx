@@ -25,9 +25,12 @@ const ChatWidget = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [vehicleInfo, setVehicleInfo] = useState(null);
   const [showVehicleCard, setShowVehicleCard] = useState(false);
-  const [sessionId, setSessionId] = useState(null); // Track session ID
+  const [sessionId, setSessionId] = useState(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [imagePreview, setImagePreview] = useState(null);
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
+  const verifyTimeoutRef = useRef(null);
 
   // Get logo URL from config or use default
   const logoUrl = (typeof window !== 'undefined' && window.suzukiChatbotConfig?.logoUrl) || '/suzuli_logo.png';
@@ -45,21 +48,19 @@ const ChatWidget = () => {
 
   useEffect(() => {
     scrollToBottom();
-    // DO NOT restore verification state - always start fresh
-    // Only restore theme preference
     const theme = localStorage.getItem('suzuki-theme');
     if (theme === 'dark') setIsDark(true);
-    
-    // Clear all session data on mount to force new upload
-    localStorage.removeItem('suzuki-verified');
-    localStorage.removeItem('suzuki-vehicle');
-    localStorage.removeItem('suzuki-chat-messages');
+    sessionStorage.clear();
+
+    // Cleanup any pending verify transition on unmount
+    return () => {
+      if (verifyTimeoutRef.current) clearTimeout(verifyTimeoutRef.current);
+    };
   }, []);
 
   useEffect(() => {
     scrollToBottom();
-    // Save messages to sessionStorage (cleared when tab closes)
-    sessionStorage.setItem('suzuki-chat-messages', JSON.stringify(messages));
+    // Messages are server-side — no need to persist to sessionStorage
   }, [messages]);
 
   useEffect(() => {
@@ -92,8 +93,20 @@ const ChatWidget = () => {
       return;
     }
 
+    // Create image preview for image files
+    if (file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setImagePreview(e.target.result);
+      };
+      reader.readAsDataURL(file);
+    } else {
+      setImagePreview(null);
+    }
+
     setUploadedFile(file);
     setVerificationError('');
+    setUploadProgress(0);
     verifyDocument(file);
   };
 
@@ -101,57 +114,96 @@ const ChatWidget = () => {
     setIsVerifying(true);
     setVerificationError('');
 
+    let progressInterval = null;
     try {
       const formData = new FormData();
       formData.append('file', file);
       
       const uploadUrl = `${config.apiUrl}/verification/upload`;
       console.log('📤 Uploading to:', uploadUrl);
-      
+
+      progressInterval = setInterval(() => {
+        setUploadProgress((prev) => {
+          if (prev >= 90) {
+            clearInterval(progressInterval);
+            return 90;
+          }
+          return prev + 10;
+        });
+      }, 300);
+
       const response = await fetch(uploadUrl, {
         method: 'POST',
-        body: formData
+        body: formData,
       });
-      
-      console.log('✅ Upload response status:', response.status);
-      const data = await response.json();
+
+      clearInterval(progressInterval);
+      progressInterval = null;
+      setUploadProgress(95);
+
+      console.log('📤 Upload response status:', response.status);
+
+      // Handle non-JSON responses (Nginx 413, 502, etc.)
+      // Note: Backend may return 201 with success:false - handle in data check below
+      if (!response.ok && response.status !== 400 && response.status !== 201) {
+        if (response.status === 413) {
+          throw new Error('Fichier trop volumineux pour le serveur. Maximum 15MB.');
+        }
+        throw new Error(`Erreur serveur (${response.status}). Veuillez réessayer.`);
+      }
+
+      const data = await response.json().catch(() => {
+        throw new Error('Réponse serveur invalide. Veuillez réessayer.');
+      });
       console.log('📊 Upload response data:', data);
+      
+      setUploadProgress(100);
       
       if (data.success) {
         setVehicleInfo(data.vehicleInfo);
-        // Use sessionStorage instead of localStorage (cleared when tab closes)
-        sessionStorage.setItem('suzuki-verified', 'true');
-        sessionStorage.setItem('suzuki-vehicle', JSON.stringify(data.vehicleInfo));
-        
-        // Store upload count
-        if (data.uploadCount) {
-          localStorage.setItem('suzuki-upload-count', data.uploadCount.toString());
+        if (data.uploadCount !== undefined) {
+          sessionStorage.setItem('suzuki-upload-count', String(data.uploadCount));
         }
         
-        // Skip vehicle card, go directly to chat with vehicle info message
-        setIsVerified(true);
-        const welcomeMessage = {
-          id: Date.now(),
-          text: 'VEHICLE_INFO', // Special marker
-          vehicleData: data.vehicleInfo, // Store vehicle data
-          sender: 'bot',
-          timestamp: new Date()
-        };
-        setMessages(prev => [...prev, welcomeMessage]);
+        // Use a ref-tracked timeout so we can cancel on unmount
+        const tid = setTimeout(() => {
+          setIsVerified(true);
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: Date.now(),
+              text: 'VEHICLE_INFO',
+              vehicleData: data.vehicleInfo,
+              sender: 'bot',
+              timestamp: new Date(),
+            },
+          ]);
+        }, 500);
+        // Store timeout id for cleanup
+        verifyTimeoutRef.current = tid;
       } else {
-        // Check if limit reached
         if (data.limitReached) {
-          setVerificationError(`⚠️ ${data.message}\n\nVous avez utilisé ${data.uploadCount || 3}/3 téléchargements ce mois-ci.\nLa limite se réinitialise le 1er du mois prochain.`);
+          setVerificationError(
+            `⚠️ ${data.message}\n\nVous avez utilisé ${data.uploadCount || 3}/3 téléchargements ce mois-ci.\nLa limite se réinitialise le 1er du mois prochain.`
+          );
         } else {
           setVerificationError(data.message || 'Seules les cartes grises Suzuki sont acceptées.');
         }
         setUploadedFile(null);
+        setImagePreview(null);
+        setUploadProgress(0);
       }
-      setIsVerifying(false);
     } catch (error) {
       console.error('❌ Upload error:', error);
-      setVerificationError('Erreur de connexion. Veuillez réessayer.');
+      setVerificationError(error.message || 'Erreur de connexion. Veuillez réessayer.');
       setUploadedFile(null);
+      setImagePreview(null);
+      setUploadProgress(0);
+    } finally {
+      if (progressInterval) {
+        clearInterval(progressInterval);
+        progressInterval = null;
+      }
       setIsVerifying(false);
     }
   };
@@ -177,71 +229,131 @@ const ChatWidget = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const handleSend = async () => {
-    if (!inputValue.trim()) return;
+  const handleSend = async (overrideText = null) => {
+    const textToSend = overrideText || inputValue.trim();
+    if (!textToSend) return;
 
     const userMessage = {
       id: Date.now(),
-      text: inputValue,
+      text: textToSend,
       sender: 'user',
-      timestamp: new Date()
+      timestamp: new Date(),
     };
 
-    setMessages(prev => [...prev, userMessage]);
-    setInputValue('');
+    setMessages((prev) => [...prev, userMessage]);
+    if (!overrideText) setInputValue('');
     setIsTyping(true);
 
     try {
       const chatUrl = `${config.apiUrl}/chat/message`;
-      console.log('💬 Sending message to:', chatUrl);
-      
+      console.log('💬 Sending to:', chatUrl, { message: textToSend, sessionId });
+
       const response = await fetch(chatUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          message: inputValue,
+          message: textToSend,
           vehicle: vehicleInfo,
-          sessionId: sessionId // Send existing sessionId
-        })
+          sessionId: sessionId,
+        }),
       });
-      
-      console.log('✅ Chat response status:', response.status);
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData?.message || `HTTP ${response.status}`);
+      }
+
       const data = await response.json();
-      console.log('📊 Chat response data:', data);
-      
-      // Store sessionId from response for next message
+      console.log('📊 Chat response:', data);
+
+      // Persist sessionId for conversation continuity
       if (data.sessionId && !sessionId) {
         setSessionId(data.sessionId);
       }
-      const botResponse = {
+
+      // Build bot message — attach clarification payload if present
+      const botMessage = {
         id: Date.now() + 1,
-        text: data.response || data.message || data.text || 'Réponse reçue',
+        text: data.response || data.message || 'Réponse reçue',
         sender: 'bot',
-        timestamp: new Date()
+        timestamp: new Date(),
+        isClarification: data.intent === 'CLARIFICATION_NEEDED',
+        products: data.products || [],
+        intent: data.intent,
       };
-      setMessages(prev => [...prev, botResponse]);
-      setIsTyping(false);
+
+      setMessages((prev) => [...prev, botMessage]);
     } catch (error) {
       console.error('❌ Chat error:', error);
-      const errorResponse = {
-        id: Date.now() + 1,
-        text: "Désolé, erreur de connexion. Veuillez réessayer.",
-        sender: 'bot',
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, errorResponse]);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now() + 1,
+          text: `Désolé, erreur de connexion : ${error.message}. Veuillez réessayer.`,
+          sender: 'bot',
+          timestamp: new Date(),
+        },
+      ]);
+    } finally {
       setIsTyping(false);
     }
   };
 
+  const handleClarificationClick = (variant) => {
+    // Strip leading bullet "• " if present
+    const clean = variant.replace(/^[•\-\s]+/, '').trim();
+    handleSend(clean);
+  };
+
+  // Parse clarification variants out of bot message text
+  // Backend sends: "merci de préciser ...\n• Avant\n• Arrière"
+  const parseClarificationVariants = (text) => {
+    if (!text) return null;
+    const lines = text.split('\n');
+    const variants = lines
+      .filter((l) => /^[•\-]\s/.test(l.trim()))
+      .map((l) => l.replace(/^[•\-\s]+/, '').trim())
+      .filter(Boolean);
+    return variants.length >= 2 ? variants : null;
+  };
+
+  // Highlight price and stock status in bot response text
+  const formatBotText = (text) => {
+    if (!text) return '';
+    // Step 1: Escape HTML entities first — prevents XSS even if backend echoes user input
+    const escaped = text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+    // Step 2: Apply visual enhancements on the now-safe string
+    let formatted = escaped.replace(
+      /(\d+[.,]\d{3})\s*TND/g,
+      '<span class="price-tag">$1 TND</span>'
+    );
+    formatted = formatted.replace(
+      /\b(Disponible)\b/g,
+      '<span class="status-disponible">$1</span>'
+    );
+    formatted = formatted.replace(
+      /\b(Indisponible)\b/g,
+      '<span class="status-indisponible">$1</span>'
+    );
+    // Step 3: Convert newlines to <br> (safe after escaping)
+    formatted = formatted.replace(/\n/g, '<br/>');
+    return formatted;
+  };
+
   const handleQuickAction = (action) => {
     const actionMessages = {
-      search: "Nheb nfasakh 3la pièce",
-      maintenance: "Chnowa el maintenance li lazem?",
-      appointment: "Nheb nakheth rendez-vous",
-      contact: "Kifech najjem nousel bikom?"
+      search: 'Je cherche une pièce de rechange',
+      maintenance: "Quel est l'entretien recommandé ?",
+      appointment: 'Je voudrais prendre un rendez-vous',
+      contact: 'Comment puis-je vous contacter ?',
     };
-    setInputValue(actionMessages[action]);
+    const text = actionMessages[action];
+    if (text) handleSend(text);
   };
 
   const formatTime = (date) => {
@@ -423,9 +535,32 @@ const ChatWidget = () => {
               
               {isVerifying ? (
                 <div className="upload-status">
-                  <div className="spinner"></div>
-                  <p>Analyse en cours...</p>
-                  <p style={{ fontSize: '12px', color: '#64748b', marginTop: '8px' }}>Extraction des informations du véhicule</p>
+                  {imagePreview && (
+                    <div
+                      className="upload-preview"
+                      style={{
+                        opacity: uploadProgress >= 95 ? 0 : 1,
+                        transition: 'opacity 0.4s ease',
+                        pointerEvents: 'none',
+                      }}
+                    >
+                      <img src={imagePreview} alt="Aperçu carte grise" />
+                    </div>
+                  )}
+                  <div className="progress-container">
+                    <div className="progress-bar">
+                      <div 
+                        className="progress-fill" 
+                        style={{ width: `${uploadProgress}%` }}
+                      ></div>
+                    </div>
+                    <p className="progress-text">{uploadProgress}%</p>
+                  </div>
+                  <p style={{ fontSize: '13px', color: '#64748b', marginTop: '8px' }}>
+                    {uploadProgress < 30 ? 'Téléchargement...' : 
+                     uploadProgress < 95 ? 'Analyse en cours...' : 
+                     'Extraction des informations...'}
+                  </p>
                 </div>
               ) : uploadedFile ? (
                 <div className="upload-status">
@@ -526,9 +661,37 @@ const ChatWidget = () => {
                   <p style={{ marginTop: '12px', color: '#64748b' }}>Parfait ! Demandez-moi vos pièces de rechange !</p>
                   <span className="message-time">{formatTime(msg.timestamp)}</span>
                 </div>
-              ) : (
+              ) : msg.sender === 'user' ? (
+                // User messages: plain text only — never dangerouslySetInnerHTML (XSS risk)
                 <div className="message-content">
                   <p>{msg.text}</p>
+                  <span className="message-time">{formatTime(msg.timestamp)}</span>
+                </div>
+              ) : (
+                // Bot messages: formatted HTML with price/status highlighting
+                <div className={`message-content ${msg.isClarification ? 'clarification-message' : ''}`}>
+                  <p
+                    dangerouslySetInnerHTML={{ __html: formatBotText(msg.text) }}
+                  />
+                  {/* Clarification buttons — render when bot asks for position/side/type */}
+                  {(() => {
+                    const variants = msg.isClarification
+                      ? parseClarificationVariants(msg.text)
+                      : null;
+                    return variants ? (
+                      <div className="clarification-buttons">
+                        {variants.map((v, i) => (
+                          <button
+                            key={i}
+                            className="clarification-btn"
+                            onClick={() => handleClarificationClick(v)}
+                          >
+                            {v}
+                          </button>
+                        ))}
+                      </div>
+                    ) : null;
+                  })()}
                   <span className="message-time">{formatTime(msg.timestamp)}</span>
                 </div>
               )}

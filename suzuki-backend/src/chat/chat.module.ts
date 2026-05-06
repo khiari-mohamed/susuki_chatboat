@@ -5,7 +5,6 @@ import { IntelligenceService } from './intelligence.service';
 import { GeminiService } from './gemini.service';
 import { OpenAIService } from './openai.service';
 import { AdvancedSearchService } from './advanced-search.service';
-import { PrismaService } from '../prisma/prisma.service';
 import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
 import { LearningSchedulerService } from './learning-scheduler.service';
@@ -17,6 +16,7 @@ import { SearchService } from '../services/search.service';
 import { ChatOrchestratorService } from '../services/chat-orchestrator.service';
 import { SearchValidatorService } from '../services/search-validator.service';
 import { AIQueryNormalizerService } from '../services/ai-query-normalizer.service';
+import { StrictValidatorService } from './strict-validator.service';
 
 @Module({
   imports: [ConfigModule, ScheduleModule.forRoot()],
@@ -27,7 +27,6 @@ import { AIQueryNormalizerService } from '../services/ai-query-normalizer.servic
     GeminiService,
     OpenAIService,
     AdvancedSearchService,
-    PrismaService,
     LearningSchedulerService,
     SessionService,
     ClarificationService,
@@ -36,7 +35,8 @@ import { AIQueryNormalizerService } from '../services/ai-query-normalizer.servic
     SearchService,
     ChatOrchestratorService,
     SearchValidatorService,
-    AIQueryNormalizerService
+    AIQueryNormalizerService,
+    StrictValidatorService,
   ],
   exports: [GeminiService, OpenAIService],
 })

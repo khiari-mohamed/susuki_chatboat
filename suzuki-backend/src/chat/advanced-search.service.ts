@@ -1,12 +1,11 @@
-import { Injectable } from '@nestjs/common';
+// src/chat/advanced-search.service.ts
+
+import { Injectable, OnModuleInit } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { Prisma } from '@prisma/client';
-import { SUZUKI_MODELS, normalizeModel } from '../constants/vehicle-models';
-import { tunisianDictionary } from '../chat/tunisian-dictionary';
 import { ConfigService } from '@nestjs/config';
+import { SynonymsService } from '../synonyms/synonyms.service';
 import axios from 'axios';
 
-// Add missing interfaces at the top
 interface PositionRequirements {
   avant: boolean;
   arriere: boolean;
@@ -17,11 +16,13 @@ interface PositionRequirements {
 interface SearchContext {
   rawTokens: string[];
   expandedTerms: string[];
+  filteredQueryWords: string[];
   positionInfo: PositionRequirements;
   mainPartType: string | undefined;
   originalQuery: string;
   normalizedQuery: string;
   hasTunisianDialect: boolean;
+  userTypedTokens: Set<string>; // tokens actually typed by the user (before expansion)
 }
 
 interface Part {
@@ -32,265 +33,218 @@ interface Part {
 }
 
 @Injectable()
-export class AdvancedSearchService {
+export class AdvancedSearchService implements OnModuleInit {
   private readonly logger = console;
   private readonly openaiKey: string;
-  private readonly synonyms: Record<string, string[]> = {
-    // Tunisian dialect translations
-    filtre: ['filtre', 'filter', 'filtr', 'filtere', 'filtration', 'cartouche', 'filtr', 'fitlre', 'filtere'],
-    air: ['air', 'admission', 'intake', 'aer' , 'hwe'],
-    huile: ['huile', 'oil', 'hile', 'huil', 'oile'],
-    prix: ['prix', 'price', 'cost', 'cout', 'coût', 'pris', 'tarif', 'taklfa'],
-    stock: ['stock', 'disponible', 'availability', 'stok', 'dispo' , ' mawjoud'],
-    celerio: ['celerio', 'celirio', 'celario', 'celerio'],
-    spresso: [ 's-presso', 'spresso','es-presso'],
-    
-    // Enhanced brake terms for multilingual support
-    brake: ['brake', 'frein', 'freinage', 'frain', 'break', 'fren'],
-    brakes: ['brakes', 'freins', 'brake', 'frein'],
-    kit: ['kit', 'jeu', 'set', 'ensemble', 'pack'],
- 
-    // Vitrerie & ouvrants
-    vitre: ['vitre', 'vitres', 'glace', 'glaces', 'verre', 'fenetre', 'fenêtre', 'fenêtres', 'window', 'custode', 'lunette', 'vit', 'belar', 'chebek'],
-    levevitre: ['leve vitre', 'lève vitre', 'leve-vitre', 'lève-vitre', 'lèvevitre', 'levevitre', 'mecanisme vitre', 'mécanisme vitre', 'commande vitre'],
-    porte: ['porte', 'portière', 'portieres', 'door', 'portier', 'bab'],
-    baguette: ['baguette', 'baguettes', 'moulure', 'jonc'],
-    cache: ['cache', 'caches', 'couvercle', 'capot'],
-    parebrise: ['parebrise', 'pare-brise', 'pare brise', 'windshield', 'parabrize', 'brise', 'vitre avant'],
-    retroviseur: ['retroviseur', 'rétroviseur', 'miroir', 'mirroir', 'retro', 'rétro', 'mirwar', 'miray', 'miroire'],
-    lunette: ['lunette', 'vitre arriere', 'vitre arrière', 'glace arriere', 'glace arrière'],
 
-    // Suspension & direction
-    amortisseur: ['amortisseur', 'amortiseur', 'amorsteur', 'amorto', 'amort', 'suspension', 'amor', 'amortisseure', 'amortos', 'amortisseurs'],
-    biellette: ['biellette', 'biellette de direction', 'tirant', 'bielette', 'bielle direction', 'biel'],
-    rotule: ['rotule', 'rotule de direction', 'rot', 'rotul', 'boule direction'],
-    triangle: ['triangle', 'triangl', 'bras suspension', 'triangles', 'tiangle', 'trangle', 'riangle', 'rtiangle'],
-    signalisation: ['signalisation', 'signal', 'warning', 'detresse'],
-    bras: ['bras', 'bras de suspension', 'bras direction'],
-    cremaillere: ['cremaillere', 'crémaillère', 'direction', 'steering', 'crem'],
-    cardans: ['cardan', 'transmission', 'arbre de transmission', 'drive shaft', 'trans'],
-    roulement: ['roulement', 'bearing', 'roul', 'rulman', 'roulman'],
-    ressort: ['ressort', 'spring', 'suspension', 'susp'],
-    suspension: ['suspension', 'susp', 'amortissement'],
-
-    // Freinage
-    disque: ['disque', 'disques', 'disc', 'disk', 'disq', 'frein avant', 'brake disc', 'brake disk', 'brake discs'],
-    plaquette: ['plaquette', 'plaquettes', 'plaq', 'pad', 'pads', 'plak', 'plaket', 'plakete', 'brake pad', 'brake pads'],
-    disc: ['disc', 'disk', 'disque', 'disques', 'brake disc', 'brake disk'],
-    pads: ['pads', 'pad', 'plaquette', 'plaquettes', 'brake pad', 'brake pads'],
-    etrier: ['etrier', 'étrier', 'etr', 'caliper', 'etrie', 'etri'],
-    tambour: ['tambour', 'tambours', 'tam', 'frein arriere', 'frein arrière'],
-    frein: ['frein', 'freinage', 'brake', 'frain', 'break', 'fren'],
-    maitre_cylindre: ['maitre cylindre', 'maître cylindre', 'master cylinder', 'cylindre', 'mcyl'],
-
-    // Optiques
-    phare: ['phare', 'phares', 'optique', 'projecteur', 'headlight', 'light', 'dhou', 'lumiere', 'lumière'],
-    feu: ['feu', 'feux', 'clignotant', 'antibrouillard', 'feux stop', 'stop', 'cligno', 'feu position', 'warning'],
-    ampoule: ['ampoule', 'lampe', 'bulb', 'led', 'eclairage', 'éclairage'],
-    optique: ['optique', 'bloc optique', 'bloc phare', 'lighthouse'],
-
-    // Electricité
-    batterie: ['batterie', 'battery', 'batri', 'bateri', 'bataria', 'batrie', 'accumulator', 'accu'],
-    alternateur: ['alternateur', 'alternator', 'alter', 'alterno', 'alternato'],
-    demarreur: ['demarreur', 'démarreur', 'starter', 'start', 'demar', 'démar'],
-    capteur: ['capteur', 'sensor', 'sonde', 'detecteur', 'détecteur', 'capt'],
-    faisceau: ['faisceau', 'câblage', 'cablage', 'fil', 'fils', 'wiring', 'cable'],
-    boitier: ['boitier', 'boîtier', 'calculateur', 'ecu', 'module', 'control unit'],
-    klaxon: ['klaxon', 'avertisseur', 'horn', 'buzzer', 'beeper'],
-
-    // Filtration
-    filtreair: ['filtre air', 'filtre à air', 'filtre-a-air', 'air filter', 'filtr air', 'filtre admission', 'filtere air', 'filtre aer'],
-    filtrehuile: ['filtre huile', 'filtre à huile', 'filtre-a-huile', 'oil filter', 'filtr huile', 'filtre lubrification'],
-    filtrefuel: ['filtre carburant', 'filtre gasoil', 'filtre essence', 'filtre à carburant', 'fuel filter', 'filtre combustible', 'filtr essence'],
-    filtrehabitable: ['filtre habitacle', 'filtre pollen', 'filtre cabine', 'cabin filter', 'filtre climatisation', 'filtre interieur', 'filtr habitacle'],
-  
-    // Moteur & transmission
-    courroie: ['courroie', 'courroies', 'belt', 'courroi', 'distribution', 'timing belt', 'accessoires'],
-    pompeeau: ['pompe a eau', 'pompe à eau', 'water pump', 'pompe eau', 'pump water', 'pompe refroidissement'],
-    pompehuile: ['pompe a huile', 'pompe à huile', 'oil pump', 'pompe huile', 'lubrification'],
-    bougie: ['bougie', 'bougies', 'spark plug', 'bougi', 'boujie', 'sparkplug', 'allumage'],
-    embrayage: ['embrayage', 'kit embrayage', 'clutch', 'emb', 'embrayag', 'embreyage', 'debrayage'],
-    volantmoteur: ['volant moteur', 'volant bimasse', 'flywheel', 'volant', 'bimasse'],
-    butee: ['butee', 'butée', 'butée embrayage', 'release bearing'],
-    moteur: ['moteur', 'engine', 'bloc moteur', 'culasse', 'cylindre', 'motor'],
-    soupape: ['soupape', 'valve', 'admission', 'echappement', 'échappement', 'valv'],
-    joint: ['joint', 'gasket', 'seal', 'etancheite', 'étanchéité', 'join'],
-    piston: ['piston', 'segment', 'ring', 'cylindre', 'chemise'],
-    bielle: ['bielle', 'rod', 'connecting rod', 'biel'],
-    vilebrequin: ['vilebrequin', 'crankshaft', 'manivelle', 'crank'],
-
-    // Refroidissement & climatisation
-    radiateur: ['radiateur', 'radiateur chauffage', 'radiateur refroidissement', 'refroidissement', 'chauffage'],
-    condenseur: ['condenseur', 'condenseur clim'],
-    evaporateur: ['evaporateur', 'évaporateur'],
-    compresseur: ['compresseur', 'compresseur clim'],
-    thermostat: ['thermostat'],
-    ventilateur: ['ventilateur', 'ventilateur moteur'],
-
-    // Carburant & alimentation
-    pompecarburant: ['pompe carburant', 'pompe essence', 'fuel pump', 'pompe', 'pompe à essence', 'pompe injection', 'jauge'],
-    injecteur: ['injecteur', 'injecteurs', 'injection', 'inject', 'gicleur', 'buse injection', 'injector'],
-    reservoir: ['reservoir', 'réservoir', 'tank', 'reserv', 'tank essence', 'tank carburant', 'fuel tank'],
-    bouchonreservoir: ['bouchon reservoir', 'bouchon réservoir', 'fuel cap', 'bouchon essence', 'cap', 'tappo'],
-    carburateur: ['carburateur', 'carbu', 'carburetor', 'mixing', 'melangeur'],
-    admission: ['admission', 'intake', 'collecteur admission', 'pipe admission', 'manifold'],
-    papillon: ['papillon', 'throttle', 'throttle body', 'boitier papillon', 'corps papillon'],
-
-    // Échappement
-    echappement: ['echappement', 'échappement', 'chapement', 'tuyau echappement', 'silencieux', 'exhaust', 'pot', 'systeme echappement', 'sortie', 'tuyau'],
-    catalyseur: ['catalyseur', 'catalytic', 'cat', 'convertisseur catalytique', 'depollution'],
-    marmite: ['marmite echappement', 'marmite', 'silencieux arriere', 'pot arriere', 'rear silencer'],
-    ligne: ['ligne echappement', 'ligne complete', 'full system', 'systeme complet'],
-
-    // Climatisation
-    filtreclim: ['filtre clim', 'filtre climatisation', 'deshydrateur', 'secheur'],
-
-    // Autres pièces courantes
-    courroiedistribution: ['courroie distribution', 'courroie dentée', 'timing belt', 'distribution kit'],
-    chaine: ['chaine', 'chaîne', 'chain', 'distribution chain'],
-    cable: ['cable', 'câble', 'wire', 'fil', 'commande', 'control cable'],
-    durite: ['durite', 'durites', 'tuyau', 'tube', 'pipe', 'hose', 'flexible'],
-    collier: ['collier', 'attache', 'fixation', 'clamp', 'bracket'],
-    support: ['support', 'collier', 'fixation'],
-    vis: ['vis', 'boulon', 'ecrou', 'bolt', 'nut', 'screw', 'fixation'],
-    clip: ['clip', 'attache', 'fastener', 'rivet', 'fixation rapide'],
-    agrafe: ['agrafe', 'agrafes', 'agraffe', 'agraffes', 'agraphe', 'agraphes', 'garafe', 'garafes', 'garaffe', 'garaffes', 'graffe', 'graffes', 'garaphe', 'graphe', 'garfe', 'garfes'],
-    agraphe: ['agraphe', 'agraphes', 'garaphe', 'graphe'],
-    agraffe: ['agraffe', 'agraffes', 'garaffe', 'garaffes', 'graffe', 'graffes'],
-    appareil: ['appareil', 'ppareil', 'papareil', 'apareil'],
-    plateau: ['plateau', 'plateaux', 'plato'],
-    maitre: ['maitre', 'maître', 'master'],
-    cylindre: ['cylindre', 'cylinder', 'cilindre'],
-    bouton: ['bouton', 'boutons'],
-    combin: ['combin', 'combiné', 'combine'],
-    dinstrument: ['dinstrument', 'd\'instrument'],
-    feu_detresse: ['feu de détresse', 'feu detresse'],
-    para: ['para', 'pare'],
-
-    // Directions/positions
-    avant: ['avant', 'av', 'avent'],
-    arriere: ['arriere', 'arrière', 'ar'],
-    gauche: ['gauche', 'g', 'conducteur', 'gosh'],
-    droite: ['droite', 'd', 'passager', 'droit'],
-
-    // Autres positions
-    superieur: ['superieur', 'supérieur'],
-    inferieur: ['inferieur', 'inférieur'],
-    interieur: ['interieur', 'intérieur'],
-    exterieur: ['exterieur', 'extérieur']
-  };
+  // Populated from SynonymsService on startup — replaces the old hardcoded synonyms object
+  private synonymsMap: Record<string, string[]> = {};
 
   private readonly typeWeights: Record<string, number> = {
-    'porte': 1.2, 'joint': 1.2, 'vitesse': 1.2, 'roulement': 1.3, 'culbuteur': 1.2, 'support': 1.3, 'bielle': 1.2, 'vitre': 1.2, 'capteur': 1.2, 'pare': 1.0, 'synchro': 1.15, 'cache': 1.2, 'sup': 1.15, 'bouchon': 1.15, 'radiateur': 1.3, 'charniere': 1.15, 'inf': 1.15, 'feu': 1.15, 'boite': 1.15, 'huile': 1.15, 'aile': 1.2, 'glace': 1.15, 'moteur': 1.2, 'serrure': 1.15, 'frein': 1.5, 'agrafe': 1.2, 'agrafes': 1.2, 'agraffe': 1.3, 'agraffes': 1.3, 'agraphe': 1.3, 'agraphes': 1.3, 'roue': 1.1, 'capot': 1.2, 'baguette': 1.1, 'choc': 1.1, 'garniture': 1.1, 'tableau': 1.1, 'bord': 1.1, 'toit': 1.1, 'arbre': 1.1, 'soupape': 1.1, 'essuie': 1.1, 'cable': 1.1, 'circlip': 1.1, 'pompe': 1.2, 'panneau': 1.1, 'stdt': 1.1, 'amortisseur': 1.5, 'bas': 1.1, 'filtre': 1.3, 'embrayage': 1.3, 'carburant': 1.1, 'montant': 1.1, 'ust': 1.1, 'traverse': 1.2, 'int': 1.1, 'air': 1.1, 'malle': 1.1, 'corps': 1.1, 'dhuile': 1.1, 'reservoir': 1.1, 'deau': 1.1, 'retroviseur': 1.5, 'plaque': 1.1, 'abs': 1.1, 'batterie': 1.3, 'moyeu': 1.1, 'durite': 1.4, 'coussinet': 1.1, 'extension': 1.1, 'roulment': 1.1, 'ressort': 1.1, 'siege': 1.1, 'plancher': 1.1, 'tige': 1.1, 'clim': 1.1, 'eau': 1.1, 'carter': 1.2, 'cle': 1.1, 'longeron': 1.1, 'moustache': 1.1, 'adhesif': 1.1, 'volant': 1.2, 'anneau': 1.1, 'contre': 1.1, 'appareil': 1.8, 'monte': 1.1, 'balai': 1.1, 'caisse': 1.1, 'thermostat': 1.1, 'bouton': 1.4, 'direction': 1.1, 'pression': 1.1, 'central': 1.1, 'haute': 1.1, 'disque': 1.5, 'ecrou': 1.1, 'flexible': 1.1, 'jeu': 1.1, 'echappement': 1.2, 'passage': 1.1, 'pignonarbre': 1.1, 'dentree': 1.1, 'poignee': 1.1, 'renfort': 1.1, 'relais': 1.1, 'sigle': 1.1, 'tete': 1.1, 'para': 1.1, 'moulure': 1.1, 'bague': 1.1, 'boulon': 1.1, 'remorquage': 1.2, 'bras': 1.3, 'calculateur': 1.2, 'lampe': 1.2, 'ensemble': 1.1, 'leve': 1.1, 'caoutchouc': 1.1, 'collecteur': 1.1, 'admission': 1.1, 'ceinture': 1.1, 'synchroniseur': 1.1, 'lateral': 1.1, 'condenseur': 1.1, 'remplissage': 1.1, 'courroie': 1.3, 'faisceau': 1.1, 'complet': 1.1, 'gardeboue': 1.1, 'tablier': 1.1, 'interieur': 1.1, 'goupille': 1.1, 'jante': 1.1, 'manchon': 1.1, 'brise': 1.1, 'boue': 1.1, 'differentiel': 1.1, 'rail': 1.1, 'absorbeur': 1.1, 'rondelle': 1.1, 'soleil': 1.1, 'bag': 1.1, 'alimentateur': 1.1, 'antenne': 1.1, 'transmission': 1.1, 'dallumage': 1.1, 'boitier': 1.1, 'douille': 1.1, 'vidange': 1.1, 'ventilateur': 1.1, 'butee': 1.1, 'stationnement': 1.1, 'trappe': 1.1, 'airbag': 1.1, 'troisieme': 1.1, 'stop': 1.1, 'calandre': 1.2, 'cale': 1.1, 'calle': 1.1, 'poigne': 1.1, 'position': 1.1, 'vilebrequin': 1.1, 'dembrayage': 1.1, 'frenage': 1.1, 'dair': 1.1, 'cardan': 1.3, 'catadioptre': 1.1, 'injecteur': 1.2, 'darbre': 1.1, 'collier': 1.1, 'compresseur': 1.1, 'conduite': 1.1, 'papillon': 1.1, 'couvercle': 1.1, 'cremaillere': 1.3, 'cric': 1.1, 'culasse': 1.1, 'durit': 1.1, 'seuil': 1.1, 'etrier': 1.3, 'cote': 1.1, 'canister': 1.1, 'fourchette': 1.1, 'fusee': 1.1, 'qtr': 1.1, 'goujon': 1.1, 'chaine': 1.1, 'distribution': 1.1, 'piston': 1.1, 'acier': 1.1, 'interrieur': 1.1, 'dechappement': 1.1, 'torique': 1.1, 'eme': 1.1, 'synchronisation': 1.1, 'membre': 1.1, 'miroire': 1.1, 'module': 1.1, 'basse': 1.1, 'optique': 1.1, 'assemblage': 1.1, 'secour': 1.1, 'vase': 1.1, 'poulie': 1.1, 'tendeur': 1.1, 'demarreur': 1.2, 'section': 1.1, 'sonde': 1.1, 'lambda': 1.1, 'soufflet': 1.1, 'tocs': 1.2, 'toc': 1.2, 'tolle': 1.1, 'triangle': 1.3, 'tube': 1.1, 'tuyau': 1.2, 'vis': 1.1, 'clip': 1.1, 'plaquette': 1.5, 'coffre': 1.1, 'passager': 1.1, 'alternateur': 1.2, 'assiette': 1.1, 'attache': 1.1, 'spirale': 1.1, 'droit': 1.1, 'base': 1.1, 'berceau': 1.1, 'bloc': 1.1, 'bobine': 1.1, 'body': 1.1, 'socket': 1.1, 'outils': 1.1, 'bouchant': 1.1, 'purge': 1.1, 'suspension': 1.3, 'bougie': 1.2, 'detresse': 1.1, 'buse': 1.1, 'glasse': 1.1, 'butte': 1.1, 'selecteur': 1.1, 'fusible': 1.1, 'poussiere': 1.1, 'usb': 1.1, 'epi': 1.1, 'caprteur': 1.1, 'camme': 1.1, 'recule': 1.1, 'marche': 1.1, 'gaz': 1.1, 'mettre': 1.1, 'sortie': 1.1, 'evaporateur': 1.1, 'temp': 1.1, 'refroidissement': 1.1, 'temperature': 1.1, 'causse': 1.1, 'cerclip': 1.1, 'comptage': 1.1, 'circlips': 1.1, 'clavette': 1.1, 'demilune': 1.1, 'queue': 1.1, 'clignotant': 1.1, 'colone': 1.1, 'dinstrument': 1.1, 'commande': 1.1, 'commodo': 1.1, 'comodo': 1.1, 'lumiere': 1.1, 'contacteur': 1.1, 'controleur': 1.1, 'parking': 1.1, 'climatiseur': 1.1, 'colonne': 1.1, 'recul': 1.1, 'deflecteur': 1.1, 'enjoliveur': 1.1, 'otr': 1.1, 'mbr': 1.1, 'lwr': 1.1, 'actuateur': 1.1, 'feutre': 1.1, 'garnitrur': 1.1, 'bochon': 1.1, 'ctr': 1.1, 'gauge': 1.1, 'essence': 1.1, 'gaugon': 1.1, 'grille': 1.1, 'guide': 1.1, 'jauge': 1.1, 'niveau': 1.1, 'goupilles': 1.1, 'glissantes': 1.1, 'machoires': 1.1, 'plaquettes': 1.1, 'segments': 1.1, 'soupappe': 1.1, 'echappment': 1.1, 'corp': 1.1, 'interieure': 1.1, 'leche': 1.1, 'lecheur': 1.1, 'tampon': 1.1, 'jupe': 1.1, 'kasarole': 1.1, 'kasaroule': 1.1, 'klaxon': 1.1, 'loquet': 1.1, 'lunette': 1.1, 'manette': 1.1, 'marmite': 1.1, 'eps': 1.1, 'monogramme': 1.1, 'presso': 1.1, 'centrale': 1.1, 'feux': 1.1, 'rouge': 1.1, 'bour': 1.1, 'villebrequin': 1.1, 'vilbrequin': 1.1, 'ard': 1.1, 'pin': 1.1, 'plage': 1.1, 'planche': 1.1, 'claison': 1.1, 'poste': 1.1, 'radio': 1.1, 'protecteur': 1.1, 'chauffage': 1.1, 'retenue': 1.1, 'revettment': 1.1, 'ring': 1.1, 'rotule': 1.3, 'axial': 1.1, 'usust': 1.1, 'ustwhite': 1.1, 'ustblanc': 1.1, 'diff': 1.1, 'manivelle': 1.1, 'damortisseur': 1.1, 'sangle': 1.1, 'laterale': 1.1, 'sensor': 1.1, 'assyclutch': 1.1, 'speed': 1.1, 'male': 1.1, 'dammortisseur': 1.1, 'suzuki': 1.1, 'supp': 1.1, 'actionneur': 1.1, 'crochet': 1.1, 'inferieur': 1.1, 'tambour': 1.3, 'frien': 1.1, 'tensionneur': 1.1, 'tiran': 1.2, 'tirant': 1.2, 'train': 1.2, 'valve': 1.1, 'longerons': 1.1, 'boudain': 1.1, 'pedale': 1.1, 'plateau': 1.3, 'maitre': 1.3, 'cylindre': 1.3, 'std': 1.2, 'us': 1.2, 'white': 1.2, 'blanc': 1.2
+    'porte': 1.2, 'joint': 1.2, 'vitesse': 1.2, 'roulement': 1.3, 'culbuteur': 1.2, 'support': 1.3,
+    'bielle': 1.2, 'vitre': 1.2, 'capteur': 1.2, 'pare': 1.0, 'synchro': 1.15, 'cache': 1.2,
+    'sup': 1.15, 'bouchon': 1.15, 'radiateur': 1.3, 'charniere': 1.15, 'inf': 1.15, 'feu': 1.15,
+    'boite': 1.15, 'huile': 1.15, 'aile': 1.2, 'glace': 1.15, 'moteur': 1.2, 'serrure': 1.15,
+    'frein': 1.5, 'agrafe': 1.2, 'agrafes': 1.2, 'agraffe': 1.3, 'agraffes': 1.3, 'agraphe': 1.3,
+    'agraphes': 1.3, 'roue': 1.1, 'capot': 1.2, 'baguette': 1.1, 'choc': 1.1, 'garniture': 1.1,
+    'tableau': 1.1, 'bord': 1.1, 'toit': 1.1, 'arbre': 1.1, 'soupape': 1.1, 'essuie': 1.1,
+    'cable': 1.1, 'circlip': 1.1, 'pompe': 1.2, 'panneau': 1.1, 'stdt': 1.1, 'amortisseur': 1.5,
+    'bas': 1.1, 'filtre': 1.3, 'embrayage': 1.3, 'carburant': 1.1, 'montant': 1.1, 'ust': 1.1,
+    'traverse': 1.2, 'int': 1.1, 'air': 1.1, 'malle': 1.1, 'corps': 1.1, 'dhuile': 1.1,
+    'reservoir': 1.1, 'deau': 1.1, 'retroviseur': 1.5, 'plaque': 1.1, 'abs': 1.1, 'batterie': 1.3,
+    'moyeu': 1.1, 'durite': 1.4, 'coussinet': 1.1, 'extension': 1.1, 'roulment': 1.1, 'ressort': 1.1,
+    'siege': 1.1, 'plancher': 1.1, 'tige': 1.1, 'clim': 1.1, 'eau': 1.1, 'carter': 1.2, 'cle': 1.1,
+    'longeron': 1.1, 'moustache': 1.1, 'adhesif': 1.1, 'volant': 1.2, 'anneau': 1.1, 'contre': 1.1,
+    'appareil': 1.8, 'monte': 1.1, 'balai': 1.1, 'caisse': 1.1, 'thermostat': 1.1, 'bouton': 1.4,
+    'direction': 1.1, 'pression': 1.1, 'central': 1.1, 'haute': 1.1, 'disque': 1.5, 'ecrou': 1.1,
+    'flexible': 1.1, 'jeu': 1.1, 'echappement': 1.2, 'passage': 1.1, 'pignonarbre': 1.1,
+    'dentree': 1.1, 'poignee': 1.1, 'renfort': 1.1, 'relais': 1.1, 'sigle': 1.1, 'tete': 1.1,
+    'para': 1.1, 'moulure': 1.1, 'bague': 1.1, 'boulon': 1.1, 'remorquage': 1.2, 'bras': 1.3,
+    'calculateur': 1.2, 'lampe': 1.2, 'ensemble': 1.1, 'leve': 1.1, 'caoutchouc': 1.1,
+    'collecteur': 1.1, 'admission': 1.1, 'ceinture': 1.1, 'synchroniseur': 1.1, 'lateral': 1.1,
+    'condenseur': 1.1, 'remplissage': 1.1, 'courroie': 1.3, 'faisceau': 1.1, 'complet': 1.1,
+    'gardeboue': 1.1, 'tablier': 1.1, 'interieur': 1.1, 'goupille': 1.1, 'jante': 1.1,
+    'manchon': 1.1, 'brise': 1.1, 'boue': 1.1, 'differentiel': 1.1, 'rail': 1.1, 'absorbeur': 1.1,
+    'rondelle': 1.1, 'soleil': 1.1, 'bag': 1.1, 'alimentateur': 1.1, 'antenne': 1.1,
+    'transmission': 1.1, 'dallumage': 1.1, 'boitier': 1.1, 'douille': 1.1, 'vidange': 1.1,
+    'ventilateur': 1.1, 'butee': 1.1, 'stationnement': 1.1, 'trappe': 1.1, 'airbag': 1.1,
+    'troisieme': 1.1, 'stop': 1.1, 'calandre': 1.2, 'cale': 1.1, 'calle': 1.1, 'poigne': 1.1,
+    'position': 1.1, 'vilebrequin': 1.1, 'dembrayage': 1.1, 'frenage': 1.1, 'dair': 1.1,
+    'cardan': 1.3, 'catadioptre': 1.1, 'injecteur': 1.2, 'darbre': 1.1, 'collier': 1.1,
+    'compresseur': 1.1, 'conduite': 1.1, 'papillon': 1.1, 'couvercle': 1.1, 'cremaillere': 1.3,
+    'cric': 1.1, 'culasse': 1.1, 'durit': 1.1, 'seuil': 1.1, 'etrier': 1.3, 'cote': 1.1,
+    'canister': 1.1, 'fourchette': 1.1, 'fusee': 1.1, 'qtr': 1.1, 'goujon': 1.1, 'chaine': 1.1,
+    'distribution': 1.1, 'piston': 1.1, 'acier': 1.1, 'interrieur': 1.1, 'dechappement': 1.1,
+    'torique': 1.1, 'eme': 1.1, 'synchronisation': 1.1, 'membre': 1.1, 'miroire': 1.1,
+    'module': 1.1, 'basse': 1.1, 'optique': 1.1, 'assemblage': 1.1, 'secour': 1.1, 'vase': 1.1,
+    'poulie': 1.1, 'tendeur': 1.1, 'demarreur': 1.2, 'section': 1.1, 'sonde': 1.1, 'lambda': 1.1,
+    'soufflet': 1.1, 'tocs': 1.2, 'toc': 1.2, 'tolle': 1.1, 'triangle': 1.3, 'tube': 1.1,
+    'tuyau': 1.2, 'vis': 1.1, 'clip': 1.1, 'plaquette': 1.5, 'coffre': 1.1, 'passager': 1.1,
+    'alternateur': 1.2, 'assiette': 1.1, 'attache': 1.1, 'spirale': 1.1, 'droit': 1.1,
+    'base': 1.1, 'berceau': 1.1, 'bloc': 1.1, 'bobine': 1.1, 'body': 1.1, 'socket': 1.1,
+    'outils': 1.1, 'bouchant': 1.1, 'purge': 1.1, 'suspension': 1.3, 'bougie': 1.2,
+    'detresse': 1.1, 'buse': 1.1, 'glasse': 1.1, 'butte': 1.1, 'selecteur': 1.1, 'fusible': 1.1,
+    'poussiere': 1.1, 'usb': 1.1, 'epi': 1.1, 'caprteur': 1.1, 'camme': 1.1, 'recule': 1.1,
+    'marche': 1.1, 'gaz': 1.1, 'mettre': 1.1, 'sortie': 1.1, 'evaporateur': 1.1, 'temp': 1.1,
+    'refroidissement': 1.1, 'temperature': 1.1, 'causse': 1.1, 'cerclip': 1.1, 'comptage': 1.1,
+    'circlips': 1.1, 'clavette': 1.1, 'demilune': 1.1, 'queue': 1.1, 'clignotant': 1.1,
+    'colone': 1.1, 'dinstrument': 1.1, 'commande': 1.1, 'commodo': 1.1, 'comodo': 1.1,
+    'lumiere': 1.1, 'contacteur': 1.1, 'controleur': 1.1, 'parking': 1.1, 'climatiseur': 1.1,
+    'colonne': 1.1, 'recul': 1.1, 'deflecteur': 1.1, 'enjoliveur': 1.1, 'otr': 1.1, 'mbr': 1.1,
+    'lwr': 1.1, 'actuateur': 1.1, 'feutre': 1.1, 'garnitrur': 1.1, 'bochon': 1.1, 'ctr': 1.1,
+    'gauge': 1.1, 'essence': 1.1, 'gaugon': 1.1, 'grille': 1.1, 'guide': 1.1, 'jauge': 1.1,
+    'niveau': 1.1, 'goupilles': 1.1, 'glissantes': 1.1, 'machoires': 1.1, 'plaquettes': 1.1,
+    'segments': 1.1, 'soupappe': 1.1, 'echappment': 1.1, 'corp': 1.1, 'interieure': 1.1,
+    'leche': 1.1, 'lecheur': 1.1, 'tampon': 1.1, 'jupe': 1.1, 'kasarole': 1.1, 'kasaroule': 1.1,
+    'klaxon': 1.1, 'loquet': 1.1, 'lunette': 1.1, 'manette': 1.1, 'marmite': 1.1, 'eps': 1.1,
+    'monogramme': 1.1, 'presso': 1.1, 'centrale': 1.1, 'feux': 1.1, 'rouge': 1.1, 'bour': 1.1,
+    'villebrequin': 1.1, 'vilbrequin': 1.1, 'ard': 1.1, 'pin': 1.1, 'plage': 1.1, 'planche': 1.1,
+    'claison': 1.1, 'poste': 1.1, 'radio': 1.1, 'protecteur': 1.1, 'chauffage': 1.1,
+    'retenue': 1.1, 'revettment': 1.1, 'ring': 1.1, 'rotule': 1.3, 'axial': 1.1, 'usust': 1.1,
+    'ustwhite': 1.1, 'ustblanc': 1.1, 'diff': 1.1, 'manivelle': 1.1, 'damortisseur': 1.1,
+    'sangle': 1.1, 'laterale': 1.1, 'sensor': 1.1, 'assyclutch': 1.1, 'speed': 1.1, 'male': 1.1,
+    'dammortisseur': 1.1, 'suzuki': 1.1, 'supp': 1.1, 'actionneur': 1.1, 'crochet': 1.1,
+    'inferieur': 1.1, 'tambour': 1.3, 'frien': 1.1, 'tensionneur': 1.1, 'tiran': 1.2,
+    'tirant': 1.2, 'train': 1.2, 'valve': 1.1, 'longerons': 1.1, 'boudain': 1.1, 'pedale': 1.1,
+    'plateau': 1.3, 'maitre': 1.3, 'cylindre': 1.3, 'std': 1.2, 'us': 1.2, 'white': 1.2, 'blanc': 1.2,
   };
 
-  // Real-time stock tracking - NO CACHE
-  private cacheHits = 0;
-  private cacheMisses = 0;
+  private static readonly SCORE_REJECTION = -1_000_000;
+  private static readonly SCORE_EXACT_FULL = 100_000;
+  private static readonly SCORE_EXACT_REFERENCE = 1_000;
+  private static readonly SCORE_REFERENCE_CONTAINS = 400;
+  private static readonly SCORE_MAIN_TYPE_PRESENT = 5_000;
+  private static readonly SCORE_ALL_WORDS_MATCH = 80_000;
+  private static readonly SCORE_NUMERIC_EXACT = 50_000;
 
-  // normalized synonym lookup for robust matching
+  private aiSegmentationAvailable = true;
+  private aiSegmentationFailCount = 0;
+  private static readonly AI_FAIL_THRESHOLD = 3;
+
+  // Normalized synonym lookup — populated from SynonymsService in onModuleInit
   private normalizedSynonymLookup: Record<string, string> = {};
-  
-  constructor(private prisma: PrismaService, private config: ConfigService) {
+  private fuzzyMatchCache: Map<string, string[]> = new Map();
+
+  constructor(
+    private prisma: PrismaService,
+    private config: ConfigService,
+    private synonymsService: SynonymsService,
+  ) {
     this.openaiKey = this.config.get<string>('OPENAI_API_KEY') || '';
-    this.buildNormalizedSynonymIndex();
+    // NOTE: index is built in onModuleInit after SynonymsService has loaded from DB
   }
 
-  private getSearchTerms(rawTokens: string[], expandedTerms: string[]): string[] {
-    const positionWords = ['avant', 'arriere', 'gauche', 'droite', 'av', 'ar', 'g', 'd', 'sup', 'inf'];
-    const terms = expandedTerms.filter(t => t.length >= 3 && !positionWords.includes(t));
-    return Array.from(new Set(terms)).slice(0, 10);
-  }
-
-  private async queryPartsByTerms(terms: string[], vehicleModel?: string): Promise<any[]> {
-    if (!terms.length) return [];
-    const likeTerms = terms.map(t => `%${t}%`);
-    const termSql = Prisma.join(
-      likeTerms.map(t => Prisma.sql`(designation ILIKE ${t} OR reference ILIKE ${t})`),
-      ' OR '
+  async onModuleInit(): Promise<void> {
+    // SynonymsService.onModuleInit() has already completed (NestJS resolves deps first)
+    this.synonymsMap = this.synonymsService.getCategoryVariants();
+    this.normalizedSynonymLookup = this.synonymsService.getNormalizedLookup();
+    this.logger.log(
+      `[AdvancedSearchService] Synonym index ready — ${Object.keys(this.synonymsMap).length} categories, ${Object.keys(this.normalizedSynonymLookup).length} normalized tokens`,
     );
-
-    const model = normalizeModel(vehicleModel);
-    const modelSql = model
-      ? Prisma.sql`AND (model_code = ${model} OR match_rule = 'unknown_model')`
-      : Prisma.sql``;
-
-    return this.prisma.$queryRaw<any[]>`
-      SELECT id, reference, designation, prixht AS "prixHt", stock, model_code, match_rule, confidence
-      FROM mart.chatbot_parts_with_fitment
-      WHERE ${termSql}
-      ${modelSql}
-      LIMIT 500
-    `;
   }
 
   async searchParts(query: string, vehicle?: any): Promise<any[]> {
     if (!query || query.trim().length < 2) {
       return [];
     }
-    console.log(`[SEARCH] Input query: "${query}"`);
-    
-    // Check for reference pattern FIRST (before normalization)
+    this.logger.log(`[SEARCH] Input query: "${query}"`);
+
     const referencePatterns = [
       /^\s*([A-Z0-9]{8,}(?:-[A-Z0-9]+)*)\s*$/i,
       /^\s*([A-Z]{2}-\d{4,}-[A-Z0-9]{2,}(?:-[A-Z0-9]+)*)\s*$/i,
       /\b([A-Z0-9]{8,})\b/i,
       /\b([A-Z]{2}-?\d{4,}-?[A-Z0-9]{2,}(?:-[A-Z0-9]+)*)\b/i,
-      /\bref[eé]rence[\s:]*([A-Z0-9]{5,}[-_]?[A-Z0-9]*)\b/i
+      /\bref[eé]rence[\s:]*([A-Z0-9]{5,}[-_]?[A-Z0-9]*)\b/i,
     ];
-    
+
     for (const pattern of referencePatterns) {
       const refMatch = query.match(pattern);
       if (refMatch) {
         const reference = refMatch[1] || refMatch[0];
-        if (/[A-Z]/.test(reference) && /[0-9]/.test(reference) && reference.length >= 8) {
-          console.log(`[SEARCH] Reference pattern detected: "${reference}"`);
+        // Either alphanumeric with at least one letter + one digit, or purely numeric with min 8 digits
+const isAlphaNumericRef = /[A-Z]/.test(reference) && /[0-9]/.test(reference) && reference.length >= 8;
+const isNumericRef = /^\d{8,}$/.test(reference);  // all digits, 8+ chars
+
+if ((isAlphaNumericRef || isNumericRef) && reference.length >= 8) {
+          this.logger.log(`[SEARCH] Reference pattern detected: "${reference}"`);
           const refResults = await this.searchByReference(reference, vehicle);
-          console.log(`[SEARCH] Reference search returned ${refResults.length} results`);
+          this.logger.log(`[SEARCH] Reference search returned ${refResults.length} results`);
           return refResults;
         }
       }
     }
-    
+
     const tunisianNormalized = this.normalizeTunisian(query);
-    const searchQuery = tunisianNormalized || query;
-    const hasTunisianDialect = tunisianNormalized !== '';
-    if (tunisianNormalized) {
-      console.log(`[SEARCH] Tunisian detected, normalized to: "${tunisianNormalized}"`);
+    // Reject Tunisian normalization if it produces duplicate tokens
+    // (e.g. "disque frein" → "disque de frein frein" is a false positive)
+    const tunisianValid = (() => {
+      if (!tunisianNormalized) return false;
+      const originalTokens = this.normalize(query).split(' ').filter(Boolean);
+      const normalizedTokens = this.normalize(tunisianNormalized).split(' ').filter(Boolean);
+      // If every original token already appears in the normalized synonym lookup, skip Tunisian expansion
+      const allAlreadyKnown = originalTokens.every(
+        (t) => this.normalizedSynonymLookup[t] !== undefined || Object.keys(this.typeWeights).includes(t),
+      );
+      if (allAlreadyKnown) return false;
+      // If normalization produces duplicate meaningful tokens, reject it
+      const seen = new Set<string>();
+      for (const t of normalizedTokens) {
+        if (t.length >= 4 && seen.has(t)) return false;
+        seen.add(t);
+      }
+      return true;
+    })();
+    const searchQuery = tunisianValid ? tunisianNormalized : query;
+    const hasTunisianDialect = tunisianValid;
+    if (tunisianValid) {
+      this.logger.log(`[SEARCH] Tunisian detected, normalized to: "${tunisianNormalized}"`);
     }
-    console.log(`[SEARCH] Real-time query - no cache`);
+    this.logger.log(`[SEARCH] Real-time query - no cache`);
     const normalized = this.normalize(searchQuery);
-    console.log(`[SEARCH] Normalized query: "${normalized}"`);
-    
-    // CRITICAL: Get ALL tokens including short ones (g, d, ar, av)
+    this.logger.log(`[SEARCH] Normalized query: "${normalized}"`);
+
     const allTokens = await this.tokenize(normalized, true);
-    const rawTokens = allTokens.filter(t => t.length > 2);
-    console.log(`[SEARCH] All tokens: [${allTokens.join(', ')}]`);
-    console.log(`[SEARCH] Raw tokens (>2 chars): [${rawTokens.join(', ')}]`);
-    
+    const rawTokens = allTokens.filter((t) => t.length > 2);
+    this.logger.log(`[SEARCH] All tokens: [${allTokens.join(', ')}]`);
+    this.logger.log(`[SEARCH] Raw tokens (>2 chars): [${rawTokens.join(', ')}]`);
+
     const expandedTerms = this.expandWithSynonymsContextual(rawTokens, normalized);
-    console.log(`[SEARCH] Expanded terms: [${expandedTerms.join(', ')}]`);
+    this.logger.log(`[SEARCH] Expanded terms: [${expandedTerms.join(', ')}]`);
     const positionInfo = this.detectPositionRequirements(allTokens, expandedTerms);
-    console.log(`[SEARCH] Position info - avant: ${positionInfo.avant}, arrière: ${positionInfo.arriere}, gauche: ${positionInfo.gauche}, droite: ${positionInfo.droite}`);
-    
-    const terms = this.getSearchTerms(rawTokens, expandedTerms);
-    const parts = await this.queryPartsByTerms(terms, vehicle?.modele);
-    console.log(`[SEARCH] Database returned ${parts.length} raw results`);
-    if (parts.length > 0) {
-      console.log(`[SEARCH] Sample DB results: ${parts.slice(0, 1).map(p => `"${p.designation}"`).join(', ')}`);
-    }
-    const correctedTokens = expandedTerms.filter(t => {
-      const positionWords = ['avant', 'arriere', 'gauche', 'droite', 'av', 'ar', 'g', 'd'];
-      return !positionWords.includes(t);
+    this.logger.log(
+      `[SEARCH] Position info - avant: ${positionInfo.avant}, arrière: ${positionInfo.arriere}, gauche: ${positionInfo.gauche}, droite: ${positionInfo.droite}`,
+    );
+    const searchConditions = this.buildSearchConditions(rawTokens, expandedTerms);
+
+    const whereCondition: any = searchConditions.length > 0 ? { OR: searchConditions } : {};
+
+    const parts = await this.prisma.part.findMany({
+      where: whereCondition,
+      include: {
+        stock: { select: { statut: true } },
+        fitments: { select: { modelName: true, typeCode: true } },
+      },
+      take: 500,
     });
-    
+    this.logger.log(`[SEARCH] Database returned ${parts.length} raw results`);
+    if (parts.length > 0) {
+      this.logger.log(
+        `[SEARCH] Sample DB results: ${parts.slice(0, 1).map((p: any) => `"${p.designation}"`).join(', ')}`,
+      );
+    }
+
     const positionWords = ['avant', 'arriere', 'gauche', 'droite', 'av', 'ar', 'g', 'd'];
-    const accessoryWords = ['support', 'sangle', 'cable', 'causse', 'fixation', 'adhesif', 'clip', 'vis', 'boulon', 'pare', 'boue', 'cache', 'baguette', 'joint', 'catadioptre', 'bouchon', 'couvercle', 'garniture'];
-    const firstToken = correctedTokens.find(t => t.length >= 3 && !positionWords.includes(t));
+    const correctedTokens = expandedTerms.filter((t) => !positionWords.includes(t));
+
+    const accessoryWords = [
+      'support', 'sangle', 'cable', 'causse', 'fixation', 'adhesif', 'clip', 'vis', 'boulon',
+      'pare', 'boue', 'cache', 'baguette', 'joint', 'catadioptre', 'bouchon', 'couvercle', 'garniture',
+    ];
+    const firstToken = correctedTokens.find((t) => t.length >= 3 && !positionWords.includes(t));
     const isFirstTokenAccessory = firstToken && accessoryWords.includes(firstToken);
-    
+
     const mainPartType = correctedTokens
-      .filter(token => Object.keys(this.typeWeights).includes(token) && !positionWords.includes(token))
+      .filter((token) => Object.keys(this.typeWeights).includes(token) && !positionWords.includes(token))
       .sort((a, b) => {
         if (isFirstTokenAccessory && (a === firstToken || b === firstToken)) {
           return a === firstToken ? -1 : 1;
@@ -300,111 +254,119 @@ export class AdvancedSearchService {
         if (weightB !== weightA) return weightB - weightA;
         return b.length - a.length;
       })[0];
-    console.log(`[SEARCH] Main part type detected: "${mainPartType || 'NONE'}" from tokens: [${rawTokens.join(', ')}]`);
-    
-    // --- FORCE appareil when monte glace is present ---
+    this.logger.log(
+      `[SEARCH] Main part type detected: "${mainPartType || 'NONE'}" from tokens: [${rawTokens.join(', ')}]`,
+    );
+
     const queryLower = query.toLowerCase();
     let forcedMainPartType = mainPartType;
     if (queryLower.includes('monte glace') || queryLower.includes('monte-glace')) {
       forcedMainPartType = 'appareil';
-      console.log(`[SEARCH] Forced main part type to "appareil" due to "monte glace"`);
+      this.logger.log(`[SEARCH] Forced main part type to "appareil" due to "monte glace"`);
     }
-    
+
+    // Computed ONCE — reused inside calculateContentMatches for every part
+    const filteredQueryWords = expandedTerms.filter((w) => {
+      if (w.length < 3) return false;
+      for (const [category, syns] of Object.entries(this.synonymsMap)) {
+        if (syns.includes(w) && expandedTerms.includes(category) && w !== category) {
+          return false;
+        }
+      }
+      return true;
+    });
+
     const context: SearchContext = {
-      rawTokens: allTokens, // Use ALL tokens including positions
+      rawTokens: allTokens,
       expandedTerms,
+      filteredQueryWords,
       positionInfo,
       mainPartType: forcedMainPartType,
       originalQuery: query,
       normalizedQuery: normalized,
-      hasTunisianDialect
+      hasTunisianDialect,
+      // rawTokens = tokens that survived stop-word removal and length filter (>2 chars).
+      // These represent the user's actual intent words — expansion adds to expandedTerms but NOT here.
+      userTypedTokens: new Set(rawTokens),
     };
-    const scored = parts.map(part => {
-      const score = this.calculatePartScore(part, context);
-      return { ...part, score };
-    });
-    
-    // CRITICAL: Filter out wrong matches (e.g., METTRE CYLINDRE when searching for MAITRE CYLINDRE)
-    const filtered = scored.filter(p => {
+
+    const scored = parts.map((part) => ({
+      ...part,
+      score: this.calculatePartScore(part, context),
+    }));
+
+    const filtered = scored.filter((p) => {
       const designation = this.normalize(p.designation);
       const queryNorm = context.normalizedQuery;
-      
-      // Check for conflicting words (ONLY reject if query has word A but result has word B and NOT word A)
+
       const conflicts = [
         { query: 'maitre', wrong: 'mettre' },
-        { query: 'cable', wrong: 'calle' }
+        { query: 'cable', wrong: 'calle' },
       ];
-      
+
       for (const conflict of conflicts) {
-        // ONLY reject if: query contains 'maitre' AND designation contains 'mettre' AND designation does NOT contain 'maitre'
-        if (queryNorm.includes(conflict.query) && designation.includes(conflict.wrong) && !designation.includes(conflict.query)) {
+        if (
+          queryNorm.includes(conflict.query) &&
+          designation.includes(conflict.wrong) &&
+          !designation.includes(conflict.query)
+        ) {
           return false;
         }
       }
-      
       return true;
     });
-    
+
     let results = filtered
-      .filter(p => p.score >= this.getMinimumScore(context))
-      .sort((a, b) => b.score - a.score || b.stock - a.stock);
-    
-    console.log(`[SEARCH] After scoring/filtering: ${results.length} qualified results (minScore: ${this.getMinimumScore(context)})`);
+      .filter((p) => p.score >= this.getMinimumScore(context))
+      .sort((a, b) => b.score - a.score);
+
+    this.logger.log(
+      `[SEARCH] After scoring/filtering: ${results.length} qualified results (minScore: ${this.getMinimumScore(context)})`,
+    );
     if (results.length > 0) {
-      console.log(`[SEARCH] Top 3 scores: ${results.slice(0, 3).map(p => `"${p.designation}" (${p.score})`).join(', ')}`);
+      this.logger.log(
+        `[SEARCH] Top 3 scores: ${results.slice(0, 3).map((p: any) => `"${p.designation}" (${p.score})`).join(', ')}`,
+      );
     }
+
     const TOP_N = this.calculateOptimalResultLimit(context, results.length);
     const finalResults = results.slice(0, TOP_N);
-    console.log(`[SEARCH] Final results returned: ${finalResults.length} (TOP_N: ${TOP_N})`);
+    this.logger.log(`[SEARCH] Final results returned: ${finalResults.length} (TOP_N: ${TOP_N})`);
     return finalResults;
   }
 
-  private detectPositionRequirements(rawTokens: string[], expandedTerms: string[]): PositionRequirements {
-    const text = rawTokens.join(' ').toLowerCase();
+  private detectPositionRequirements(allTokens: string[], expandedTerms: string[]): PositionRequirements {
+    const text = allTokens.join(' ').toLowerCase();
     
-    // CRITICAL: Check rawTokens for "ar" since it gets filtered out (2 chars)
-    const hasArToken = rawTokens.some(t => t === 'ar');
-    const hasAvToken = rawTokens.some(t => t === 'av');
+    // Check for explicit position tokens (exact matches only)
+    const hasAvToken = allTokens.some((t) => t === 'av');
+    const hasArToken = allTokens.some((t) => t === 'ar');
+    const hasGToken = allTokens.some((t) => t === 'g' && !allTokens.includes('gauche'));
+    const hasDToken = allTokens.some((t) => t === 'd' && !allTokens.includes('droite') && !allTokens.includes('droit'));
     
+    // Check for full position words
+    const hasAvantWord = allTokens.some((t) => t === 'avant');
+    const hasArriereWord = allTokens.some((t) => t === 'arriere' || t === 'arrière');
+    const hasGaucheWord = allTokens.some((t) => t === 'gauche');
+    const hasDroiteWord = allTokens.some((t) => t === 'droite' || t === 'droit');
+
     return {
-      avant: hasAvToken || this.hasPosition(expandedTerms, ['avant', 'av']) || 
-             /(droite|gauche|d|g)[\s-]*(avant|av)|(avant|av)[\s-]*(droite|gauche|d|g)/i.test(text),
-      arriere: hasArToken || this.hasPosition(expandedTerms, ['arriere', 'arrière', 'ar']) ||
-               /(droite|gauche|d|g)[\s-]*(arriere|arrière|ar)|(arriere|arrière|ar)[\s-]*(droite|gauche|d|g)/i.test(text),
-      gauche: this.hasPosition(expandedTerms, ['gauche', 'g', 'conducteur']) ||
-              /(avant|av|arriere|arrière|ar)[\s-]*(gauche|g)|(gauche|g)[\s-]*(avant|av|arriere|arrière|ar)/i.test(text),
-      droite: this.hasPosition(expandedTerms, ['droite', 'd', 'passager']) ||
-              /(avant|av|arriere|arrière|ar)[\s-]*(droite|d)|(droite|d)[\s-]*(avant|av|arriere|arrière|ar)/i.test(text)
+      avant: hasAvToken || hasAvantWord || this.hasPosition(expandedTerms, ['avant', 'av']),
+      arriere: hasArToken || hasArriereWord || this.hasPosition(expandedTerms, ['arriere', 'arrière', 'ar']),
+      gauche: hasGToken || hasGaucheWord || this.hasPosition(expandedTerms, ['gauche', 'conducteur']),
+      droite: hasDToken || hasDroiteWord || this.hasPosition(expandedTerms, ['droite', 'passager']),
     };
   }
 
   private buildSearchConditions(rawTokens: string[], expandedTerms: string[]): any[] {
     const positionWords = ['avant', 'arriere', 'gauche', 'droite', 'av', 'ar', 'g', 'd', 'sup', 'inf'];
-    
-    // Get all meaningful terms (not just main part type)
-    const meaningfulTerms = expandedTerms.filter(t => 
-      t.length >= 3 && !positionWords.includes(t)
-    );
-    
+    const meaningfulTerms = expandedTerms.filter((t) => t.length >= 3 && !positionWords.includes(t));
     if (meaningfulTerms.length === 0) return [];
-    
-    // CRITICAL: Single OR condition with ALL terms
-    // This gets all parts that contain ANY of the terms
-    const orConditions = meaningfulTerms.map(term => ({
-      OR: [
-        { designation: { contains: term, mode: 'insensitive' } },
-        { reference: { contains: term, mode: 'insensitive' } }
-      ]
-    }));
-    
-    return orConditions;
-  }
 
-  private getImportantTerms(terms: string[]): string[] {
-    return terms
-      .filter(term => term.length >= 3)
-      .sort((a, b) => b.length - a.length)
-      .slice(0, 8);
+    return meaningfulTerms.flatMap((term) => [
+      { designation: { contains: term, mode: 'insensitive' } },
+      { reference: { contains: term, mode: 'insensitive' } },
+    ]);
   }
 
   private calculatePartScore(part: any, context: SearchContext): number {
@@ -419,13 +381,11 @@ export class AdvancedSearchService {
   private calculateExactMatches(part: any, context: SearchContext): number {
     let score = 0;
     const ref = this.normalize(part.reference);
-    
     if (ref === context.normalizedQuery) {
-      score += 1000;
+      score += AdvancedSearchService.SCORE_EXACT_REFERENCE;
     } else if (ref.includes(context.normalizedQuery)) {
-      score += 400;
+      score += AdvancedSearchService.SCORE_REFERENCE_CONTAINS;
     }
-    
     return score;
   }
 
@@ -434,340 +394,219 @@ export class AdvancedSearchService {
     const designation = this.normalize(part.designation);
     const designationNormalized = this.normalizeForDB(part.designation);
     const queryNormalized = this.normalizeForDB(context.originalQuery);
-    
-    // PRIORITY 1: Exact match after removing special chars
+
     if (designationNormalized === queryNormalized) {
-      return 100000;
+      return AdvancedSearchService.SCORE_EXACT_FULL;
     }
-    
-    // PRIORITY 2: Exact designation match (agraffe must match AGRAFFE, not AGRAFE)
-    const queryLower = context.originalQuery.toLowerCase().trim();
-    const designationLower = part.designation.toLowerCase().trim();
-    if (designationLower === queryLower) {
-      return 100000;
-    }
-    
-    // CRITICAL: Penalize accessories when user asks for main part
+
+    const queryWords = context.filteredQueryWords;
+    const designationWords = designation.split(' ').filter((w) => w.length >= 1);
+    // userTypedTokens = only the tokens the user actually typed (not synonym-expanded additions)
+    const userTypedTokens = context.userTypedTokens;
+
     const accessoryWords = ['sangle', 'support', 'causse', 'clip', 'jeu', 'kit', 'ensemble', 'set', 'boitier', 'cache', 'couvercle'];
-    // CRITICAL FIX: Use expandedTerms but filter out synonym words when the main category is present
-    const queryWords = context.expandedTerms.filter(w => {
-      if (w.length < 3) return false;
-      // Check if this word is a synonym of another word in expandedTerms
-      for (const [category, syns] of Object.entries(this.synonyms)) {
-        if (syns.includes(w) && context.expandedTerms.includes(category) && w !== category) {
-          // This word is a synonym and the main category is present - skip it
-          return false;
-        }
-      }
-      return true;
-    });
-    const designationWords = designation.split(' ').filter(w => w.length >= 1);
-    
-    // Check if user explicitly asked for accessory
-    const userAskedForAccessory = queryWords.some(qw => accessoryWords.includes(qw));
-    const hasAccessoryWord = accessoryWords.some(acc => designationWords.includes(acc));
-    
-    // If user explicitly asks for accessory ("sangle batterie", "jeu plaquette"), boost it
+    const userAskedForAccessory = queryWords.some((qw) => accessoryWords.includes(qw));
+    const hasAccessoryWord = accessoryWords.some((acc) => designationWords.includes(acc));
+
     if (userAskedForAccessory && hasAccessoryWord) {
-      score += 100000; // HUGE boost for accessories when user explicitly asks
+      score += AdvancedSearchService.SCORE_EXACT_FULL;
+    } else if (!userAskedForAccessory && hasAccessoryWord) {
+      return AdvancedSearchService.SCORE_REJECTION;
     }
-    // If user did NOT ask for accessory, REJECT accessories (regardless of query length)
-    else if (!userAskedForAccessory && hasAccessoryWord) {
-      return -1000000; // ABSOLUTE REJECTION of accessories when user wants main part
-    }
-    
-    // ADAPTIVE: Extract ALL meaningful words from query (length >= 3, not positions)
-    const meaningfulQueryWords = queryWords.filter(w => 
-      w.length >= 3 && 
-      !['avant','arriere','gauche','droite','sup','inf','para','pour','avec','sans','tout','tous'].includes(w)
+
+    const meaningfulQueryWords = queryWords.filter(
+      (w) =>
+        w.length >= 3 &&
+        !['avant', 'arriere', 'gauche', 'droite', 'sup', 'inf', 'para', 'pour', 'avec', 'sans', 'tout', 'tous'].includes(w),
     );
-    
-    // CRITICAL: For EACH meaningful query word, check if designation has it or a close variant
-    for (const qw of meaningfulQueryWords) {
-      const hasExactMatch = designationWords.some(dw => dw === qw);
-      const hasPluralMatch = designationWords.some(dw => 
-        dw === qw + 's' || dw === qw + 'es' || qw === dw + 's' || qw === dw + 'es'
+
+    // Only require matches for words that originated from the user query (not added by synonym expansion)
+    const mandatoryWords = meaningfulQueryWords.filter((w) => userTypedTokens.has(w));
+    const optionalWords = meaningfulQueryWords.filter((w) => !userTypedTokens.has(w));
+
+    for (const qw of mandatoryWords) {
+      const hasExactMatch = designationWords.some((dw) => dw === qw);
+      const hasPluralMatch = designationWords.some(
+        (dw) => dw === qw + 's' || dw === qw + 'es' || qw === dw + 's' || qw === dw + 'es',
       );
-      const hasFuzzyMatch = designationWords.some(dw => this.levenshtein(qw, dw) <= 2);
-      
-      // If query word is NOT in designation at all → REJECT
+      const hasFuzzyMatch = designationWords.some((dw) => this.levenshtein(qw, dw) <= 1);
       if (!hasExactMatch && !hasPluralMatch && !hasFuzzyMatch) {
-        return -1000000;
+        return AdvancedSearchService.SCORE_REJECTION;
       }
     }
-    
-    const positionMap = {
-      'avant': ['avant', 'av'],
-      'av': ['avant', 'av'],
-      'arriere': ['arriere', 'ar'],
-      'ar': ['arriere', 'ar'],
-      'gauche': ['gauche', 'g'],
-      'g': ['gauche', 'g'],
-      'droite': ['droite', 'd', 'droit'],
-      'd': ['droite', 'd', 'droit'],
-      'droit': ['droite', 'd', 'droit'],
-      'superieur': ['superieur', 'sup'],
-      'sup': ['superieur', 'sup'],
-      'inferieur': ['inferieur', 'inf'],
-      'inf': ['inferieur', 'inf'],
-      'de': ['de']
+
+    const positionMap: Record<string, string[]> = {
+      avant: ['avant', 'av'],
+      av: ['avant', 'av'],
+      arriere: ['arriere', 'ar'],
+      ar: ['arriere', 'ar'],
+      gauche: ['gauche', 'g'],
+      g: ['gauche', 'g'],
+      droite: ['droite', 'd', 'droit'],
+      d: ['droite', 'd', 'droit'],
+      droit: ['droite', 'd', 'droit'],
+      superieur: ['superieur', 'sup'],
+      sup: ['superieur', 'sup'],
+      inferieur: ['inferieur', 'inf'],
+      inf: ['inferieur', 'inf'],
+      de: ['de'],
     };
-    
-    // Helper to check if word matches
+
     const wordMatches = (qw: string, dw: string): boolean => {
-      // EXACT WORD MATCH - highest priority
       if (qw === dw) return true;
-      if (dw === qw) return true;
-      if (dw.startsWith(qw + ' ') || dw.endsWith(' ' + qw) || dw.includes(' ' + qw + ' ')) {
-        return true;
-      }
+      if (dw.startsWith(qw + ' ') || dw.endsWith(' ' + qw) || dw.includes(' ' + qw + ' ')) return true;
       if (dw.startsWith(qw) || qw.startsWith(dw)) return true;
-      
-      // EXACT plural match with double letter (agraffes → AGRAFFES) – highest priority
-      if (qw.endsWith('s') && dw === qw) return true;
-      if (qw.endsWith('es') && dw === qw) return true;
-      
-      // Plural/singular matching
       if (qw.endsWith('s') && dw === qw.slice(0, -1)) return true;
       if (dw.endsWith('s') && qw === dw.slice(0, -1)) return true;
       if (qw.endsWith('es') && dw === qw.slice(0, -2)) return true;
       if (dw.endsWith('es') && qw === dw.slice(0, -2)) return true;
-      
-      // EXACT plural match (agraffes = agraffes)
       if (qw === dw + 's' || dw === qw + 's') return true;
       if (qw === dw + 'es' || dw === qw + 'es') return true;
-      
-      // Penalize double-letter mismatches – but don't reject
-      const qwDouble = qw.includes('ff') || qw.includes('pp') || qw.includes('ll');
-      const dwDouble = dw.includes('ff') || dw.includes('pp') || dw.includes('ll');
-      if (qwDouble && !dwDouble) {
-        // Still match, but we'll apply penalty later
-      }
-      
       if (this.levenshtein(qw, dw) <= 2) return true;
       return false;
     };
-    
-    // --- MAIN PART TYPE MATCHING ---
+
     if (context.mainPartType) {
-      const partTypeVariants = this.synonyms[context.mainPartType] || [context.mainPartType];
-      const hasMainType = partTypeVariants.some(v => 
-        designationWords.some(dw => wordMatches(v, dw))
-      );
-      
-      // CRITICAL: Reject if main part type is missing
+      const partTypeVariants = this.synonymsMap[context.mainPartType] || [context.mainPartType];
+      const hasMainType = partTypeVariants.some((v) => designationWords.some((dw) => wordMatches(v, dw)));
       if (!hasMainType) {
-        return -1000000; // Absolute rejection
+        return AdvancedSearchService.SCORE_REJECTION;
       }
-      
-      score += 5000; // Bonus if present
+      score += AdvancedSearchService.SCORE_MAIN_TYPE_PRESENT;
     }
-    
-    // --- NUMERIC DIMENSION MATCHING ---
+
     const queryNumbers = context.originalQuery.match(/\d+(?:[.,]\d+)?/g) || [];
     const designationNumbers = part.designation.match(/\d+(?:[.,]\d+)?/g) || [];
 
     if (queryNumbers.length > 0 && designationNumbers.length > 0) {
-      const hasExactMatch = queryNumbers.some(qn => 
-        designationNumbers.some(dn => {
-          const qNum = parseFloat(qn.replace(',', '.'));
-          const dNum = parseFloat(dn.replace(',', '.'));
-          // CRITICAL: Handle both "3.24" and "324" formats
-          // If query is "324" and DB is "3.24", divide query by 100
-          const qNumAdjusted = qNum >= 100 ? qNum / 100 : qNum;
-          return Math.abs(qNumAdjusted - dNum) < 0.01; // 0.01 tolerance
-        })
-      );
-      
-      if (!hasExactMatch) {
-        return -1000000; // REJECT – wrong dimension
-      }
-      
-      // Bonus for exact match (adds to score)
-      const exactBonus = queryNumbers.filter(qn => 
-        designationNumbers.some(dn => {
+      const hasNumericMatch = queryNumbers.some((qn) =>
+        designationNumbers.some((dn) => {
           const qNum = parseFloat(qn.replace(',', '.'));
           const dNum = parseFloat(dn.replace(',', '.'));
           const qNumAdjusted = qNum >= 100 ? qNum / 100 : qNum;
           return Math.abs(qNumAdjusted - dNum) < 0.01;
-        })
-      ).length * 50000;
+        }),
+      );
+      if (!hasNumericMatch) {
+        return AdvancedSearchService.SCORE_REJECTION;
+      }
+      const exactBonus =
+        queryNumbers.filter((qn) =>
+          designationNumbers.some((dn) => {
+            const qNum = parseFloat(qn.replace(',', '.'));
+            const dNum = parseFloat(dn.replace(',', '.'));
+            const qNumAdjusted = qNum >= 100 ? qNum / 100 : qNum;
+            return Math.abs(qNumAdjusted - dNum) < 0.01;
+          }),
+        ).length * AdvancedSearchService.SCORE_NUMERIC_EXACT;
       score += exactBonus;
     }
-    
-    // Count how many query words match
+
     let matchCount = 0;
-    let mainPartMatched = false;
     const matchedWords = new Set<string>();
-    
-    // CRITICAL: Track which query words are matched
-    const unmatchedQueryWords = new Set(queryWords);
-    
-    queryWords.forEach(qw => {
+
+    queryWords.forEach((qw) => {
       const variants = positionMap[qw] || [qw];
-      const withPlural = [...variants, ...variants.map(v => v + 's'), ...variants.map(v => v + 'es')];
+      const withPlural = [...variants, ...variants.map((v) => v + 's'), ...variants.map((v) => v + 'es')];
       const fuzzyMatches = this.findFuzzyMatches(qw);
       const allVariants = [...withPlural, ...fuzzyMatches];
-      
-      if (allVariants.some(v => designationWords.some(dw => wordMatches(v, dw)))) {
+      if (allVariants.some((v) => designationWords.some((dw) => wordMatches(v, dw)))) {
         matchCount++;
         matchedWords.add(qw);
-        unmatchedQueryWords.delete(qw);
-        if (context.mainPartType && qw === context.mainPartType) {
-          mainPartMatched = true;
-        }
       }
     });
-    
-    // CRITICAL: Penalize if query words appear in wrong context
-    // Example: "filtre air" should NOT match "CLE A FILTRE" (air is missing)
-    if (unmatchedQueryWords.size > 0) {
-      // Check if unmatched words are important (not positions)
-      const unmatchedImportant = Array.from(unmatchedQueryWords).filter(w => 
-        w.length > 2 && !['avant','arriere','gauche','droite','av','ar','g','d','sup','inf','para','de'].includes(w)
-      );
-      if (unmatchedImportant.length > 0) {
-        return -1000000; // REJECT if important query words missing
-      }
-    }
-    
-    // If NO query words match at all → reject
-    if (matchCount === 0) {
-      return -1000000;
-    }
-    
-    // CRITICAL: ALL important words must match
-    const importantQueryWords = queryWords.filter(w => 
-      w.length > 2 && 
-      !['avant','arriere','gauche','droite','av','ar','g','d','sup','inf','para','de'].includes(w)
-    );
 
-    // STRICT: Reject if ANY important word is missing
-    const missingImportantWords = importantQueryWords.filter(w => !matchedWords.has(w));
+    if (matchCount === 0) {
+      return AdvancedSearchService.SCORE_REJECTION;
+    }
+
+    const importantQueryWords = queryWords.filter(
+      (w) =>
+        w.length > 2 &&
+        !['avant', 'arriere', 'gauche', 'droite', 'av', 'ar', 'g', 'd', 'sup', 'inf', 'para', 'de'].includes(w),
+    );
+    // Only enforce important words that were present in the original user query
+    const importantMandatory = importantQueryWords.filter((w) => userTypedTokens.has(w));
+    const missingImportantWords = importantMandatory.filter((w) => !matchedWords.has(w));
     if (missingImportantWords.length > 0) {
-      // Check if missing words have fuzzy matches in designation
-      const hasFuzzyMatch = missingImportantWords.every(mw => {
+      const hasFuzzyMatch = missingImportantWords.every((mw) => {
         const fuzzy = this.findFuzzyMatches(mw);
-        return fuzzy.some(f => designationWords.some(dw => wordMatches(f, dw)));
+        return fuzzy.some((f) => designationWords.some((dw) => wordMatches(f, dw)));
       });
-      
       if (!hasFuzzyMatch) {
-        return -1000000; // REJECT if important words missing
+        return AdvancedSearchService.SCORE_REJECTION;
       }
     }
-    
-    // CRITICAL: Heavy penalty for double-letter mismatches (agraffe vs agrafe)
+
     for (const qw of queryWords) {
-      // Check if query has double letters
       const hasDoubleF = qw.includes('ff');
       const hasDoubleP = qw.includes('pp');
       const hasDoubleL = qw.includes('ll');
-      
       if (hasDoubleF || hasDoubleP || hasDoubleL) {
-        // Check if designation has the SAME double letter
-        const designationHasDoubleF = designationWords.some(dw => dw.includes('ff'));
-        const designationHasDoubleP = designationWords.some(dw => dw.includes('pp'));
-        const designationHasDoubleL = designationWords.some(dw => dw.includes('ll'));
-        
-        // If query has 'ff' but designation doesn't → REJECT
-        if (hasDoubleF && !designationHasDoubleF) {
-          return -1000000;
-        }
-        if (hasDoubleP && !designationHasDoubleP) {
-          return -1000000;
-        }
-        if (hasDoubleL && !designationHasDoubleL) {
-          return -1000000;
-        }
+        const designationHasDoubleF = designationWords.some((dw) => dw.includes('ff'));
+        const designationHasDoubleP = designationWords.some((dw) => dw.includes('pp'));
+        const designationHasDoubleL = designationWords.some((dw) => dw.includes('ll'));
+        if (hasDoubleF && !designationHasDoubleF) return AdvancedSearchService.SCORE_REJECTION;
+        if (hasDoubleP && !designationHasDoubleP) return AdvancedSearchService.SCORE_REJECTION;
+        if (hasDoubleL && !designationHasDoubleL) return AdvancedSearchService.SCORE_REJECTION;
       }
     }
-    
-    // Perfect match bonus
+
     if (matchCount === queryWords.length && designationWords.length === queryWords.length) {
-      return 100000;
+      return AdvancedSearchService.SCORE_EXACT_FULL;
     }
-    
-    // CRITICAL: Bonus for matching ALL query words (even if designation has extra words)
     if (matchCount === queryWords.length) {
-      score += 80000; // was 60000 – higher bonus for complete match
+      score += AdvancedSearchService.SCORE_ALL_WORDS_MATCH;
     }
-    
-    // Good match with extra words
+
     const extraWords = designationWords.length - queryWords.length;
-    score += 50000 - (extraWords * 2000);
-    
+    score += 50000 - extraWords * 2000;
     return score;
   }
 
   private calculatePositionMatches(part: any, positionInfo: PositionRequirements): number {
     let score = 0;
     const designation = part.designation.toLowerCase();
-    
     const hasAvant = /\b(avant|av)\b/i.test(designation);
     const hasArriere = /\b(arriere|arrière|ar)\b/i.test(designation);
     const hasGauche = /\b(gauche|g|conducteur)\b/i.test(designation);
     const hasDroite = /\b(droite|d|passager)\b/i.test(designation);
-    
-    // CRITICAL: ABSOLUTE REJECTION if user asks for specific position but part has OPPOSITE position
-    // User asks AVANT → reject if part ONLY has ARRIERE
-    if (positionInfo.avant && hasArriere && !hasAvant) return -1000000;
-    // User asks ARRIERE → reject if part ONLY has AVANT
-    if (positionInfo.arriere && hasAvant && !hasArriere) return -1000000;
-    // User asks GAUCHE → reject if part ONLY has DROITE
-    if (positionInfo.gauche && hasDroite && !hasGauche) return -1000000;
-    // User asks DROITE → reject if part ONLY has GAUCHE
-    if (positionInfo.droite && hasGauche && !hasDroite) return -1000000;
-    
-    // Bonus for correct position
+
+    if (positionInfo.avant && !hasAvant && hasArriere) return -100000;
+    if (positionInfo.arriere && !hasArriere && hasAvant) return -100000;
+    if (positionInfo.gauche && !hasGauche && hasDroite) return -100000;
+    if (positionInfo.droite && !hasDroite && hasGauche) return -100000;
+
     if (positionInfo.avant && hasAvant) score += 500;
     if (positionInfo.arriere && hasArriere) score += 500;
     if (positionInfo.gauche && hasGauche) score += 500;
     if (positionInfo.droite && hasDroite) score += 500;
-    
+
+    if (positionInfo.avant && hasArriere) score -= 100000;
+    if (positionInfo.arriere && hasAvant) score -= 100000;
+    if (positionInfo.gauche && hasDroite) score -= 100000;
+    if (positionInfo.droite && hasGauche) score -= 100000;
+
     return score;
   }
 
   private calculateBusinessScores(part: any, context: SearchContext): number {
     let score = 0;
-    if (part.stock > 0) score += 8;
-    if (context.originalQuery.toLowerCase().includes('celerio') && 
-        part.designation.toLowerCase().includes('celerio')) {
+    if (part.stock?.statut === 'Disponible') score += 8;
+    if (
+      context.originalQuery.toLowerCase().includes('celerio') &&
+      part.designation.toLowerCase().includes('celerio')
+    ) {
       score += 50;
     }
     return score;
   }
 
   private getMinimumScore(context: SearchContext): number {
-    // CRITICAL: References should have NO minimum score
-    const isReference = /^[A-Z0-9]{5,}/.test(context.originalQuery.toUpperCase().replace(/[^A-Z0-9]/g, ''));
-    if (isReference) return 0;
-    
-    const isOnlyPosition = context.expandedTerms.length === 1 && 
-                          (context.positionInfo.avant || context.positionInfo.arriere || 
-                           context.positionInfo.gauche || context.positionInfo.droite);
-    
-    if (isOnlyPosition) return 0;
-    
-    // DYNAMIC: Lower thresholds based on token coverage
-    const contentTokens = context.rawTokens.filter(t => 
-      t.length >= 3 && 
-      !['avant','arriere','gauche','droite','av','ar','g','d'].includes(t)
-    );
-    
-    // CRITICAL: Check if query has extra words from Tunisian normalization
-    const hasExtraWords = context.expandedTerms.some(t => 
-      ['veux', 'feux', 'acheter', 'prix', 'combien', 'disponible', 'stock', 'montre-moi', 'montre'].includes(t)
-    );
-    
-    // CRITICAL: Much lower thresholds to allow multi-word matches
-    if (hasExtraWords) return 50; // Very low for Tunisian queries
-    if (contentTokens.length >= 3) return 200;
-    if (contentTokens.length === 2) return 100;
-    return 50;
+    return 0;
   }
 
   private calculateOptimalResultLimit(context: SearchContext, availableResults: number): number {
-    // Show up to 10 good results (allows left/right variants)
     return Math.min(availableResults, 10);
   }
 
@@ -775,42 +614,46 @@ export class AdvancedSearchService {
     return text
       .toLowerCase()
       .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '') // Remove accents: é→e, è→e, à→a
-      .replace(/[^a-z0-9\s-]/g, ' ') // Remove special chars: (,):' etc
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9\s-]/g, ' ')
       .replace(/\s+/g, ' ')
       .trim();
   }
-  
-  // Normalize for DB comparison (handles special chars in DB)
+
   private normalizeForDB(text: string): string {
     return text
       .toLowerCase()
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[(),:'\.\-]/g, '') // Remove parentheses, commas, colons, apostrophes, dots, hyphens
+      .replace(/[(),:'\.\-]/g, '')
       .replace(/\s+/g, '')
       .trim();
   }
 
-  // Tokenize with an option to preserve short tokens (like 'av','ar') used for position detection.
   private async tokenize(text: string, preserveShort = false): Promise<string[]> {
     if (!text || text.trim().length === 0) return [];
-    
-    // CRITICAL: Handle concatenated words (no spaces)
+
     if (!text.includes(' ') && text.length > 6) {
       const segmented = await this.segmentConcatenatedQuery(text);
       if (segmented.length > 1) {
-        console.log(`[TOKENIZE] Segmented "${text}" → [${segmented.join(', ')}]`);
+        this.logger.log(`[TOKENIZE] Segmented "${text}" → [${segmented.join(', ')}]`);
         text = segmented.join(' ');
       }
     }
-    
-    const parts = text.split(' ').map(p => p.trim()).filter(Boolean);
+
+    let parts = text.split(' ').map(p => p.trim()).filter(Boolean);
+    // 🆕 Remove database‑driven stop‑words
+    const stopWords = this.synonymsService.getStopWords();
+    parts = parts.filter(token => !stopWords.has(token));
+
     if (preserveShort) return parts;
     return parts.filter(t => t.length > 2);
   }
-  
+
   private async segmentConcatenatedQuery(text: string): Promise<string[]> {
+    if (!this.aiSegmentationAvailable) {
+      return this.fallbackSegmentation(text);
+    }
     try {
       const prompt = `You are a car parts query parser. Segment this concatenated French car parts query into separate words.
 
@@ -824,25 +667,40 @@ Query: "${text}"
 
 Segmented:`;
 
-      const response = await axios.post('https://api.openai.com/v1/chat/completions', {
-        model: 'gpt-4o-mini',
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.1,
-        max_tokens: 100
-      }, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.openaiKey}`
+      const response = await axios.post(
+        'https://api.openai.com/v1/chat/completions',
+        {
+          model: 'gpt-4o-mini',
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.1,
+          max_tokens: 100,
         },
-        timeout: 5000
-      });
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${this.openaiKey}`,
+          },
+          timeout: 5000,
+        },
+      );
+
+      this.aiSegmentationFailCount = 0;
+      this.aiSegmentationAvailable = true;
 
       const segmented = response.data.choices?.[0]?.message?.content?.trim() || text;
       const words = segmented.split(/\s+/).filter(Boolean);
-      console.log(`[AI-SEGMENT] "${text}" → [${words.join(', ')}]`);
+      this.logger.log(`[AI-SEGMENT] "${text}" → [${words.join(', ')}]`);
       return words.length > 1 ? words : [text];
     } catch (error: any) {
-      console.error('[AI-SEGMENT] Error:', error.message);
+      this.aiSegmentationFailCount++;
+      if (this.aiSegmentationFailCount >= AdvancedSearchService.AI_FAIL_THRESHOLD) {
+        this.aiSegmentationAvailable = false;
+        this.logger.error(
+          `[AI-SEGMENT] Circuit open after ${this.aiSegmentationFailCount} failures — using fallback only`,
+        );
+      } else {
+        this.logger.error(`[AI-SEGMENT] Error (attempt ${this.aiSegmentationFailCount}): ${error.message}`);
+      }
       return this.fallbackSegmentation(text);
     }
   }
@@ -850,19 +708,19 @@ Segmented:`;
   private fallbackSegmentation(text: string): string[] {
     const knownWords = [
       ...Object.keys(this.typeWeights),
-      ...Object.keys(this.synonyms),
-      'avant', 'arriere', 'gauche', 'droite', 'av', 'ar', 'sup', 'inf', 'int', 'ext', 'de'
+      ...Object.keys(this.synonymsMap),
+      'avant', 'arriere', 'gauche', 'droite', 'av', 'ar', 'sup', 'inf', 'int', 'ext', 'de',
     ].sort((a, b) => b.length - a.length);
-    
+
     const segments: string[] = [];
     let remaining = text.toLowerCase();
     let attempts = 0;
     const maxAttempts = 50;
-    
+
     while (remaining.length > 0 && attempts < maxAttempts) {
       attempts++;
       let found = false;
-      
+
       for (const word of knownWords) {
         if (remaining.startsWith(word) && word.length >= 2) {
           segments.push(word);
@@ -871,13 +729,12 @@ Segmented:`;
           break;
         }
       }
-      
+
       if (!found && remaining.length >= 1 && ['g', 'd', 'b', 'h'].includes(remaining[0])) {
         segments.push(remaining[0]);
         remaining = remaining.slice(1);
         found = true;
       }
-      
       if (!found && remaining.length >= 2) {
         const twoLetter = remaining.slice(0, 2);
         if (['av', 'ar'].includes(twoLetter)) {
@@ -886,7 +743,6 @@ Segmented:`;
           found = true;
         }
       }
-      
       if (!found && remaining.length >= 3) {
         const threeLetter = remaining.slice(0, 3);
         if (['sup', 'inf', 'int', 'ext'].includes(threeLetter)) {
@@ -895,124 +751,106 @@ Segmented:`;
           found = true;
         }
       }
-      
       if (!found) {
         if (segments.length === 0) return [text];
         if (remaining.length >= 2) segments.push(remaining);
         break;
       }
     }
-    
-    // If we still have leftover text, try right-to-left segmentation
+
     if (remaining.length > 0 && segments.length === 0) {
       const reversed = text.split('').reverse().join('');
       const revSegments = this.fallbackSegmentation(reversed);
       if (revSegments.length > 1) {
-        return revSegments.map(s => s.split('').reverse().join('')).reverse();
+        return revSegments.map((s) => s.split('').reverse().join('')).reverse();
       }
     }
-    
+
     return segments.length > 1 ? segments : [text];
   }
 
   private expandWithSynonymsContextual(tokens: string[], originalQuery: string): string[] {
     const expanded = new Set<string>();
-    
-    tokens.forEach(token => {
-      expanded.add(token);
-      
-      // CRITICAL: If token has double letters (ff, pp, ll), DON'T add fuzzy matches
+
+    tokens.forEach((token) => {
       const hasDoubleLetters = token.includes('ff') || token.includes('pp') || token.includes('ll');
-      
-      // Only add fuzzy matches if token is NOT a known category AND doesn't have double letters
       const normalizedToken = this.normalize(token);
       const isKnown = this.normalizedSynonymLookup[normalizedToken] !== undefined;
-      
-      // CRITICAL: Don't fuzzy expand if token has double letters OR is a known word
-      if (!isKnown && !hasDoubleLetters) {
+
+      let addedByExpansion = false;
+
+      // Fuzzy matches (typo corrections) — if found, add the correction but do NOT keep the original token
+      // If the token is a known car-part type (even if not in synonyms), keep it
+      const isPartType = Object.keys(this.typeWeights).includes(token);
+
+      if (!isKnown && !hasDoubleLetters && !isPartType) {
         const fuzzyMatches = this.findFuzzyMatches(token);
         if (fuzzyMatches.length > 0) {
-          // CRITICAL: Filter out fuzzy matches that differ in double letters
-          const validFuzzy = fuzzyMatches.filter(fm => {
+          const validFuzzy = fuzzyMatches.filter((fm) => {
             const tokenHasFF = token.includes('ff');
             const tokenHasPP = token.includes('pp');
             const tokenHasLL = token.includes('ll');
             const fmHasFF = fm.includes('ff');
             const fmHasPP = fm.includes('pp');
             const fmHasLL = fm.includes('ll');
-            // Only allow if double-letter status matches
-            return (tokenHasFF === fmHasFF) && (tokenHasPP === fmHasPP) && (tokenHasLL === fmHasLL);
+            return tokenHasFF === fmHasFF && tokenHasPP === fmHasPP && tokenHasLL === fmHasLL;
           });
           if (validFuzzy.length > 0) {
-            expanded.add(validFuzzy[0]); // Best fuzzy match only
+            expanded.add(validFuzzy[0]);
+            addedByExpansion = true;
+            // Do NOT keep original typo token — it would poison scoring
+            return;
           }
         }
       }
-      
-      // Always add primary category if exists
+
+      // If token maps to a primary canonical category, add the category and drop the original token
       const primaryCategory = this.findPrimaryCategory(token);
       if (primaryCategory) {
         expanded.add(primaryCategory);
+        addedByExpansion = true;
+        // Do NOT add original token — canonical replaces it
+        return;
+      }
+
+      // If nothing else added the token, keep the original user token
+      if (!addedByExpansion) {
+        expanded.add(token);
       }
     });
-    
+
     return Array.from(expanded);
   }
-  
+
   private findFuzzyMatches(token: string): string[] {
     if (token.length < 3) return [];
-    
-    // If token is already a known category, don't fuzzy expand to a different category
+    const cached = this.fuzzyMatchCache.get(token);
+    if (cached !== undefined) return cached;
     const normalizedToken = this.normalize(token);
     if (this.normalizedSynonymLookup[normalizedToken]) {
-      return []; // Exact known word → no fuzzy matches
+      this.fuzzyMatchCache.set(token, []);
+      return [];
     }
-    
+
     const matches: string[] = [];
-    const knownWords = [...new Set([
-      ...Object.keys(this.typeWeights),
-      ...Object.keys(this.synonyms)
-    ])];
-    
+    const knownWords = [...new Set([...Object.keys(this.typeWeights), ...Object.keys(this.synonymsMap)])];
+
     for (const word of knownWords) {
       if (word === token || word.length < 3) continue;
-      
-      // Transposition of first two letters (garafe → agrafe)
-      if (word.length === token.length && 
-          word[0] === token[1] && 
-          word[1] === token[0] && 
-          word.slice(2) === token.slice(2)) {
+      if (
+        word.length === token.length &&
+        word[0] === token[1] &&
+        word[1] === token[0] &&
+        word.slice(2) === token.slice(2)
+      ) {
         matches.push(word);
         continue;
       }
-      
-      // PRIORITY 1: Exact substring match (grafe in agrafe)
-      if (word.includes(token) && word.length - token.length <= 2) {
-        matches.push(word);
-        continue;
-      }
-      if (token.includes(word) && token.length - word.length <= 2) {
-        matches.push(word);
-        continue;
-      }
-      
-      // PRIORITY 2: Missing/extra first letter (grafe → agrafe, iale → aile)
-      if (word.length === token.length + 1 && word.slice(1) === token) {
-        matches.push(word);
-        continue;
-      }
-      if (token.length === word.length + 1 && token.slice(1) === word) {
-        matches.push(word);
-        continue;
-      }
-      
-      // PRIORITY 3: Same length, different first letter (garafe → agrafe)
-      if (word.length === token.length && word.slice(1) === token.slice(1)) {
-        matches.push(word);
-        continue;
-      }
-      
-      // PRIORITY 3.5: Double first letter typo (ppareil → appareil)
+      if (word.includes(token) && word.length - token.length <= 2) { matches.push(word); continue; }
+      if (token.includes(word) && token.length - word.length <= 2) { matches.push(word); continue; }
+      if (word.length === token.length + 1 && word.slice(1) === token) { matches.push(word); continue; }
+      if (token.length === word.length + 1 && token.slice(1) === word) { matches.push(word); continue; }
+      if (word.length === token.length && word.slice(1) === token.slice(1)) { matches.push(word); continue; }
       if (token.length >= 4 && token[0] === token[1]) {
         const withoutDouble = token[0] + token.slice(2);
         if (word === withoutDouble || this.levenshtein(word, withoutDouble) <= 1) {
@@ -1020,72 +858,43 @@ Segmented:`;
           continue;
         }
       }
-      
-      // PRIORITY 4: Levenshtein distance <= 2 for similar-length words (garafes → agrafes, garafe → agrafe)
-      // RELAXED: Allow distance 2 for words 5+ chars
       const distance = this.levenshtein(word, token);
       if (distance <= 2 && Math.abs(word.length - token.length) <= 2 && word.length >= 4) {
         matches.push(word);
       }
     }
-    
-    // PRIORITY 5: Plural handling (agrafe ↔ agrafes, agraffe ↔ agraffes)
+
     if (token.endsWith('s') && token.length > 3) {
       const singular = token.slice(0, -1);
-      if (knownWords.includes(singular)) {
-        matches.push(singular);
-      }
-      // Handle -es plural (agrafes → agrafe)
+      if (knownWords.includes(singular)) matches.push(singular);
       if (token.endsWith('es') && token.length > 4) {
         const singularEs = token.slice(0, -2);
-        if (knownWords.includes(singularEs)) {
-          matches.push(singularEs);
-        }
+        if (knownWords.includes(singularEs)) matches.push(singularEs);
       }
     } else {
-      // Add plural forms
       const pluralS = token + 's';
       const pluralEs = token + 'es';
       if (knownWords.includes(pluralS)) matches.push(pluralS);
       if (knownWords.includes(pluralEs)) matches.push(pluralEs);
     }
-    
-    return [...new Set(matches)];
+
+    const result = [...new Set(matches)];
+    this.fuzzyMatchCache.set(token, result);
+    return result;
   }
-  
-  private longestCommonSubstring(str1: string, str2: string): string {
-    let longest = '';
-    for (let i = 0; i < str1.length; i++) {
-      for (let j = i + 1; j <= str1.length; j++) {
-        const substring = str1.slice(i, j);
-        if (str2.includes(substring) && substring.length > longest.length) {
-          longest = substring;
-        }
-      }
-    }
-    return longest;
-  }
-  
+
   private levenshtein(a: string, b: string): number {
     if (a.length === 0) return b.length;
     if (b.length === 0) return a.length;
     const matrix: number[][] = [];
-    for (let i = 0; i <= b.length; i++) {
-      matrix[i] = [i];
-    }
-    for (let j = 0; j <= a.length; j++) {
-      matrix[0][j] = j;
-    }
+    for (let i = 0; i <= b.length; i++) matrix[i] = [i];
+    for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
     for (let i = 1; i <= b.length; i++) {
       for (let j = 1; j <= a.length; j++) {
         if (b.charAt(i - 1) === a.charAt(j - 1)) {
           matrix[i][j] = matrix[i - 1][j - 1];
         } else {
-          matrix[i][j] = Math.min(
-            matrix[i - 1][j - 1] + 1,
-            matrix[i][j - 1] + 1,
-            matrix[i - 1][j] + 1
-          );
+          matrix[i][j] = Math.min(matrix[i - 1][j - 1] + 1, matrix[i][j - 1] + 1, matrix[i - 1][j] + 1);
         }
       }
     }
@@ -1094,112 +903,93 @@ Segmented:`;
 
   private findPrimaryCategory(token: string): string | null {
     const normalizedToken = this.normalize(token);
-    if (this.normalizedSynonymLookup[normalizedToken]) {
-      return this.normalizedSynonymLookup[normalizedToken];
-    }
-    return null;
+    return this.normalizedSynonymLookup[normalizedToken] ?? null;
   }
 
   private normalizeTunisian(query: string): string {
-    // CRITICAL: Don't apply Tunisian fallback to "triangle" queries
     const normalized = this.normalize(query);
     if (normalized.includes('triangle') || normalized.includes('triangl')) {
-      return ''; // Return empty to skip Tunisian normalization
+      return '';
     }
-    
-    // Apply word-by-word Tunisian normalization using unified dictionary
+
+    const tunisianMap = this.synonymsService.getTunisianMap();
     let result = query.toLowerCase();
-    for (const [tunisian, french] of Object.entries(tunisianDictionary)) {
-      const regex = new RegExp(`\\b${tunisian}\\b`, 'gi');
+    for (const [tunisian, french] of Object.entries(tunisianMap)) {
+      const escaped = tunisian.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(`\\b${escaped}\\b`, 'gi');
       result = result.replace(regex, french);
     }
-    
-    // CRITICAL: Remove extra words that don't exist in database
-    const extraWords = ['je', 'veux', 'acheter', 'il', 'y', 'a', 'montre-moi', 'montre', 'combien', 'prix', 'disponible', 'stock', 'ch7al', 'coute'];
-    const words = result.split(/\s+/);
-    const filtered = words.filter(w => !extraWords.includes(w));
-    result = filtered.join(' ');
-    
+
     return result !== query.toLowerCase() ? result : '';
   }
 
-  private buildNormalizedSynonymIndex(): void {
-    try {
-      for (const [category, synonyms] of Object.entries(this.synonyms)) {
-        const normalizedCategory = this.normalize(category);
-        this.normalizedSynonymLookup[normalizedCategory] = category;
-        for (const syn of synonyms) {
-          const norm = this.normalize(syn);
-          if (norm && !this.normalizedSynonymLookup[norm]) {
-            this.normalizedSynonymLookup[norm] = category;
-          }
-        }
-      }
-    } catch (err) {
-      // defensive - keep the lookup empty on error
-      this.normalizedSynonymLookup = {};
-    }
-  }
-
   private hasPosition(tokens: string[], positions: string[]): boolean {
-    return tokens.some(t => positions.includes(t));
-  }
-
-  private filterByVehicleModel(products: any[], model: string): any[] {
-    const modelUpper = model.toUpperCase();
-    return products.filter(p => {
-      const designation = p.designation.toUpperCase();
-      const hasModelInName = designation.includes('CELERIO') || designation.includes('S-PRESSO') || 
-                             designation.includes('SWIFT') || designation.includes('VITARA');
-      return !hasModelInName || designation.includes(modelUpper);
-    });
+    return tokens.some((t) => positions.includes(t));
   }
 
   private async searchByReference(reference: string, vehicle?: any): Promise<any[]> {
     const cleanRef = reference.replace(/[^A-Z0-9]/gi, '').toUpperCase();
     const originalRef = reference.toUpperCase();
-    
-    console.log(`[SEARCH] Searching for reference: original="${originalRef}", clean="${cleanRef}"`);
-    
-    const model = normalizeModel(vehicle?.modele);
 
-    // Try exact match first (case-insensitive)
-    let results = await this.prisma.$queryRaw<any[]>`
-      SELECT id, reference, designation, prixht AS "prixHt", stock, model_code, match_rule, confidence
-      FROM mart.chatbot_parts_with_fitment
-      WHERE UPPER(reference) = ${originalRef} OR UPPER(reference) = ${cleanRef}
-      LIMIT 5
-    `;
-    
-    // If no exact match, try ILIKE with wildcards
+    this.logger.log(`[SEARCH] Searching for reference: original="${originalRef}", clean="${cleanRef}"`);
+
+    const include = {
+      stock: { select: { statut: true } },
+      fitments: { select: { modelName: true, typeCode: true } },
+    } as const;
+
+    let results = await this.prisma.part.findMany({
+      where: {
+        OR: [
+          { reference: { equals: originalRef, mode: 'insensitive' } },
+          { reference: { equals: cleanRef, mode: 'insensitive' } },
+        ],
+      },
+      include,
+      take: 5,
+    });
+
     if (results.length === 0) {
-      const likeClean = `%${cleanRef}%`;
-      const likeOriginal = `%${originalRef}%`;
-      results = await this.prisma.$queryRaw<any[]>`
-        SELECT id, reference, designation, prixht AS "prixHt", stock, model_code, match_rule, confidence
-        FROM mart.chatbot_parts_with_fitment
-        WHERE reference ILIKE ${likeClean} OR reference ILIKE ${likeOriginal}
-        LIMIT 10
-      `;
+      const altRefs = await this.prisma.itemReference.findMany({
+        where: {
+          OR: [
+            { referenceNo: { equals: originalRef, mode: 'insensitive' } },
+            { referenceNo: { equals: cleanRef, mode: 'insensitive' } },
+          ],
+        },
+        include: { part: { include } },
+        take: 5,
+      });
+      results = altRefs.map((r) => r.part);
     }
-    
-    console.log(`[SEARCH] Reference search found ${results.length} results`);
+
+    if (results.length === 0) {
+      results = await this.prisma.part.findMany({
+        where: {
+          OR: [
+            { reference: { contains: cleanRef, mode: 'insensitive' } },
+            { reference: { contains: originalRef, mode: 'insensitive' } },
+          ],
+        },
+        include,
+        take: 10,
+      });
+    }
+
+    this.logger.log(`[SEARCH] Reference search found ${results.length} results`);
     if (results.length > 0) {
-      console.log(`[SEARCH] First result: ${results[0].reference} - ${results[0].designation}`);
+      this.logger.log(`[SEARCH] First result: ${results[0].reference} - ${results[0].designation}`);
     }
-    
-    return results.map(part => ({ ...part, score: 1000 }));
+    return results.map((part) => ({ ...part, score: 1000 }));
   }
 
-  getSearchStats(): {
-    totalSynonyms: number;
-  } {
+  getSearchStats(): { totalSynonyms: number } {
     return {
-      totalSynonyms: Object.keys(this.synonyms).length,
+      totalSynonyms: Object.keys(this.synonymsMap).length,
     };
   }
 
   getSynonymMap(): Record<string, string[]> {
-    return this.synonyms;
+    return this.synonymsMap;
   }
 }

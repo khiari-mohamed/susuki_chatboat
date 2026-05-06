@@ -110,7 +110,7 @@ export class ContextService {
   buildSearchQuery(message: string, context: any, vehicle?: any): string {
     // CRITICAL: message is already AI-normalized, use it directly
     const lower = message.toLowerCase();
-    const hasSpecificPart = /\b(amortisseur|plaquette|disque|filtre|phare|batterie|courroie|bougie|porte|retroviseur|rétroviseur|clignotant|vitre|radiateur|capot|hayon|aile|etrier|étrier|enjoliveur|rotule|charniere|charnière|serrure|joint|adhesif|adhésif|moulure|grille|support|pare-choc|essuie-glace|tendeur|chaine|chaîne|triangle|bras|biellette|cremaillere|crémaillère|cardan|roulement|ressort|suspension|tambour|maitre|maître|cylindre|pompe|injecteur|reservoir|réservoir|alternateur|demarreur|démarreur|capteur|embrayage|volant|plateau|appareil|agrafe|agraffe|agraphe)\b/i.test(message);
+    const hasSpecificPart = /\b(amortisseur|plaquette|disque|filtre|phare|batterie|courroie|bougie|porte|retroviseur|rétroviseur|clignotant|vitre|radiateur|capot|hayon|aile|etrier|étrier|enjoliveur|rotule|charniere|charnière|serrure|joint|adhesif|adhésif|moulure|grille|support|pare-choc|essuie-glace|tendeur|chaine|chaîne|triangle|bras|biellette|cremaillere|crémaillère|cardan|roulement|ressort|suspension|tambour|maitre|maître|cylindre|pompe|injecteur|reservoir|réservoir|alternateur|demarreur|démarreur|capteur|embrayage|volant|plateau|appareil|agrafe|agraffe|agraphe|feu|tapis|liquide|refroidissement|clignotant)\b/i.test(message);
     const hasPosition = /\b(avant|arrière|arriere|gauche|droite|av|ar|g|d)\b/i.test(message);
     
     // Always return the AI-normalized message if it has both part and position
