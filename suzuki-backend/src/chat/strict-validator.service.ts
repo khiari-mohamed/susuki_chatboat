@@ -16,16 +16,16 @@ export class StrictValidatorService {
   validateResults(parts: any[], query: string, context: any): any[] {
     if (!parts || parts.length === 0) return [];
 
-    // If the query contains a reference number, skip token-based validation
-    const hasReference = /\b\d{8,}\b/.test(query) || /\b[A-Z0-9]{5,}-[A-Z0-9]{3,}\b/i.test(query);
-    if (hasReference) {
+    // If the query contains a real reference number, skip token-based validation.
+    // Plain hyphenated words such as "essuie-glace" are not references.
+    if (this.isReferenceQuery(query)) {
       this.logger.log(`[STRICT-VALIDATION] Reference detected – skipping token validation`);
       return parts;  // keep all parts found by reference search
     }
 
     const normalizedQuery = this.normalize(query);
     const queryTokens = normalizedQuery
-      .split(' ')
+      .split(/[\s-]+/)
       .filter(t => t.length >= 3)
       .map(t => this.canonicalizeQueryToken(t));
     
@@ -34,7 +34,7 @@ export class StrictValidatorService {
 
     const validated = parts.filter(part => {
       const designation = this.normalize(part.designation);
-      const designationTokens = designation.split(' ').filter(t => t.length >= 1);
+      const designationTokens = designation.split(/[\s-]+/).filter(t => t.length >= 1);
 
       // RULE 1: Main part type MUST match
       const mainPartType = this.extractMainPartType(queryTokens);
@@ -51,8 +51,8 @@ export class StrictValidatorService {
       const queryPosition = this.extractPosition(normalizedQuery);
       if (queryPosition) {
         const partHasWrongPosition =
-          (queryPosition === 'avant' && /\b(arriere|ar)\b/i.test(designation)) ||
-          (queryPosition === 'arriere' && /\b(avant|av)\b/i.test(designation));
+          (queryPosition === 'avant' && this.hasAnyToken(designationTokens, ['arriere', 'ar', 'rear', 'rr', 'ard', 'arg'])) ||
+          (queryPosition === 'arriere' && this.hasAnyToken(designationTokens, ['avant', 'av', 'front', 'fr', 'avd', 'avg']));
         if (partHasWrongPosition) {
           this.logger.warn(`[STRICT-VALIDATION] REJECTED "${part.designation}" - Wrong position (wanted: ${queryPosition})`);
           return false;
@@ -63,8 +63,8 @@ export class StrictValidatorService {
       const querySide = this.extractSide(normalizedQuery);
       if (querySide) {
         const partHasWrongSide =
-          (querySide === 'gauche' && /\b(droite|droit|dr)\b/i.test(designation)) ||
-          (querySide === 'droite' && /\b(gauche|gh)\b/i.test(designation));
+          (querySide === 'gauche' && this.hasAnyToken(designationTokens, ['droite', 'droit', 'dr', 'right', 'rh', 'd', 'avd', 'ard'])) ||
+          (querySide === 'droite' && this.hasAnyToken(designationTokens, ['gauche', 'gh', 'left', 'lh', 'g', 'avg', 'arg']));
         if (partHasWrongSide) {
           this.logger.warn(`[STRICT-VALIDATION] REJECTED "${part.designation}" - Wrong side (wanted: ${querySide})`);
           return false;
@@ -81,7 +81,7 @@ export class StrictValidatorService {
         'pare', 'brise', 'choc', 'essuie', 'glace', 'tendeur', 'cardan', 'roulement', 'ressort',
         'suspension', 'barre', 'moteur', 'boite', 'echappement', 'silencieux', 'catalyseur',
         'liquide', 'refroidissement', 'huile', 'frein', 'culasse', 'joint', 'stabilisatrice',
-        'bobine', 'distribution', 'thermostat'
+        'bobine', 'distribution', 'thermostat', 'direction', 'eau', 'kit'
       ]);
 
       const mandatoryPartWords = queryTokens.filter(t => CAR_PART_WORDS.has(t));
@@ -155,7 +155,7 @@ export class StrictValidatorService {
       'alternateur', 'demarreur', 'capteur', 'embrayage', 'rotule', 'triangle', 'bras',
       'tambour', 'etrier', 'maitre', 'cylindre', 'pompe', 'injecteur', 'tapis', 'boulon',
       'culasse', 'ressort', 'stabilisatrice', 'bobine', 'tendeur', 'cardan', 'silencieux',
-      'distribution', 'thermostat', 'echappement'
+      'distribution', 'thermostat', 'echappement', 'catalyseur'
     ];
 
     for (const type of partTypes) {
@@ -205,7 +205,7 @@ export class StrictValidatorService {
       'cardan': ['cv axle', 'drive shaft', 'cardan', 'axle'],
       'triangle': ['control arm', 'wishbone', 'suspension arm', 'arm'],
       'bras': ['arm', 'control arm'],
-      'silencieux': ['muffler', 'silencer', 'silencieux', 'echappement'],
+      'silencieux': ['muffler', 'silencer', 'silencieux', 'marmite'],
       'echappement': ['exhaust', 'muffler', 'silencer', 'echappement'],
       'distribution': ['timing', 'distribution'],
       'pompe': ['pump'],
@@ -226,6 +226,15 @@ export class StrictValidatorService {
     if (/\b(gauche|g)\b/i.test(text)) return 'gauche';
     if (/\b(droite|d|droit)\b/i.test(text)) return 'droite';
     return null;
+  }
+
+  private isReferenceQuery(query: string): boolean {
+    const candidates = query.match(/\b[A-Z0-9]{5,}(?:[-_][A-Z0-9]{3,})*\b/gi) || [];
+    return candidates.some(candidate => /\d/.test(candidate) && candidate.replace(/[-_]/g, '').length >= 8);
+  }
+
+  private hasAnyToken(tokens: string[], expected: string[]): boolean {
+    return expected.some(token => tokens.includes(token));
   }
 
   private hasWordMatch(designationTokens: string[], queryWord: string): boolean {
@@ -276,6 +285,26 @@ export class StrictValidatorService {
     // If user asks for "batterie", reject "batrie" typo corrections that lead to wrong parts
     if (queryTokens.includes('batterie') && !designationTokens.some(t => ['batterie', 'battery', 'accu'].includes(t))) {
       wrongCategories.push('not a batterie');
+    }
+
+    // "Silencieux" means muffler, not every exhaust component.
+    if (queryTokens.includes('silencieux') &&
+        designationTokens.some(t => ['collecteur', 'collector', 'manifold'].includes(t)) &&
+        !queryTokens.includes('collecteur')) {
+      wrongCategories.push('collecteur instead of silencieux');
+    }
+
+    // Bare "catalyseur" means catalytic converter. Do not return chemicals or seals
+    // unless the user explicitly asks for those sub-parts.
+    if (queryTokens.includes('catalyseur')) {
+      if (designationTokens.some(t => ['diluant', 'solvant', 'thinner'].includes(t)) &&
+          !queryTokens.some(t => ['diluant', 'solvant', 'thinner'].includes(t))) {
+        wrongCategories.push('diluant instead of catalyseur');
+      }
+      if (designationTokens.some(t => ['joint', 'ring', 'seal'].includes(t)) &&
+          !queryTokens.some(t => ['joint', 'ring', 'seal'].includes(t))) {
+        wrongCategories.push('joint instead of catalyseur');
+      }
     }
 
     return wrongCategories;

@@ -566,11 +566,11 @@ if ((isAlphaNumericRef || isNumericRef) && reference.length >= 8) {
 
   private calculatePositionMatches(part: any, positionInfo: PositionRequirements): number {
     let score = 0;
-    const designation = part.designation.toLowerCase();
-    const hasAvant = /\b(avant|av)\b/i.test(designation);
-    const hasArriere = /\b(arriere|arrière|ar)\b/i.test(designation);
-    const hasGauche = /\b(gauche|g|conducteur)\b/i.test(designation);
-    const hasDroite = /\b(droite|d|passager)\b/i.test(designation);
+    const designationTokens = this.normalize(part.designation).split(/[\s-]+/).filter(Boolean);
+    const hasAvant = this.hasAnyToken(designationTokens, ['avant', 'av', 'front', 'fr', 'avg', 'avd']);
+    const hasArriere = this.hasAnyToken(designationTokens, ['arriere', 'ar', 'rear', 'rr', 'arg', 'ard']);
+    const hasGauche = this.hasAnyToken(designationTokens, ['gauche', 'g', 'conducteur', 'left', 'lh', 'avg', 'arg']);
+    const hasDroite = this.hasAnyToken(designationTokens, ['droite', 'd', 'passager', 'droit', 'right', 'rh', 'avd', 'ard']);
 
     if (positionInfo.avant && !hasAvant && hasArriere) return -100000;
     if (positionInfo.arriere && !hasArriere && hasAvant) return -100000;
@@ -588,6 +588,10 @@ if ((isAlphaNumericRef || isNumericRef) && reference.length >= 8) {
     if (positionInfo.droite && hasGauche) score -= 100000;
 
     return score;
+  }
+
+  private hasAnyToken(tokens: string[], expected: string[]): boolean {
+    return expected.some(token => tokens.includes(token));
   }
 
   private calculateBusinessScores(part: any, context: SearchContext): number {
