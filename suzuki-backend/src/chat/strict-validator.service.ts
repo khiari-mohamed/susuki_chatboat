@@ -71,28 +71,10 @@ export class StrictValidatorService {
         }
       }
 
-      // RULE 4: Only car-part words are required to appear in the designation.
-      // Common filler words, Tunisian expressions, and action verbs are NOT required.
-      const CAR_PART_WORDS = new Set([
-        'amortisseur', 'plaquette', 'disque', 'filtre', 'phare', 'batterie', 'courroie', 'bougie',
-        'retroviseur', 'feu', 'clignotant', 'aile', 'capot', 'porte', 'radiateur', 'durite',
-        'alternateur', 'demarreur', 'capteur', 'embrayage', 'rotule', 'triangle', 'bras',
-        'tambour', 'etrier', 'maitre', 'cylindre', 'pompe', 'injecteur', 'tapis', 'boulon',
-        'pare', 'brise', 'choc', 'essuie', 'glace', 'tendeur', 'cardan', 'roulement', 'ressort',
-        'suspension', 'barre', 'moteur', 'boite', 'echappement', 'silencieux', 'catalyseur',
-        'liquide', 'refroidissement', 'huile', 'frein', 'culasse', 'joint', 'stabilisatrice',
-        'bobine', 'distribution', 'thermostat', 'direction', 'eau', 'kit'
-      ]);
-
-      const mandatoryPartWords = queryTokens.filter(t => CAR_PART_WORDS.has(t));
-
-      for (const pw of mandatoryPartWords) {
-        const hasWord = this.hasWordMatch(designationTokens, pw) || this.hasPartType(designationTokens, pw);
-        if (!hasWord) {
-          this.logger.warn(`[STRICT-VALIDATION] REJECTED "${part.designation}" - Missing part word "${pw}"`);
-          return false;
-        }
-      }
+      // RULE 4: ALL query tokens (except filler words) must match
+      // This is already handled by the scoring system - StrictValidator should NOT duplicate this logic
+      // The scoring system already rejects parts that don't match mandatory words
+      // StrictValidator only checks for CONFLICTS, not missing words
 
       // RULE 5: Reject wrong part categories
       const wrongCategories = this.detectWrongCategory(queryTokens, designationTokens);

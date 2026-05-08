@@ -453,12 +453,16 @@ export class ChatOrchestratorService {
     }
     
 
-    // 9. Check if clarification needed
-    const clarificationCheck = this.clarificationService.checkNeeded(filteredProducts, processedMessage);
+    // 9. CRITICAL: Filter accessories BEFORE clarification check
+    const preFilteredProducts = this.filterAccessoriesIfNeeded(filteredProducts, processedMessage);
+    this.logger.log(`[ACCESSORY-FILTER] Pre-clarification filter: ${filteredProducts.length} → ${preFilteredProducts.length} products`);
+
+    // 10. Check if clarification needed (on filtered products)
+    const clarificationCheck = this.clarificationService.checkNeeded(preFilteredProducts, processedMessage);
     if (clarificationCheck.needed) {
       const partName = this.clarificationService.extractPartName(processedMessage);
       const response = this.clarificationService.buildQuestion(partName, clarificationCheck.variants, clarificationCheck.dimension);
-      this.clarificationService.setPending(session.id, searchQuery, clarificationCheck.dimension, filteredProducts);
+      this.clarificationService.setPending(session.id, searchQuery, clarificationCheck.dimension, preFilteredProducts);
       await this.sessionService.saveBotResponse(session.id, response, { intent: 'CLARIFICATION_NEEDED' });
       return {
         response,
@@ -466,43 +470,88 @@ export class ChatOrchestratorService {
         products: [],
         confidence: 'MEDIUM',
         intent: 'CLARIFICATION_NEEDED',
-        metadata: { productsFound: filteredProducts.length, conversationLength: conversationHistory.length, queryClarity: 0 }
+        metadata: { productsFound: preFilteredProducts.length, conversationLength: conversationHistory.length, queryClarity: 0 }
       };
     }
 
-    // 10. Build response based on intent
+    // 11. Build response based on intent
+    this.logger.log(`[RESPONSE-BUILD] Building response for ${preFilteredProducts.length} products, intent: ${intent.type}`);
+    
     let response: string;
+    // Override intent to PARTS_SEARCH when we actually found and returned parts
+    const resolvedIntent = preFilteredProducts.length > 0 ? 'PARTS_SEARCH' : intent.type;
+
     if (intent.type === 'PRICE_INQUIRY') {
-      response = this.responseService.buildPriceResponse(filteredProducts, processedMessage, vehicle, context.lastTopic || 'général');
-    } else if (filteredProducts.length > 0) {
-      response = this.responseService.buildProductResponse(filteredProducts, searchQuery, vehicle);
+      response = this.responseService.buildPriceResponse(preFilteredProducts, processedMessage, vehicle, context.lastTopic || 'général');
+    } else if (preFilteredProducts.length > 0) {
+      response = this.responseService.buildProductResponse(preFilteredProducts, searchQuery, vehicle);
     } else {
       response = this.responseService.buildNoResultsResponse(searchQuery, vehicle);
     }
 
-    await this.sessionService.saveBotResponse(session.id, response, { intent: intent.type, productsFound: filteredProducts.length });
+    await this.sessionService.saveBotResponse(session.id, response, { intent: resolvedIntent, productsFound: preFilteredProducts.length });
 
-    // 11. Calculate confidence and suggestions
+    // 12. Calculate confidence and suggestions
     const queryClarity = this.intelligenceService.analyzeQueryClarity(processedMessage);
     const confidence = this.intelligenceService.calculateConfidence({
-      productsFound: filteredProducts.length,
-      exactMatch: filteredProducts.some(p => p.score > 500),
+      productsFound: preFilteredProducts.length,
+      exactMatch: preFilteredProducts.some(p => p.score > 500),
       conversationContext: conversationHistory.length,
       userFeedbackHistory: 0,
       queryClarity
     });
-    const suggestions = this.intelligenceService.generateSmartSuggestions(processedMessage, filteredProducts);
+    const suggestions = this.intelligenceService.generateSmartSuggestions(processedMessage, preFilteredProducts);
 
     return {
       response,
       sessionId: session.id,
-      products: filteredProducts.slice(0, 1).map(p => ({ id: p.id, designation: p.designation, reference: p.reference, prixHt: String(p.prixHt) })),
+      products: preFilteredProducts.slice(0, 1).map(p => ({ id: p.id, designation: p.designation, reference: p.reference, prixHt: String(p.prixHt) })),
       confidence: confidence.level,
       confidenceScore: confidence.score,
       suggestions: [],
-      intent: intent.type,
-      metadata: { productsFound: filteredProducts.length, conversationLength: conversationHistory.length, queryClarity, duration: Date.now() - startTime, userMessageId }
+      intent: resolvedIntent,
+      metadata: { productsFound: preFilteredProducts.length, conversationLength: conversationHistory.length, queryClarity, duration: Date.now() - startTime, userMessageId }
     };
+  }
+
+  private filterAccessoriesIfNeeded(products: any[], query: string): any[] {
+    const queryLower = query.toLowerCase();
+    
+    // Accessory keywords that indicate user wants accessories
+    const accessoryWords = ['durite', 'tuyau', 'flexible', 'support', 'cache', 'kit', 'joint', 'bouchon', 'vis', 'boulon', 'ecrou', 'agrafe', 'agraffe', 'cercle', 'cable', 'câble', 'courroie', 'sangle'];
+    
+    const userAskedForAccessory = accessoryWords.some(w => queryLower.includes(w));
+    
+    // If user explicitly asked for accessory, return all
+    if (userAskedForAccessory) {
+      this.logger.log(`[ACCESSORY-FILTER] User asked for accessory - returning all ${products.length} products`);
+      return products;
+    }
+    
+    // User asked for main part - separate main parts from accessories
+    const mainParts: any[] = [];
+    const accessories: any[] = [];
+    
+    for (const p of products) {
+      const designation = p.designation.toLowerCase();
+      const containsAccessoryWord = accessoryWords.some(w => designation.includes(w));
+      
+      if (containsAccessoryWord) {
+        accessories.push(p);
+      } else {
+        mainParts.push(p);
+      }
+    }
+    
+    // If we have main parts, return only main parts (filter out accessories)
+    if (mainParts.length > 0) {
+      this.logger.log(`[ACCESSORY-FILTER] Found ${mainParts.length} main parts and ${accessories.length} accessories - returning main parts only`);
+      return mainParts;
+    }
+    
+    // If we only have accessories, return all (user asked for main part but DB only has accessories)
+    this.logger.log(`[ACCESSORY-FILTER] Only accessories found (${accessories.length}) - returning all`);
+    return products;
   }
 
   private extractPartName(message: string): string {

@@ -44,6 +44,17 @@ const ChatWidget = () => {
       environment: process.env.NODE_ENV,
       timestamp: new Date().toISOString()
     });
+
+    // Suppress Chrome extension errors
+    const originalError = console.error;
+    console.error = (...args) => {
+      if (args[0]?.includes?.('message channel closed')) return;
+      originalError.apply(console, args);
+    };
+
+    return () => {
+      console.error = originalError;
+    };
   }, []);
 
   useEffect(() => {

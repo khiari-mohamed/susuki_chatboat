@@ -54,6 +54,8 @@ export class GeminiService {
 
       const base64Data = imageBase64.split(',')[1];
 
+      this.logger.log(`📷 Processing OCR for ${detectedMimeType}, size: ${(base64Data.length / 1024).toFixed(2)}KB`);
+
       const response = await axios.post(`${this.apiUrl}?key=${this.apiKey}`, {
         contents: [{
           parts: [
@@ -73,14 +75,24 @@ export class GeminiService {
       });
 
       const text = response.data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+      this.logger.log(`🤖 Gemini raw response: ${text.substring(0, 200)}...`);
+      
       const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) throw new Error('OCR_FAILED');
+      if (!jsonMatch) {
+        this.logger.error('❌ No JSON found in Gemini response');
+        throw new Error('OCR_FAILED');
+      }
       
       const parsed = JSON.parse(jsonMatch[0]);
+      this.logger.log(`✅ Parsed OCR data:`, parsed);
+      
       if (parsed.error === 'invalid_brand') throw new Error('INVALID_BRAND');
 
       const marque = (parsed.marque || '').toString().toUpperCase().trim();
-      if (!marque.includes('SUZUKI')) throw new Error('INVALID_BRAND');
+      if (!marque.includes('SUZUKI')) {
+        this.logger.warn(`⚠️ Invalid brand detected: ${marque}`);
+        throw new Error('INVALID_BRAND');
+      }
 
       const modeleRaw = (parsed.modele || '').toString().trim();
       const modeleNorm = modeleRaw.toUpperCase().replace(/\s+/g, '').replace(/\./g, '').replace(/-/g, '');

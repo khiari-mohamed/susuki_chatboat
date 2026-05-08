@@ -404,16 +404,37 @@ if ((isAlphaNumericRef || isNumericRef) && reference.length >= 8) {
     // userTypedTokens = only the tokens the user actually typed (not synonym-expanded additions)
     const userTypedTokens = context.userTypedTokens;
 
-    const accessoryWords = ['sangle', 'support', 'causse', 'clip', 'jeu', 'kit', 'ensemble', 'set', 'boitier', 'cache', 'couvercle'];
+    // ── MAIN PART vs ACCESSORY FILTERING ──────────────────────────────────────
+    const accessoryWords = ['sangle', 'support', 'causse', 'clip', 'jeu', 'kit', 'ensemble', 'set', 'boitier', 'cache', 'couvercle', 'durite', 'tuyau', 'flexible', 'cable', 'câble', 'joint', 'bouchon', 'vis', 'boulon', 'ecrou', 'agrafe', 'agraffe', 'cercle', 'agraffe'];
+    const mainPartWords = ['radiateur', 'moteur', 'alternateur', 'demarreur', 'batterie', 'phare', 'feu', 'porte', 'capot', 'aile', 'retroviseur', 'amortisseur', 'disque', 'plaquette', 'filtre', 'pompe', 'compresseur', 'etrier', 'tambour', 'volant', 'siege', 'tableau'];
+    
     const userAskedForAccessory = queryWords.some((qw) => accessoryWords.includes(qw));
+    const userAskedForMainPart = queryWords.some((qw) => mainPartWords.includes(qw));
     const hasAccessoryWord = accessoryWords.some((acc) => designationWords.includes(acc));
+    const hasMainPartWord = mainPartWords.some((main) => designationWords.includes(main));
 
+    // RULE 1: User asked for accessory → BOOST accessories
     if (userAskedForAccessory && hasAccessoryWord) {
-      score += AdvancedSearchService.SCORE_EXACT_FULL;
-    } else if (!userAskedForAccessory && hasAccessoryWord) {
-      return AdvancedSearchService.SCORE_REJECTION;
+      score += 50000; // Strong boost for matching accessory
+    } else if (userAskedForAccessory && !hasAccessoryWord) {
+      score -= 50000; // Penalize non-accessories when user wants accessory
     }
-
+    
+    // RULE 2: User asked for main part → PENALIZE accessories heavily
+    if (userAskedForMainPart && !userAskedForAccessory) {
+      if (hasAccessoryWord && hasMainPartWord) {
+        // Compound part like "DURITE DE RADIATEUR" when user asked "radiateur"
+        // Allow it but score much lower than pure main parts
+        score -= 30000;
+      } else if (hasAccessoryWord && !hasMainPartWord) {
+        // Pure accessory like "SUPPORT" when user asked "radiateur"
+        return AdvancedSearchService.SCORE_REJECTION;
+      } else if (!hasAccessoryWord && hasMainPartWord) {
+        // Pure main part like "RADIATEUR" when user asked "radiateur"
+        score += 50000; // Strong boost for pure main parts
+      }
+    }
+    
     const meaningfulQueryWords = queryWords.filter(
       (w) =>
         w.length >= 3 &&
@@ -423,17 +444,6 @@ if ((isAlphaNumericRef || isNumericRef) && reference.length >= 8) {
     // Only require matches for words that originated from the user query (not added by synonym expansion)
     const mandatoryWords = meaningfulQueryWords.filter((w) => userTypedTokens.has(w));
     const optionalWords = meaningfulQueryWords.filter((w) => !userTypedTokens.has(w));
-
-    for (const qw of mandatoryWords) {
-      const hasExactMatch = designationWords.some((dw) => dw === qw);
-      const hasPluralMatch = designationWords.some(
-        (dw) => dw === qw + 's' || dw === qw + 'es' || qw === dw + 's' || qw === dw + 'es',
-      );
-      const hasFuzzyMatch = designationWords.some((dw) => this.levenshtein(qw, dw) <= 1);
-      if (!hasExactMatch && !hasPluralMatch && !hasFuzzyMatch) {
-        return AdvancedSearchService.SCORE_REJECTION;
-      }
-    }
 
     const positionMap: Record<string, string[]> = {
       avant: ['avant', 'av'],
@@ -465,6 +475,17 @@ if ((isAlphaNumericRef || isNumericRef) && reference.length >= 8) {
       if (this.levenshtein(qw, dw) <= 2) return true;
       return false;
     };
+
+    for (const qw of mandatoryWords) {
+      const hasExactMatch = designationWords.some((dw) => dw === qw);
+      const hasPluralMatch = designationWords.some(
+        (dw) => dw === qw + 's' || dw === qw + 'es' || qw === dw + 's' || qw === dw + 'es',
+      );
+      const hasFuzzyMatch = designationWords.some((dw) => this.levenshtein(qw, dw) <= 1);
+      if (!hasExactMatch && !hasPluralMatch && !hasFuzzyMatch) {
+        return AdvancedSearchService.SCORE_REJECTION;
+      }
+    }
 
     if (context.mainPartType) {
       const partTypeVariants = this.synonymsMap[context.mainPartType] || [context.mainPartType];

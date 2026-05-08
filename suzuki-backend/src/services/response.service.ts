@@ -5,7 +5,7 @@ export class ResponseService {
   buildProductResponse(products: any[], query: string, vehicle: any): string {
     const vehicleInfo = vehicle?.modele ? ` pour votre ${vehicle.marque} ${vehicle.modele}` : '';
 
-    // Prefer available products; fall back to unavailable ones so we can still show the part exists
+    // Prefer available products with price
     const available = products.filter(
       (p) => (p.stock?.statut === 'Disponible' || p.available) && p.prixHt != null,
     );
@@ -13,6 +13,7 @@ export class ResponseService {
       (p) => p.stock?.statut !== 'Disponible' && !p.available,
     );
 
+    // If part is available in stock, show price
     if (available.length > 0) {
       const product = available[0];
       return (
@@ -23,6 +24,7 @@ export class ResponseService {
       );
     }
 
+    // If part exists but out of stock, show part WITHOUT price
     if (unavailable.length > 0) {
       const product = unavailable[0];
       return (
@@ -33,6 +35,7 @@ export class ResponseService {
       );
     }
 
+    // Part doesn't exist at all
     return `Indisponible${vehicleInfo}.\n\nContactez CarPro au ☎️ 70 603 500.`;
   }
 

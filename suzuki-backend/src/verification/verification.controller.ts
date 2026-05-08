@@ -26,7 +26,7 @@ export class VerificationController {
       fileSize: 20 * 1024 * 1024, // 20MB max for high-quality scans
     },
   }))
-  async verifyCarteGrise(@UploadedFile() file: Express.Multer.File, @Req() req: Request) {
+  async verifyCarteGrise(@UploadedFile() file: any, @Req() req: Request) {
     if (!file) {
       throw new BadRequestException('Aucun fichier téléchargé');
     }

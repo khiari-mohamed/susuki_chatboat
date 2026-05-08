@@ -12,7 +12,12 @@ export class ClarificationService {
   private pending = new Map<string, ClarificationContext>();
 
   setPending(sessionId: string, query: string, dimension: string, products: any[]) {
-    this.pending.set(sessionId, { originalQuery: query, dimension: dimension as any, products, timestamp: Date.now() });
+    this.pending.set(sessionId, {
+      originalQuery: query,
+      dimension: dimension as any,
+      products,
+      timestamp: Date.now(),
+    });
   }
 
   getPending(sessionId: string) {
@@ -65,60 +70,56 @@ export class ClarificationService {
   }
 
   checkNeeded(products: any[], message: string): { needed: boolean; variants: string[]; dimension: string } {
-    const lower = message.toLowerCase();
-    
-    // Brake parts: Ask position if not specified AND multiple products with positions
-    const isBrakePart = lower.includes('plaquette') || lower.includes('disque');
-    if (isBrakePart && !/\b(avant|arrière|arriere|av|ar)\b/i.test(message)) {
-      const dims = this.extractDimensions(products);
-      if (dims.positions.length > 1) {
-        return { needed: true, variants: dims.positions, dimension: 'position' };
-      }
-      if (dims.sides.length > 1) {
-        return { needed: true, variants: dims.sides, dimension: 'side' };
-      }
-    }
+    if (!products || products.length === 0) return { needed: false, variants: [], dimension: '' };
 
-    if (!products || products.length <= 1) return { needed: false, variants: [], dimension: '' };
-    
+    const lower = message.toLowerCase();
+
+    // Generic query → ask what type of part
     if (this.isGenericQuery(lower)) {
-      return { 
-        needed: true, 
+      return {
+        needed: true,
         variants: ['Filtre à air', 'Plaquettes frein', 'Amortisseur', 'Batterie', 'Phare'],
-        dimension: 'type' 
+        dimension: 'type',
       };
     }
 
-    const filtered = this.filterBySpec(products, message);
-    if (filtered.length === 1) return { needed: false, variants: [], dimension: '' };
-    
-    const toAnalyze = filtered.length > 0 ? filtered : products;
-    const hasPos = /\b(avant|arrière|arriere|av|ar)\b/i.test(message);
-    const hasSide = /\b(gauche|droite|g|d|droit)\b/i.test(message);
-    const dims = this.extractDimensions(toAnalyze);
-    const partName = this.extractPartName(message);
-    
-    // DATA-DRIVEN: Ask position if multiple positions exist
+    // What has the user already specified?
+    const hasPos  = /\b(avant|arrière|arriere|av|ar)\b/i.test(message);
+    const hasSide = /\b(gauche|droite|droit|dr|g|gh)\b/i.test(message);
+
+    // Step 1 — filter to only the products that match what's already specified
+    let candidates = this.filterBySpec(products, message);
+    if (candidates.length === 0) candidates = products; // safety fallback
+
+    // Step 2 — if only 1 candidate left, no clarification needed
+    if (candidates.length === 1) return { needed: false, variants: [], dimension: '' };
+
+    // Step 3 — check what ambiguity remains in candidates
+    const dims = this.extractDimensions(candidates);
+
+    // ALWAYS ask position before side
     if (!hasPos && dims.positions.length > 1) {
       return { needed: true, variants: dims.positions, dimension: 'position' };
     }
 
-    // Shock absorber catalogue rows may be side-specific, but an explicit front/rear
-    // request is precise enough for the customer-facing stock/search answer.
-    if (partName === 'amortisseur' && hasPos) {
+    // CRITICAL: Don't ask for G/D clarification when user asks for main part
+    // Only ask when there are 2-3 products (user wants ONE specific part)
+    // Skip when there are many products (user wants to see all options)
+    if (!hasSide && dims.sides.length > 1) {
+      // Only ask for side clarification if we have 2-3 products (not many)
+      if (candidates.length >= 2 && candidates.length <= 3) {
+        return { needed: true, variants: dims.sides, dimension: 'side' };
+      }
+      // Skip clarification if we have many products - return all
       return { needed: false, variants: [], dimension: '' };
     }
-    
-    // DATA-DRIVEN: Ask side if multiple sides exist
-    if (!hasSide && dims.sides.length > 1) {
-      return { needed: true, variants: dims.sides, dimension: 'side' };
-    }
-    
-    // DATA-DRIVEN: Ask type if multiple types exist
+
+    // Type ambiguity (e.g. filtre air vs filtre huile)
     if (dims.types.length > 1) {
       return { needed: true, variants: dims.types, dimension: 'type' };
     }
 
+    // No ambiguity left
     return { needed: false, variants: [], dimension: '' };
   }
 
@@ -223,32 +224,41 @@ export class ClarificationService {
 
   private extractDimensions(products: any[]) {
     const positions = new Set<string>();
-    const sides = new Set<string>();
-    const types = new Set<string>();
+    const sides     = new Set<string>();
+    const types     = new Set<string>();
+
     products.forEach(p => {
-      const d = (p.designation || '').toUpperCase();
-      
-      // SMART: Detect ALL position variants
-      if (/\b(AV|AVANT)\b/.test(d)) positions.add('avant');
-      if (/\b(AR|ARRI[ÈE]RE)\b/.test(d)) positions.add('arrière');
-      
-      // Use explicit abbreviations only — avoid bare \bD\b which matches too broadly
-      if (/\b(G|GAUCHE|GH)\b/.test(d)) sides.add('gauche');
-      if (/\b(DR|DROIT[E]|DROITE)\b/.test(d)) sides.add('droite');
-      
-      const words = d.split(/\s+/);
-      words.forEach(w => {
-        // Generic types
-        if (['SUPPORT', 'SUPPORTS'].includes(w)) types.add('support');
-        if (['JOINT', 'JOINTS'].includes(w)) types.add('joint');
-        if (['ROULEMENT', 'ROULEMENTS'].includes(w)) types.add('roulement');
-        if (w === 'TOC') types.add('toc');
-        if (w === 'KIT') types.add('kit');
-        
-        // Filter types
-        if (['AIR', 'HUILE', 'GAZOILE', 'HABITACLE', 'CARBURANT', 'ESSENCE'].includes(w)) types.add(w.toLowerCase());
+      const raw = (p.designation || '').toUpperCase();
+      // Tokenize on spaces and hyphens
+      const tokens = raw.split(/[\s\-]+/);
+
+      // ── POSITION ────────────────────────────────────────────────────
+      const hasAv = tokens.some(t => ['AV', 'AVANT', 'AVG', 'AVD', 'AVDROIT', 'AVGAUCHE', 'FRONT'].includes(t));
+      const hasAr = tokens.some(t => ['AR', 'ARRIERE', 'ARRIÈRE', 'ARG', 'ARD', 'REAR'].includes(t));
+      if (hasAv) positions.add('avant');
+      if (hasAr) positions.add('arrière');
+
+      // ── SIDE ────────────────────────────────────────────────────────
+      const hasG = tokens.some(t => ['G', 'GH', 'GAUCHE', 'AVG', 'ARG', 'LEFT', 'LH', 'CONDUCTEUR'].includes(t));
+      const hasD = tokens.some(t => ['D', 'DR', 'DROITE', 'DROIT', 'AVD', 'ARD', 'RIGHT', 'RH', 'PASSAGER'].includes(t));
+      if (hasG) sides.add('gauche');
+      if (hasD) sides.add('droite');
+
+      // ── TYPE ────────────────────────────────────────────────────────
+      tokens.forEach(w => {
+        if (['AIR', 'HUILE', 'GAZOILE', 'HABITACLE', 'CARBURANT', 'ESSENCE', 'CLIMATISEUR'].includes(w)) {
+          types.add(w.toLowerCase());
+        }
+        if (['SUPPORT', 'JOINT', 'ROULEMENT', 'TOC', 'KIT', 'JEU'].includes(w)) {
+          types.add(w.toLowerCase());
+        }
       });
     });
-    return { positions: Array.from(positions), sides: Array.from(sides), types: Array.from(types) };
+
+    return {
+      positions: Array.from(positions),
+      sides:     Array.from(sides),
+      types:     Array.from(types),
+    };
   }
 }
