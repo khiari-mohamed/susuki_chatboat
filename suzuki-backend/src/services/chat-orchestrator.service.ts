@@ -518,7 +518,7 @@ export class ChatOrchestratorService {
     const queryLower = query.toLowerCase();
     
     // Accessory keywords that indicate user wants accessories
-    const accessoryWords = ['durite', 'tuyau', 'flexible', 'support', 'cache', 'kit', 'joint', 'bouchon', 'vis', 'boulon', 'ecrou', 'agrafe', 'agraffe', 'cercle', 'cable', 'câble', 'courroie', 'sangle'];
+    const accessoryWords = ['durite', 'tuyau', 'flexible', 'support', 'cache', 'kit', 'joint', 'bouchon', 'vis', 'boulon', 'ecrou', 'agrafe', 'agraffe', 'cercle', 'cable', 'câble', 'courroie', 'sangle', 'toc', 'bushing', 'silent', 'silentbloc', 'coupelle'];
     
     const userAskedForAccessory = accessoryWords.some(w => queryLower.includes(w));
     
@@ -534,10 +534,17 @@ export class ChatOrchestratorService {
     
     for (const p of products) {
       const designation = p.designation.toLowerCase();
-      const containsAccessoryWord = accessoryWords.some(w => designation.includes(w));
+      
+      // Check if designation starts with accessory word OR contains it as a separate word
+      const containsAccessoryWord = accessoryWords.some(w => {
+        // Check if word appears at start or as separate word
+        const regex = new RegExp(`(^|\\s)${w}(\\s|$)`, 'i');
+        return regex.test(designation);
+      });
       
       if (containsAccessoryWord) {
         accessories.push(p);
+        this.logger.log(`[ACCESSORY-FILTER] Detected accessory: "${p.designation}"`);
       } else {
         mainParts.push(p);
       }

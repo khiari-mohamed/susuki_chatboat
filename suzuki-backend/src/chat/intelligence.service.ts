@@ -561,7 +561,7 @@ export class IntelligenceService {
       }
       
       // SERVICE QUESTIONS - hours, delivery, warranty, location
-      if (/ouvrez|ouvert|heure|horaire|quand|livraison|délai|garantie|situé|adresse|où|localisation/i.test(combinedText)) {
+      if (/ouvrez|ouvert|heure|horaire|quand|livraison|délai|garantie|situé|adresse|où|localisation|winek|finek|win|fen/i.test(combinedText)) {
         // CRITICAL: Check if it's a service question WITHOUT car parts
         const hasCarPart = carPartNames.some(part => lower.includes(part) || normalized.includes(part));
         if (!hasCarPart) {
