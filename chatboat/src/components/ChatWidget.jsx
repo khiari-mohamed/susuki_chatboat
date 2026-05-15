@@ -498,7 +498,7 @@ const ChatWidget = () => {
             <div className="header-content">
               <div className="header-logo">
                 <div className="logo-circle">
-                  <img src={logoUrl} alt="Suzuki" style={{ width: '28px', height: '28px', objectFit: 'contain' }} />
+                  <img src={logoUrl} alt="Suzuki" style={{ width: '48px', height: '48px', objectFit: 'contain' }} />
                 </div>
                 <div className="header-text">
                   <h3>Suzuki AI Assistant</h3>
@@ -616,7 +616,7 @@ const ChatWidget = () => {
           <div className="header-content">
             <div className="header-logo">
               <div className="logo-circle">
-                <img src={logoUrl} alt="Suzuki" style={{ width: '28px', height: '28px', objectFit: 'contain' }} />
+                <img src={logoUrl} alt="Suzuki" style={{ width: '40px', height: '40px', objectFit: 'contain' }} />
               </div>
               <div className="header-text">
                 <h3>Suzuki AI Assistant</h3>

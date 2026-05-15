@@ -75,13 +75,15 @@ export class GeminiService {
       });
 
       const text = response.data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
-      this.logger.log(`🤖 Gemini raw response: ${text.substring(0, 200)}...`);
+      this.logger.log(`🤖 Gemini raw response (full): ${text}`);
       
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
-        this.logger.error('❌ No JSON found in Gemini response');
-        throw new Error('OCR_FAILED');
-      }
+  this.logger.error('❌ No JSON found in Gemini response');
+  this.logger.error(`Full text was: ${text}`);
+  throw new Error('OCR_FAILED');
+}
+
       
       const parsed = JSON.parse(jsonMatch[0]);
       this.logger.log(`✅ Parsed OCR data:`, parsed);

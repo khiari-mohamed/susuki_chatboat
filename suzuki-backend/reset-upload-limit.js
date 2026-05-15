@@ -1,7 +1,13 @@
 const { PrismaClient } = require('@prisma/client');
+const os = require('os');
 
 const LOCAL_URL = 'postgresql://postgres:23044943@localhost:5432/suzuki_parts?schema=public';
-const PROD_URL = 'postgresql://postgres.xncjrdjqixpvpgysaicw:Suzuki2025!222@aws-1-eu-west-1.pooler.supabase.com:5432/postgres';
+
+// Detect if running on server or local machine
+const isServer = os.hostname().includes('vps') || os.hostname().includes('server');
+const SERVER_URL = isServer 
+  ? 'postgresql://postgres:23044943@localhost:5432/suzuki_parts?schema=public'  // Use localhost when on server
+  : 'postgresql://postgres:23044943@5.199.136.2:5432/suzuki_parts?schema=public'; // Use IP when remote
 
 async function resetDatabase(name, url) {
   const prisma = new PrismaClient({
@@ -23,12 +29,18 @@ async function resetDatabase(name, url) {
 }
 
 async function resetUploadLimit() {
-  console.log('🚀 Resetting upload limits for LOCAL and PRODUCTION...\n');
+  console.log('🚀 Resetting upload limits...\n');
   
-  await resetDatabase('LOCAL (localhost)', LOCAL_URL);
-  await resetDatabase('PRODUCTION (Supabase)', PROD_URL);
+  if (isServer) {
+    console.log('📍 Running on SERVER - resetting server database only\n');
+    await resetDatabase('SERVER (localhost)', SERVER_URL);
+  } else {
+    console.log('📍 Running on LOCAL machine - resetting both databases\n');
+    await resetDatabase('LOCAL (localhost)', LOCAL_URL);
+    await resetDatabase('SERVER (VPS - remote access disabled)', SERVER_URL);
+  }
   
-  console.log('\n✅ All databases reset! You can now test OCR again.');
+  console.log('\n✅ Database reset complete!');
 }
 
 resetUploadLimit();
