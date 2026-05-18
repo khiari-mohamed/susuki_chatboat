@@ -11,7 +11,7 @@ module.exports = {
     library: 'SuzukiChatbot',
     libraryTarget: 'umd',
     clean: true,
-    publicPath: '/',
+    publicPath: '/chatbot/',
     // Ensure compatibility with WordPress
     globalObject: 'this'
   },
@@ -48,7 +48,7 @@ module.exports = {
     }),
     new webpack.DefinePlugin({
       'process.env': {
-        'REACT_APP_API_URL': JSON.stringify(process.env.REACT_APP_API_URL || 'http://localhost:8000')
+        'REACT_APP_API_URL': JSON.stringify(process.env.REACT_APP_API_URL || 'https://theirdomain.com/api')
       }
     })
   ],
