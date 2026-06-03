@@ -79,14 +79,41 @@ export class GeminiService {
       
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
-  this.logger.error('❌ No JSON found in Gemini response');
-  this.logger.error(`Full text was: ${text}`);
-  throw new Error('OCR_FAILED');
-}
+        this.logger.error('❌ No JSON found in Gemini response');
+        this.logger.error(`Full text was: ${text}`);
+        throw new Error('OCR_FAILED');
+      }
 
-      
-      const parsed = JSON.parse(jsonMatch[0]);
-      this.logger.log(`✅ Parsed OCR data:`, parsed);
+      let parsed;
+      try {
+        parsed = JSON.parse(jsonMatch[0]);
+      } catch (parseError) {
+        // Try to fix incomplete JSON by adding closing braces
+        this.logger.warn('⚠️ Incomplete JSON detected, attempting to fix...');
+        let fixedJson = jsonMatch[0];
+        
+        // Count open/close braces and quotes to fix incomplete JSON
+        const openBraces = (fixedJson.match(/\{/g) || []).length;
+        const closeBraces = (fixedJson.match(/\}/g) || []).length;
+        
+        if (openBraces > closeBraces) {
+          fixedJson = fixedJson + '}'.repeat(openBraces - closeBraces);
+        }
+        
+        // Remove incomplete last field if it exists
+        fixedJson = fixedJson.replace(/,\s*"[^"]*":\s*"[^"]*$/g, '');
+        fixedJson = fixedJson.replace(/\}*$/, '}');
+        
+        this.logger.log(`🔧 Fixed JSON: ${fixedJson}`);
+        
+        try {
+          parsed = JSON.parse(fixedJson);
+          this.logger.log('✅ Successfully parsed fixed JSON');
+        } catch (finalError) {
+          this.logger.error('❌ Still cannot parse JSON after fix attempt');
+          throw new Error('OCR_FAILED');
+        }
+      }
       
       if (parsed.error === 'invalid_brand') throw new Error('INVALID_BRAND');
 
