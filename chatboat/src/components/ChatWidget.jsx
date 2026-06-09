@@ -1,9 +1,38 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { FiMessageCircle, FiX, FiSend, FiMoon, FiSun, FiUpload, FiCheckCircle, FiXCircle } from 'react-icons/fi';
+import { FiX, FiSend, FiMoon, FiSun, FiUpload, FiCheckCircle, FiXCircle } from 'react-icons/fi';
 import { IoShieldCheckmark } from 'react-icons/io5';
 import { MdOutlineSearch, MdOutlineBuild, MdOutlineCalendarMonth, MdOutlineContactSupport, MdDirectionsCar, MdBusiness, MdCarRepair, MdCalendarToday, MdSettings, MdFingerprint } from 'react-icons/md';
 import config from '../config';
 import './ChatWidget.css';
+
+// Agentic robot-bubble icon matching the blue gradient chat launcher aesthetic
+const RobotBubbleIcon = () => (
+  <svg
+    width="32"
+    height="32"
+    viewBox="0 0 32 32"
+    xmlns="http://www.w3.org/2000/svg"
+    className="bubble-icon"
+  >
+    <defs>
+      <mask id="rb-mask">
+        <rect width="32" height="32" fill="white" />
+        {/* Eye cutouts — background gradient shows through */}
+        <circle cx="12" cy="13" r="2.3" fill="black" />
+        <circle cx="20" cy="13" r="2.3" fill="black" />
+      </mask>
+    </defs>
+    {/* Left headphone / ear cup */}
+    <rect x="1" y="11.5" width="3.5" height="6" rx="1.75" fill="white" />
+    {/* Right headphone / ear cup */}
+    <rect x="27.5" y="11.5" width="3.5" height="6" rx="1.75" fill="white" />
+    {/* Speech bubble body + tail, with eye holes punched via mask */}
+    <g mask="url(#rb-mask)">
+      <circle cx="16" cy="13" r="10" fill="white" />
+      <path d="M13 22.5 L16 27.5 L19 22.5 Z" fill="white" />
+    </g>
+  </svg>
+);
 
 const ChatWidget = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -81,16 +110,19 @@ const ChatWidget = () => {
   const handleFileSelect = (file) => {
     if (!file) return;
     
+    // Reset file input to allow re-uploading same filename
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+    
     const validTypes = [
       'image/png', 'image/jpg', 'image/jpeg', 'image/webp', 'image/gif',
-      'image/bmp', 'image/tiff', 'image/svg+xml',
-      'application/pdf',
-      'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      'image/bmp', 'image/tiff', 'image/heic', 'image/heif',
+      'application/pdf'
     ];
     
     if (!validTypes.includes(file.type)) {
-      setVerificationError('Format non supporté. Utilisez PNG, JPG, JPEG, WEBP, GIF, BMP, TIFF, SVG, PDF, DOC, DOCX.');
+      setVerificationError('Format non supporté. Utilisez PNG, JPG, JPEG, WEBP, GIF, BMP, TIFF, HEIC, ou PDF.');
       return;
     }
 
@@ -124,6 +156,14 @@ const ChatWidget = () => {
   const verifyDocument = async (file) => {
     setIsVerifying(true);
     setVerificationError('');
+
+    console.log('🔍 Verifying file:', {
+      name: file.name,
+      size: file.size,
+      type: file.mimetype || file.type,
+      lastModified: file.lastModified,
+      timestamp: new Date().toISOString()
+    });
 
     let progressInterval = null;
     try {
@@ -172,9 +212,6 @@ const ChatWidget = () => {
       
       if (data.success) {
         setVehicleInfo(data.vehicleInfo);
-        if (data.uploadCount !== undefined) {
-          sessionStorage.setItem('suzuki-upload-count', String(data.uploadCount));
-        }
         
         // Use a ref-tracked timeout so we can cancel on unmount
         const tid = setTimeout(() => {
@@ -193,13 +230,17 @@ const ChatWidget = () => {
         // Store timeout id for cleanup
         verifyTimeoutRef.current = tid;
       } else {
-        if (data.limitReached) {
-          setVerificationError(
-            `⚠️ ${data.message}\n\nVous avez utilisé ${data.uploadCount || 3}/3 téléchargements ce mois-ci.\nLa limite se réinitialise le 1er du mois prochain.`
-          );
-        } else {
-          setVerificationError(data.message || 'Seules les cartes grises Suzuki sont acceptées.');
-        }
+        // ========== RATE LIMITING ERROR (TEMPORARILY DISABLED FOR TESTING) ==========
+        // TODO: UNCOMMENT FOR PRODUCTION
+        // if (data.limitReached) {
+        //   setVerificationError(
+        //     `⚠️ ${data.message}\n\nVous avez utilisé ${data.uploadCount || 3}/3 téléchargements ce mois-ci.\nLa limite se réinitialise le 1er du mois prochain.`
+        //   );
+        // } else {
+        //   setVerificationError(data.message || 'Seules les cartes grises Suzuki sont acceptées.');
+        // }
+        // ========== END RATE LIMITING ERROR ==========
+        setVerificationError(data.message || 'Seules les cartes grises Suzuki sont acceptées.');
         setUploadedFile(null);
         setImagePreview(null);
         setUploadProgress(0);
@@ -488,7 +529,7 @@ const ChatWidget = () => {
     return (
       <>
         <div className={`chat-bubble ${isOpen ? 'hidden' : ''}`} onClick={() => setIsOpen(true)}>
-          <FiMessageCircle className="bubble-icon" />
+          <RobotBubbleIcon />
           <div className="bubble-badge">1</div>
           <div className="bubble-pulse"></div>
         </div>
@@ -523,10 +564,13 @@ const ChatWidget = () => {
             <div className="verification-header-inline">
               <h3 style={{ color: 'var(--suzuki-blue)' }}>Votre expert intelligent en pièces de rechanges</h3>
               <p>Bonjour merci de télécharger votre carte grise Suzuki</p>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginTop: '12px' }}>
+              {/* ========== RATE LIMITING UI (TEMPORARILY DISABLED FOR TESTING) ========== */}
+              {/* TODO: UNCOMMENT FOR PRODUCTION */}
+              {/* <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginTop: '12px' }}>
                 <MdOutlineCalendarMonth style={{ color: 'var(--suzuki-red)', fontSize: '16px' }} />
                 <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0 }}>Limite: 3 téléchargements par mois</p>
-              </div>
+              </div> */}
+              {/* ========== END RATE LIMITING UI ========== */}
             </div>
 
             <div 
@@ -606,7 +650,7 @@ const ChatWidget = () => {
   return (
     <>
       <div className={`chat-bubble ${isOpen ? 'hidden' : ''}`} onClick={() => setIsOpen(true)}>
-        <FiMessageCircle className="bubble-icon" />
+        <RobotBubbleIcon />
         <div className="bubble-badge">1</div>
         <div className="bubble-pulse"></div>
       </div>
@@ -743,7 +787,7 @@ const ChatWidget = () => {
             onChange={(e) => setInputValue(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && handleSend()}
           />
-          <button className="send-btn" onClick={handleSend} disabled={!inputValue.trim()}>
+          <button className="send-btn" onClick={() => handleSend()} disabled={!inputValue.trim()}>
             <FiSend />
           </button>
         </div>

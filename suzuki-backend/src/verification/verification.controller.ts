@@ -12,14 +12,14 @@ export class VerificationController {
     fileFilter: (req, file, cb) => {
       const validTypes = [
         'image/png', 'image/jpg', 'image/jpeg', 'image/webp', 'image/gif',
-        'image/bmp', 'image/tiff', 'image/svg+xml', 'image/heic', 'image/heif',
-        'application/pdf' // Support PDF for scanned documents
+        'image/bmp', 'image/tiff', 'image/heic', 'image/heif',
+        'application/pdf'
       ];
       
       if (validTypes.includes(file.mimetype)) {
         cb(null, true);
       } else {
-        cb(new BadRequestException('Format non supporté. Utilisez PNG, JPG, JPEG, WEBP, GIF, BMP, TIFF, SVG, HEIC, PDF'), false);
+        cb(new BadRequestException('Format non supporté. Utilisez PNG, JPG, JPEG, WEBP, GIF, BMP, TIFF, HEIC, ou PDF'), false);
       }
     },
     limits: {

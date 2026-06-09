@@ -99,7 +99,7 @@ Analyse L'IMAGE fournie et retourne UNIQUEMENT un JSON strict (sans texte autour
 RÈGLES STRICTES:
 - MARQUE: doit contenir SUZUKI. Si autre marque (Renault, Peugeot, Toyota, etc.), retourne {"error":"invalid_brand"}.
 - MODÈLE: accepte TOUS les modèles Suzuki (Swift, Vitara, Celerio, S-Presso, Jimny, Baleno, Ignis, Alto, Ertiga, Dzire, etc.). Nettoie et normalise le nom.
-- IMMATRICULATION: lis le champ officiel. Nettoie: majuscules, retirer séparateurs exotiques. EXCLUS: ne JAMAIS renvoyer un VIN (17 caractères alphanum sans I/O/Q). Si un VIN est détecté, laisse le champ vide ou null.
+- IMMATRICULATION: lis TOUT le champ incluant chiffres ET texte arabe (تونس, etc.). Format tunisien: "XXX تونس XXXX" ou format français standard. Préserve EXACTEMENT le texte arabe. Ne remplace PAS par des points ou caractères spéciaux. Si un VIN (17 caractères) est détecté, ignore-le.
 - ANNÉE: extrais 4 chiffres plausibles (2000..année courante+1). Si non lisible, laisse vide.
 - Réponds STRICTEMENT avec le JSON, sans commentaire, sans markdown, sans texte en plus.`;
 

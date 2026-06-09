@@ -2,6 +2,7 @@ const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const CopyWebpackPlugin = require('copy-webpack-plugin');
 const webpack = require('webpack');
+require('dotenv').config();
 
 module.exports = {
   entry: './src/index.js',
@@ -48,7 +49,7 @@ module.exports = {
     }),
     new webpack.DefinePlugin({
       'process.env': {
-        'REACT_APP_API_URL': JSON.stringify(process.env.REACT_APP_API_URL || 'https://theirdomain.com/api')
+        'REACT_APP_API_URL': JSON.stringify(process.env.REACT_APP_API_URL)
       }
     })
   ],

@@ -120,6 +120,7 @@ export class GeminiService {
       const marque = (parsed.marque || '').toString().toUpperCase().trim();
       if (!marque.includes('SUZUKI')) {
         this.logger.warn(`⚠️ Invalid brand detected: ${marque}`);
+        this.logger.warn(`Full parsed data: ${JSON.stringify(parsed)}`);
         throw new Error('INVALID_BRAND');
       }
 

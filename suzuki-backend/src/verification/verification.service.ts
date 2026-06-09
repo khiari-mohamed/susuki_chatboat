@@ -13,24 +13,27 @@ export class VerificationService {
 
   async verifyDocument(file: any, userIp?: string) {
     const startTime = Date.now();
+    const fileHash = Buffer.from(file.buffer.slice(0, 100)).toString('base64').substring(0, 20);
+    console.log(`📝 Processing file - Hash: ${fileHash}, Size: ${file.size}, Type: ${file.mimetype}`);
     
     try {
-      // Parallel: Check upload limit + Prepare image
-      const [ipUploadCount, imageBase64] = await Promise.all([
-        userIp ? this.getMonthlyUploadCount(userIp) : Promise.resolve(0),
-        Promise.resolve(`data:${file.mimetype};base64,${file.buffer.toString('base64')}`)
-      ]);
-      
-      // Only successful uploads count toward the monthly limit.
-      // Failed/rejected uploads are tracked but not counted.
-      if (userIp && ipUploadCount >= 3) {
-        return {
-          success: false,
-          message: 'Limite mensuelle atteinte. Vous avez déjà téléchargé 3 cartes grises ce mois-ci.',
-          uploadCount: ipUploadCount,
-          limitReached: true
-        };
-      }
+      // ========== RATE LIMITING - IP (TEMPORARILY DISABLED FOR TESTING) ==========
+      // TODO: UNCOMMENT FOR PRODUCTION
+      // Check upload limit for this IP (every 15 days)
+      const ipUploadCount = userIp ? await this.get15DayUploadCount(userIp) : 0;
+
+      // if (userIp && ipUploadCount >= 3) {
+      //   return {
+      //     success: false,
+      //     message: 'Limite atteinte. Vous avez déjà téléchargé 3 cartes grises ces 15 derniers jours.',
+      //     uploadCount: ipUploadCount,
+      //     limitReached: true
+      //   };
+      // }
+      // ========== END RATE LIMITING - IP ==========
+
+      // Prepare image for OCR
+      const imageBase64 = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
 
       // OCR extraction
       const geminiResult = await this.gemini.extractVehicleInfo(imageBase64, file.mimetype);
@@ -69,29 +72,34 @@ export class VerificationService {
         }
       }
       
-      // Check carte grise limit
-      if (vehicleInfo.immatriculation) {
-        const carteGriseCount = await this.getMonthlyCarteGriseUploadCount(vehicleInfo.immatriculation);
-        if (carteGriseCount >= 3) {
-          return {
-            success: false,
-            message: `Cette carte grise (${vehicleInfo.immatriculation}) a déjà été téléchargée 3 fois ce mois-ci.`,
-            uploadCount: carteGriseCount,
-            limitReached: true,
-            limitType: 'carte_grise'
-          };
-        }
-      }
+      // ========== RATE LIMITING - CARTE GRISE (TEMPORARILY DISABLED FOR TESTING) ==========
+      // TODO: UNCOMMENT FOR PRODUCTION
+      // Check carte grise limit (every 15 days)
+      // if (vehicleInfo.immatriculation) {
+      //   const carteGriseCount = await this.get15DayCarteGriseUploadCount(vehicleInfo.immatriculation);
+      //   if (carteGriseCount >= 3) {
+      //     return {
+      //       success: false,
+      //       message: `Cette carte grise (${vehicleInfo.immatriculation}) a déjà été téléchargée 3 fois ces 15 derniers jours.`,
+      //       uploadCount: carteGriseCount,
+      //       limitReached: true,
+      //       limitType: 'carte_grise'
+      //     };
+      //   }
+      // }
+      // ========== END RATE LIMITING - CARTE GRISE ==========
       
-      // Track upload (non-blocking)
-      if (userIp) this.trackUpload(userIp, vehicleInfo).catch(() => {});
+      // Track upload (non-blocking) - still track IP for analytics
+      if (userIp && vehicleInfo.immatriculation) {
+        this.trackUpload(userIp, vehicleInfo).catch(() => {});
+      }
       
       const processingTime = Date.now() - startTime;
       
       return {
         success: true,
         vehicleInfo,
-        uploadCount: ipUploadCount + 1,
+        uploadCount: ipUploadCount,
         debug: {
           processingTime: `${processingTime}ms`,
           fileSize: `${(file.size / 1024).toFixed(2)} KB`,
@@ -174,14 +182,32 @@ export class VerificationService {
     };
   }
 
-  private async getMonthlyCarteGriseUploadCount(immatriculation: string): Promise<number> {
+  private async get15DayUploadCount(userIp: string): Promise<number> {
+    try {
+      const now = new Date();
+      const fifteenDaysAgo = new Date(now.getTime() - 15 * 24 * 60 * 60 * 1000);
+
+      const count = await this.prisma.uploadTracking.count({
+        where: {
+          userIp,
+          uploadedAt: {
+            gte: fifteenDaysAgo,
+          },
+          success: true,
+        },
+      });
+
+      return count;
+    } catch (error) {
+      console.error('[VerificationService] Failed to get 15-day upload count:', error);
+      return 0;
+    }
+  }
+
+  private async get15DayCarteGriseUploadCount(immatriculation: string): Promise<number> {
     const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const fifteenDaysAgo = new Date(now.getTime() - 15 * 24 * 60 * 60 * 1000);
     
-    // NOTE: This JSON path filter requires pg_trgm or a GIN index on vehicleInfo
-    // for production performance. Add to migration:
-    // CREATE INDEX IF NOT EXISTS upload_tracking_immat_idx
-    //   ON upload_tracking USING gin (vehicle_info);
     const count = await this.prisma.uploadTracking.count({
       where: {
         vehicleInfo: {
@@ -189,24 +215,7 @@ export class VerificationService {
           equals: immatriculation
         },
         uploadedAt: {
-          gte: startOfMonth
-        },
-        success: true
-      }
-    });
-    
-    return count;
-  }
-
-  private async getMonthlyUploadCount(userIp: string): Promise<number> {
-    const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    
-    const count = await this.prisma.uploadTracking.count({
-      where: {
-        userIp,
-        uploadedAt: {
-          gte: startOfMonth
+          gte: fifteenDaysAgo
         },
         success: true
       }
