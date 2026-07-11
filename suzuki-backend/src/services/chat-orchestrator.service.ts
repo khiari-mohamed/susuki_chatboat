@@ -747,8 +747,9 @@ export class ChatOrchestratorService {
       'traverse', 'tete', 'vase',
       // BUGFIX: capot accessories — calle/cale capot must not outrank the actual capot panel
       'calle', 'cale',
-      // BUGFIX: calandre accessories — chrome trim, grille, isolant must not trigger type clarification
-      'chrome', 'isolant', 'grille', 'sigle', 'monogramme',
+      // BUGFIX: calandre accessories — chrome trim, isolant must not trigger type clarification
+      // NOTE: 'grille' removed — it is a synonym for calandre (main part), not an accessory
+      'chrome', 'isolant', 'sigle', 'monogramme',
     ];
 
     const userAskedForAccessory = accessoryWords.some((w) => queryLower.includes(w));

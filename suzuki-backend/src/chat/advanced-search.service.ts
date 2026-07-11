@@ -1,8 +1,51 @@
-// src/chat/advanced-search
+// src/chat/advanced-search.service.ts
+// ═══════════════════════════════════════════════════════════════════
+// FIXES APPLIED (2026-06-25) based on client feedback:
+//
+// FIX-1: DISPLAY NAME — designation_2 (French) is now the primary display
+//         field. designation (English OEM) is the fallback only.
+//
+// FIX-2: SEARCH FIELD ORDER — after VIN/model compatibility scoping,
+//         search runs against:
+//         1. designation_2       (French name)
+//         2. searchDescription   (CarPro/NLP context when filled)
+//         3. designation         (English OEM name — fallback)
+//         4. reference + catalogue context + alternate references
+//
+// FIX-3: CarPro Parts INCLUDED — source '02_CARPRO' is no longer excluded.
+//         All queries now search across both '01_PROD' and '02_CARPRO'.
+//
+// FIX-4: DISPLAY label in API response uses getDisplayName() which returns
+//         designation_2 ?? designation, so French is always shown first.
+//
+// FIX-5: API response shape is enriched — includes both designation fields,
+//         source label, stock details, price, fitments, and display name.
+//
+// FIX-6: Search scoring updated — designation_2 matches score higher
+//         than designation matches.
+//
+// FIX-8 (2026-07-07): resolveVehicleScope() vehicle_type_master fallback
+//         lookup was matching on raw, unnormalized model strings via
+//         `contains`, so "S-PRESSO" (with hyphen) silently failed to match
+//         rows where model_name is stored as "SPRESSO" or "S PRESSO".
+//         Added generateModelVariants() to strip/space-normalize model
+//         values before building the OR/contains conditions, so all
+//         hyphen/space forms of the same model resolve to the same
+//         type_code(s). This does NOT touch vehicle_model_map — once
+//         that table is seeded (see scripts/seed-vehicle-model-map.ts)
+//         it remains the primary, exact-match lookup; this fix only
+//         hardens the fallback.
+//
+// DATA NOTE:
+//   search_description can be empty today. When CarPro fills it, the
+//   scorer uses it as additional context without bypassing fitment scope.
+// ═══════════════════════════════════════════════════════════════════
+
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
 import { SynonymsService } from '../synonyms/synonyms.service';
+import { VehicleModelsService } from '../constants/vehicle-models.service';
 import axios from 'axios';
 
 interface PositionRequirements {
@@ -21,14 +64,93 @@ interface SearchContext {
   originalQuery: string;
   normalizedQuery: string;
   hasTunisianDialect: boolean;
-  userTypedTokens: Set<string>; // tokens actually typed by the user (before expansion)
+  userTypedTokens: Set<string>;
 }
 
-interface Part {
-  designation: string;
+export interface VehicleSearchScope {
+  active: boolean;
+  vin: string | null;
+  vehicleNo: string | null;
+  model: string | null;
+  modelDescription: string | null;
+  typeCodes: string[];
+}
+
+// ─── API response shape ───────────────────────────────────────────
+export interface PartResult {
+  id: number;
   reference: string;
-  stock: number;
-  [key: string]: any;
+
+  // ★ PRIMARY display name — always French when available
+  displayName: string;
+
+  // Raw fields — both returned so UI can choose
+  designation: string;        // English OEM name
+  designation2: string | null; // French name (designation_2)
+  searchDescription: string | null;
+
+  // Pricing
+  prixHt: string | null;
+  prixTtc: string | null;
+  unite: string | null;
+
+  // Classification
+  categorie: string | null;
+  fabricant: string | null;
+  fournisseurCode: string | null;
+  source: string;   // '01_PROD' | '02_CARPRO'
+  sourceLabel: string; // 'Suzuki OEM' | 'CarPro Parts'
+
+  // Stock
+  stock: {
+    statut: string;
+    totalQuantity: number;
+    stockDisponible: number;
+    stockConsolide: number;
+  } | null;
+
+  // Fitments
+  fitments: { modelName: string; typeCode: string }[];
+
+  itemReferences?: { referenceNo: string; referenceType: string | null }[];
+  identificationSource?: {
+    vin: string | null;
+    vehicleNo: string | null;
+    model: string | null;
+    modelDescription: string | null;
+    typeCodes: string[];
+    articleNumber: string;
+  };
+
+  // Internal score (useful for debugging)
+  score: number;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// FIX-7 (debug): structured trace of one search pipeline execution.
+// Mirrors exactly what is printed to the server console (the
+// "[SEARCH] ..." log lines) but structured so it can be sent to the
+// frontend debug panel and read by non-technical testers.
+// ─────────────────────────────────────────────────────────────────
+export interface SearchDebugInfo {
+  searchType: 'text' | 'reference';
+  originalQuery: string;
+  normalizedQuery: string;
+  hasTunisianDialect: boolean;
+  rawTokens: string[];
+  expandedTerms: string[];
+  mainPartType: string | null;
+  positionInfo: PositionRequirements;
+  // Which DB columns this query actually ran against, in priority order
+  fieldsSearched: string[];
+  // Which Prisma/DB tables were touched to build this response
+  tablesQueried: string[];
+  dbRawCount: number;      // rows returned by the raw DB query, before scoring
+  qualifiedCount: number;  // rows left after scoring/filtering/dedup
+  finalCount: number;      // rows actually sent back to the client (max 10)
+  sourceBreakdown: { suzukiOem: number; carproParts: number };
+  stockBreakdown: { disponible: number; indisponible: number };
+  vehicleScope?: VehicleSearchScope;
 }
 
 @Injectable()
@@ -36,7 +158,6 @@ export class AdvancedSearchService implements OnModuleInit {
   private readonly logger = console;
   private readonly openaiKey: string;
 
-  // Populated from SynonymsService on startup — replaces the old hardcoded synonyms object
   private synonymsMap: Record<string, string[]> = {};
 
   private readonly typeWeights: Record<string, number> = {
@@ -106,6 +227,11 @@ export class AdvancedSearchService implements OnModuleInit {
     'inferieur': 1.1, 'tambour': 1.3, 'frien': 1.1, 'tensionneur': 1.1, 'tiran': 1.2,
     'tirant': 1.2, 'train': 1.2, 'valve': 1.1, 'longerons': 1.1, 'boudain': 1.1, 'pedale': 1.1,
     'plateau': 1.3, 'maitre': 1.3, 'cylindre': 1.3, 'std': 1.2, 'us': 1.2, 'white': 1.2, 'blanc': 1.2,
+    // FIX-1: Additional French terms from designation_2 field (previously unsearchable)
+    'pare brise': 1.2, 'parebrise': 1.2, 'mecanisme': 1.1,
+    'leve vitre': 1.2, 'leve-vitre': 1.2, 'porte avant': 1.1,
+    'porte arriere': 1.1, 'porte reservoir': 1.1,
+    'radar recul': 1.2, 'radar': 1.2,
   };
 
   private static readonly SCORE_REJECTION = -1_000_000;
@@ -115,26 +241,61 @@ export class AdvancedSearchService implements OnModuleInit {
   private static readonly SCORE_MAIN_TYPE_PRESENT = 5_000;
   private static readonly SCORE_ALL_WORDS_MATCH = 80_000;
   private static readonly SCORE_NUMERIC_EXACT = 50_000;
+  // FIX-6: Extra bonus when match is on French field
+  private static readonly SCORE_FRENCH_FIELD_BONUS = 20_000;
 
   private aiSegmentationAvailable = true;
   private aiSegmentationFailCount = 0;
   private static readonly AI_FAIL_THRESHOLD = 3;
 
-  // Normalized synonym lookup — populated from SynonymsService in onModuleInit
   private normalizedSynonymLookup: Record<string, string> = {};
   private fuzzyMatchCache: Map<string, string[]> = new Map();
+
+  // ─────────────────────────────────────────────────────────────────
+  // FIX-7 (debug): last pipeline trace, exposed to the frontend debug
+  // panel via ChatController.
+  //
+  // NOTE ON SCOPE: this is a singleton-scoped field (one instance for
+  // the whole app), so under concurrent requests only the LAST search
+  // to finish "wins" and overwrites this value. That's an accepted
+  // tradeoff — this field is only ever read for the debug panel, never
+  // for business logic, so a race between two simultaneous testers is
+  // harmless (worst case: you see someone else's debug trace for a
+  // split second). If this ever needs to be request-safe, switch this
+  // service to REQUEST scope or thread the debug object through the
+  // return value instead of a shared field.
+  // ─────────────────────────────────────────────────────────────────
+  private lastSearchDebug: SearchDebugInfo | null = null;
+
+  getLastSearchDebug(): SearchDebugInfo | null {
+    return this.lastSearchDebug;
+  }
+
+  private computeSourceAndStockBreakdown(results: PartResult[]): {
+    sourceBreakdown: { suzukiOem: number; carproParts: number };
+    stockBreakdown: { disponible: number; indisponible: number };
+  } {
+    const sourceBreakdown = { suzukiOem: 0, carproParts: 0 };
+    const stockBreakdown  = { disponible: 0, indisponible: 0 };
+    for (const r of results) {
+      if (r.source === '02_CARPRO') sourceBreakdown.carproParts++;
+      else sourceBreakdown.suzukiOem++;
+      if (this.isStockAvailable(r.stock)) stockBreakdown.disponible++;
+      else stockBreakdown.indisponible++;
+    }
+    return { sourceBreakdown, stockBreakdown };
+  }
 
   constructor(
     private prisma: PrismaService,
     private config: ConfigService,
     private synonymsService: SynonymsService,
+    private vehicleModels: VehicleModelsService,
   ) {
     this.openaiKey = this.config.get<string>('OPENAI_API_KEY') || '';
-    // NOTE: index is built in onModuleInit after SynonymsService has loaded from DB
   }
 
   async onModuleInit(): Promise<void> {
-    // SynonymsService.onModuleInit() has already completed (NestJS resolves deps first)
     this.synonymsMap = this.synonymsService.getCategoryVariants();
     this.normalizedSynonymLookup = this.synonymsService.getNormalizedLookup();
     this.logger.log(
@@ -142,12 +303,262 @@ export class AdvancedSearchService implements OnModuleInit {
     );
   }
 
-  async searchParts(query: string, vehicle?: any): Promise<any[]> {
+  // ─── PUBLIC: getDisplayName ─────────────────────────────────────
+  // FIX-1: Always return French name (designation_2) when available
+  getDisplayName(part: { designation: string; designation2?: string | null }): string {
+    return (part.designation2 && part.designation2.trim().length > 0)
+      ? part.designation2.trim()
+      : part.designation.trim();
+  }
+
+  // ─── PUBLIC: getSourceLabel ─────────────────────────────────────
+  // FIX-5: Human-readable source label
+  getSourceLabel(source: string): string {
+    switch (source) {
+      case '01_PROD':    return 'Suzuki OEM';
+      case '02_CARPRO':  return 'CarPro Parts';
+      default:           return source;
+    }
+  }
+
+  // ─── PUBLIC: formatPartResult ───────────────────────────────────
+  private isStockAvailable(stock: any): boolean {
+    const consolidated = Number(
+      stock?.stockConsolide ?? stock?.stock_consolide ?? stock?.totalQuantity ?? 0,
+    );
+    return consolidated > 2;
+  }
+
+  private formatStock(stock: any): {
+    statut: string;
+    totalQuantity: number;
+    stockDisponible: number;
+    stockConsolide: number;
+  } {
+    const totalQuantity = Number(stock?.totalQuantity ?? stock?.total_quantity ?? 0);
+    const stockDisponible = Number(stock?.stockDisponible ?? stock?.stock_disponible ?? 0);
+    const stockConsolide = Number(
+      stock?.stockConsolide ?? stock?.stock_consolide ?? totalQuantity,
+    );
+
+    return {
+      statut: stockConsolide > 2 ? 'Disponible' : 'Indisponible',
+      totalQuantity,
+      stockDisponible,
+      stockConsolide,
+    };
+  }
+
+  private pickVehicleValue(vehicle: any, keys: string[]): string | null {
+    for (const key of keys) {
+      const value = vehicle?.[key];
+      if (typeof value === 'string' && value.trim()) return value.trim();
+    }
+    return null;
+  }
+
+  // ─────────────────────────────────────────────────────────────────
+  // FIX-8 (2026-07-07): stripped model-name variants for hyphen/space-
+  //         insensitive matching against vehicle_type_master.model_name.
+  //         "S-PRESSO", "SPRESSO", and "S PRESSO" must all resolve to
+  //         the same row regardless of which form is actually stored,
+  //         since `contains` on raw unnormalized strings silently
+  //         fails to match otherwise.
+  // ─────────────────────────────────────────────────────────────────
+  private generateModelVariants(value: string): string[] {
+    const upper = value.toUpperCase().trim();
+    const variants = new Set<string>([
+      upper,
+      upper.replace(/-/g, ''),
+      upper.replace(/\s+/g, ''),
+      upper.replace(/[-\s]+/g, ''),
+      upper.replace(/-/g, ' '),
+      upper.replace(/\s+/g, '-'),
+    ]);
+    return [...variants].filter((v) => v.length > 0);
+  }
+
+  private async resolveVehicleScope(vehicle?: any): Promise<VehicleSearchScope> {
+    const empty: VehicleSearchScope = {
+      active: false,
+      vin: null,
+      vehicleNo: null,
+      model: null,
+      modelDescription: null,
+      typeCodes: [],
+    };
+    if (!vehicle) return empty;
+
+    const vin = this.pickVehicleValue(vehicle, ['vin', 'VIN', 'numeroChassis', 'numChassis', 'chassis']);
+    const vehicleNo = this.pickVehicleValue(vehicle, ['vehicleNo', 'vehicle_no', 'numeroVehicule']);
+    const explicitTypeCode = this.pickVehicleValue(vehicle, ['typeCode', 'type_code', 'type']);
+
+    let dbVehicle: any = null;
+    if (vin) {
+      dbVehicle = await this.prisma.vehicle.findFirst({
+        where: { vin: { equals: vin, mode: 'insensitive' } },
+        select: {
+          vin: true,
+          vehicleNo: true,
+          modele: true,
+          modeleDescription: true,
+        },
+      });
+    }
+    if (!dbVehicle && vehicleNo) {
+      dbVehicle = await this.prisma.vehicle.findFirst({
+        where: { vehicleNo: { equals: vehicleNo, mode: 'insensitive' } },
+        select: {
+          vin: true,
+          vehicleNo: true,
+          modele: true,
+          modeleDescription: true,
+        },
+      });
+    }
+
+    const modelCandidates = [
+      dbVehicle?.modele,
+      vehicle.modele,
+      vehicle.model,
+      vehicle.modelName,
+      dbVehicle?.modeleDescription,
+      vehicle.modeleDescription,
+    ]
+      .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+      .map((value) => value.trim());
+
+    const normalizedModel = modelCandidates
+      .map((value) => this.vehicleModels.normalize(value))
+      .find((value): value is string => !!value) ?? null;
+
+    const modelValues = Array.from(new Set([
+      ...modelCandidates,
+      ...(normalizedModel ? [normalizedModel] : []),
+    ].map((value) => value.toUpperCase().trim())));
+
+    const typeCodes = new Set<string>();
+    if (explicitTypeCode && /TYPE/i.test(explicitTypeCode)) {
+      typeCodes.add(explicitTypeCode.toUpperCase().replace(/\s+/g, '-'));
+    }
+
+    if (modelValues.length > 0) {
+      const modelMapRows = await this.prisma.vehicleModelMap.findMany({
+        where: {
+          OR: modelValues.map((modele) => ({
+            modele: { equals: modele, mode: 'insensitive' },
+          })),
+        },
+        select: { typeCode: true },
+      });
+      modelMapRows.forEach((row) => typeCodes.add(row.typeCode));
+
+      // FIX-8: normalize/strip hyphens & spaces before querying
+      // vehicle_type_master — the fallback `contains` lookup must not
+      // silently miss rows just because "S-PRESSO" is stored as
+      // "SPRESSO" or "S PRESSO" (or vice versa).
+      const modelValueVariants = Array.from(
+        new Set(modelValues.flatMap((value) => this.generateModelVariants(value))),
+      );
+
+      const typeRows = await this.prisma.vehicleTypeMaster.findMany({
+        where: {
+          OR: modelValueVariants.map((modelName) => ({
+            modelName: { contains: modelName, mode: 'insensitive' },
+          })),
+        },
+        select: { typeCode: true },
+      });
+      typeRows.forEach((row) => typeCodes.add(row.typeCode));
+    }
+
+    return {
+      active: typeCodes.size > 0,
+      vin: dbVehicle?.vin ?? vin ?? null,
+      vehicleNo: dbVehicle?.vehicleNo ?? vehicleNo ?? null,
+      model: normalizedModel ?? dbVehicle?.modele ?? vehicle.modele ?? null,
+      modelDescription: dbVehicle?.modeleDescription ?? vehicle.modeleDescription ?? null,
+      typeCodes: [...typeCodes],
+    };
+  }
+
+  private buildCompatibilityWhere(scope: VehicleSearchScope): any {
+    if (!scope.active || scope.typeCodes.length === 0) return {};
+    return {
+      fitments: {
+        some: {
+          typeCode: { in: scope.typeCodes },
+        },
+      },
+    };
+  }
+
+  // FIX-5: Enriched API response shape
+  // BUGFIX-1: stock is never null — parts missing a stock row get a
+  //   safe default { statut: 'Indisponible', totalQuantity: 0 } so
+  //   the frontend always receives a stock object, never null.
+  // BUGFIX-2: designationOem preserved — when designation and
+  //   designation2 are the same (French DB), designationOem stores
+  //   the true English OEM name from the raw part object if present.
+  formatPartResult(part: any, score: number, scope?: VehicleSearchScope): PartResult {
+    // BUGFIX-2: preserve the true English OEM name.
+    // In some DB rows designation IS already French (e.g. "OPTIC D")
+    // and the English OEM comes through as part.designationOem when
+    // mapProductForResponse() has already been called upstream.
+    // For raw Prisma rows the OEM name is always in part.designation.
+    const frenchName  = (part.designation2 ?? '').trim();
+    const englishName = (part.designation  ?? '').trim();
+    // If French == English, the DB has only one name — keep as-is.
+    // If they differ, English is the real OEM and French is in designation2.
+    const designationOem = (part.designationOem ?? '').trim() || englishName;
+
+    return {
+      id:               part.id,
+      reference:        part.reference,
+      displayName:      this.getDisplayName(part),         // ★ French first
+      designation:      designationOem,                    // English OEM (true)
+      designation2:     frenchName || null,                // French name
+      searchDescription: part.searchDescription ?? null,
+      prixHt:           part.prixHt  != null ? String(part.prixHt)  : null,
+      prixTtc:          part.prixTtc != null ? String(part.prixTtc) : null,
+      unite:            part.unite           ?? null,
+      categorie:        part.categorie       ?? null,
+      fabricant:        part.fabricant       ?? null,
+      fournisseurCode:  part.fournisseurCode ?? null,
+      source:           part.source,
+      sourceLabel:      this.getSourceLabel(part.source),  // ★ Human-readable
+      // BUGFIX-1: always return a stock object, never null
+      stock: this.formatStock(part.stock),
+      fitments: (part.fitments ?? []).map((f: any) => ({
+        modelName: f.modelName,
+        typeCode:  f.typeCode,
+      })),
+      itemReferences: (part.itemReferences ?? []).map((r: any) => ({
+        referenceNo: r.referenceNo,
+        referenceType: r.referenceType ?? null,
+      })),
+      identificationSource: scope
+        ? {
+            vin: scope.vin,
+            vehicleNo: scope.vehicleNo,
+            model: scope.model,
+            modelDescription: scope.modelDescription,
+            typeCodes: scope.typeCodes,
+            articleNumber: part.reference,
+          }
+        : undefined,
+      score,
+    };
+  }
+
+  // ─── MAIN SEARCH ────────────────────────────────────────────────
+  async searchParts(query: string, vehicle?: any): Promise<PartResult[]> {
     if (!query || query.trim().length < 2) {
       return [];
     }
     this.logger.log(`[SEARCH] Input query: "${query}"`);
 
+    // ── Reference pattern detection ──────────────────────────────
     const referencePatterns = [
       /^\s*([A-Z0-9]{8,}(?:-[A-Z0-9]+)*)\s*$/i,
       /^\s*([A-Z]{2}-\d{4,}-[A-Z0-9]{2,}(?:-[A-Z0-9]+)*)\s*$/i,
@@ -160,11 +571,9 @@ export class AdvancedSearchService implements OnModuleInit {
       const refMatch = query.match(pattern);
       if (refMatch) {
         const reference = refMatch[1] || refMatch[0];
-        // Either alphanumeric with at least one letter + one digit, or purely numeric with min 8 digits
-const isAlphaNumericRef = /[A-Z]/.test(reference) && /[0-9]/.test(reference) && reference.length >= 8;
-const isNumericRef = /^\d{8,}$/.test(reference);  // all digits, 8+ chars
-
-if ((isAlphaNumericRef || isNumericRef) && reference.length >= 8) {
+        const isAlphaNumericRef = /[A-Z]/.test(reference) && /[0-9]/.test(reference) && reference.length >= 8;
+        const isNumericRef = /^\d{8,}$/.test(reference);
+        if ((isAlphaNumericRef || isNumericRef) && reference.length >= 8) {
           this.logger.log(`[SEARCH] Reference pattern detected: "${reference}"`);
           const refResults = await this.searchByReference(reference, vehicle);
           this.logger.log(`[SEARCH] Reference search returned ${refResults.length} results`);
@@ -173,19 +582,16 @@ if ((isAlphaNumericRef || isNumericRef) && reference.length >= 8) {
       }
     }
 
+    // ── Tunisian dialect normalization ───────────────────────────
     const tunisianNormalized = this.normalizeTunisian(query);
-    // Reject Tunisian normalization if it produces duplicate tokens
-    // (e.g. "disque frein" → "disque de frein frein" is a false positive)
     const tunisianValid = (() => {
       if (!tunisianNormalized) return false;
       const originalTokens = this.normalize(query).split(' ').filter(Boolean);
       const normalizedTokens = this.normalize(tunisianNormalized).split(' ').filter(Boolean);
-      // If every original token already appears in the normalized synonym lookup, skip Tunisian expansion
       const allAlreadyKnown = originalTokens.every(
         (t) => this.normalizedSynonymLookup[t] !== undefined || Object.keys(this.typeWeights).includes(t),
       );
       if (allAlreadyKnown) return false;
-      // If normalization produces duplicate meaningful tokens, reject it
       const seen = new Set<string>();
       for (const t of normalizedTokens) {
         if (t.length >= 4 && seen.has(t)) return false;
@@ -198,40 +604,60 @@ if ((isAlphaNumericRef || isNumericRef) && reference.length >= 8) {
     if (tunisianValid) {
       this.logger.log(`[SEARCH] Tunisian detected, normalized to: "${tunisianNormalized}"`);
     }
-    this.logger.log(`[SEARCH] Real-time query - no cache`);
+
     const normalized = this.normalize(searchQuery);
     this.logger.log(`[SEARCH] Normalized query: "${normalized}"`);
 
     const allTokens = await this.tokenize(normalized, true);
     const rawTokens = allTokens.filter((t) => t.length > 2);
-    this.logger.log(`[SEARCH] All tokens: [${allTokens.join(', ')}]`);
     this.logger.log(`[SEARCH] Raw tokens (>2 chars): [${rawTokens.join(', ')}]`);
 
     const expandedTerms = this.expandWithSynonymsContextual(rawTokens, normalized);
     this.logger.log(`[SEARCH] Expanded terms: [${expandedTerms.join(', ')}]`);
     const positionInfo = this.detectPositionRequirements(allTokens, expandedTerms);
-    this.logger.log(
-      `[SEARCH] Position info - avant: ${positionInfo.avant}, arrière: ${positionInfo.arriere}, gauche: ${positionInfo.gauche}, droite: ${positionInfo.droite}`,
-    );
+    const vehicleScope = await this.resolveVehicleScope(vehicle);
+    if (vehicleScope.active) {
+      this.logger.log(`[SEARCH] Vehicle compatibility scope: typeCodes=[${vehicleScope.typeCodes.join(', ')}] vin=${vehicleScope.vin ?? 'n/a'}`);
+    }
+
+    // ── FIX-2: Build search conditions across ALL three text fields ──
     const searchConditions = this.buildSearchConditions(rawTokens, expandedTerms);
+    const whereParts = [
+      ...(searchConditions.length > 0 ? [{ OR: searchConditions }] : []),
+      ...(vehicleScope.active ? [this.buildCompatibilityWhere(vehicleScope)] : []),
+    ];
+    const whereCondition: any = whereParts.length > 0 ? { AND: whereParts } : {};
 
-    const whereCondition: any = searchConditions.length > 0 ? { OR: searchConditions } : {};
-
+    // ── FIX-3: No source filter — include both 01_PROD and 02_CARPRO ──
     const parts = await this.prisma.part.findMany({
       where: whereCondition,
       include: {
-        stock: { select: { statut: true } },
-        fitments: { select: { modelName: true, typeCode: true } },
+        stock: {
+          select: {
+            statut: true,
+            totalQuantity: true,  // FIX-5: include quantity
+            stockDisponible: true,
+            stockConsolide: true,
+          },
+        },
+        fitments: {
+          select: {
+            modelName: true,
+            typeCode: true,
+          },
+        },
+        itemReferences: {
+          select: {
+            referenceNo: true,
+            referenceType: true,
+          },
+        },
       },
       take: 500,
     });
     this.logger.log(`[SEARCH] Database returned ${parts.length} raw results`);
-    if (parts.length > 0) {
-      this.logger.log(
-        `[SEARCH] Sample DB results: ${parts.slice(0, 1).map((p: any) => `"${p.designation}"`).join(', ')}`,
-      );
-    }
 
+    // ── Conflict filter ──────────────────────────────────────────
     const positionWords = ['avant', 'arriere', 'gauche', 'droite', 'av', 'ar', 'g', 'd'];
     const correctedTokens = expandedTerms.filter((t) => !positionWords.includes(t));
 
@@ -253,18 +679,13 @@ if ((isAlphaNumericRef || isNumericRef) && reference.length >= 8) {
         if (weightB !== weightA) return weightB - weightA;
         return b.length - a.length;
       })[0];
-    this.logger.log(
-      `[SEARCH] Main part type detected: "${mainPartType || 'NONE'}" from tokens: [${rawTokens.join(', ')}]`,
-    );
 
     const queryLower = query.toLowerCase();
     let forcedMainPartType = mainPartType;
     if (queryLower.includes('monte glace') || queryLower.includes('monte-glace')) {
       forcedMainPartType = 'appareil';
-      this.logger.log(`[SEARCH] Forced main part type to "appareil" due to "monte glace"`);
     }
 
-    // Computed ONCE — reused inside calculateContentMatches for every part
     const filteredQueryWords = expandedTerms.filter((w) => {
       if (w.length < 3) return false;
       for (const [category, syns] of Object.entries(this.synonymsMap)) {
@@ -284,25 +705,22 @@ if ((isAlphaNumericRef || isNumericRef) && reference.length >= 8) {
       originalQuery: query,
       normalizedQuery: normalized,
       hasTunisianDialect,
-      // rawTokens = tokens that survived stop-word removal and length filter (>2 chars).
-      // These represent the user's actual intent words — expansion adds to expandedTerms but NOT here.
       userTypedTokens: new Set(rawTokens),
     };
 
+    // ── Score and filter ─────────────────────────────────────────
     const scored = parts.map((part) => ({
       ...part,
-      score: this.calculatePartScore(part, context),
+      _score: this.calculatePartScore(part, context),
     }));
 
     const filtered = scored.filter((p) => {
       const designation = this.normalize(p.designation);
       const queryNorm = context.normalizedQuery;
-
       const conflicts = [
         { query: 'maitre', wrong: 'mettre' },
         { query: 'cable', wrong: 'calle' },
       ];
-
       for (const conflict of conflicts) {
         if (
           queryNorm.includes(conflict.query) &&
@@ -316,58 +734,93 @@ if ((isAlphaNumericRef || isNumericRef) && reference.length >= 8) {
     });
 
     let results = filtered
-      .filter((p) => p.score >= this.getMinimumScore(context))
-      .sort((a, b) => b.score - a.score);
+      .filter((p) => p._score >= 0)
+      .sort((a, b) => b._score - a._score);
 
-    this.logger.log(
-      `[SEARCH] After scoring/filtering: ${results.length} qualified results (minScore: ${this.getMinimumScore(context)})`,
-    );
-    if (results.length > 0) {
-      this.logger.log(
-        `[SEARCH] Top 3 scores: ${results.slice(0, 3).map((p: any) => `"${p.designation}" (${p.score})`).join(', ')}`,
-      );
-    }
+    // BUGFIX-3: Deduplicate by reference — the OR query across 4 fields
+    // (designation2, searchDescription, designation, reference) can return
+    // the same part multiple times if all fields match. Keep highest score.
+    const seenRefs = new Set<string>();
+    results = results.filter((p) => {
+      if (seenRefs.has(p.reference)) return false;
+      seenRefs.add(p.reference);
+      return true;
+    });
 
-    const TOP_N = this.calculateOptimalResultLimit(context, results.length);
+    this.logger.log(`[SEARCH] After scoring/filtering/dedup: ${results.length} qualified results`);
+
+    const TOP_N = Math.min(results.length, 10);
     const finalResults = results.slice(0, TOP_N);
-    this.logger.log(`[SEARCH] Final results returned: ${finalResults.length} (TOP_N: ${TOP_N})`);
-    return finalResults;
-  }
 
-  private detectPositionRequirements(allTokens: string[], expandedTerms: string[]): PositionRequirements {
-    const text = allTokens.join(' ').toLowerCase();
-    
-    // Check for explicit position tokens (exact matches only)
-    const hasAvToken = allTokens.some((t) => t === 'av');
-    const hasArToken = allTokens.some((t) => t === 'ar');
-    const hasGToken = allTokens.some((t) => t === 'g' && !allTokens.includes('gauche'));
-    const hasDToken = allTokens.some((t) => t === 'd' && !allTokens.includes('droite') && !allTokens.includes('droit'));
-    
-    // Check for full position words
-    const hasAvantWord = allTokens.some((t) => t === 'avant');
-    const hasArriereWord = allTokens.some((t) => t === 'arriere' || t === 'arrière');
-    const hasGaucheWord = allTokens.some((t) => t === 'gauche');
-    const hasDroiteWord = allTokens.some((t) => t === 'droite' || t === 'droit');
+    this.logger.log(`[SEARCH] Final results returned: ${finalResults.length}`);
 
-    return {
-      avant: hasAvToken || hasAvantWord || this.hasPosition(expandedTerms, ['avant', 'av']),
-      arriere: hasArToken || hasArriereWord || this.hasPosition(expandedTerms, ['arriere', 'arrière', 'ar']),
-      gauche: hasGToken || hasGaucheWord || this.hasPosition(expandedTerms, ['gauche', 'conducteur']),
-      droite: hasDToken || hasDroiteWord || this.hasPosition(expandedTerms, ['droite', 'passager']),
+    // ── FIX-4 + FIX-5: Map to enriched PartResult ───────────────
+    const mappedResults = finalResults.map((p) => this.formatPartResult(p, p._score, vehicleScope));
+    // FIX-7 (debug): capture the full pipeline trace for the frontend
+    // debug panel — same numbers as the console logs above, structured.
+    this.lastSearchDebug = {
+      searchType:         'text',
+      originalQuery:      query,
+      normalizedQuery:    normalized,
+      hasTunisianDialect,
+      rawTokens,
+      expandedTerms,
+      mainPartType:       forcedMainPartType ?? null,
+      positionInfo,
+      fieldsSearched:     ['designation_2', 'search_description', 'designation', 'reference', 'categorie', 'fabricant', 'fournisseur_code', 'item_references.reference_no'],
+      tablesQueried:      vehicleScope.active
+        ? ['vehicles', 'vehicle_model_map', 'vehicle_type_master', 'parts', 'stock', 'fitment', 'item_references']
+        : ['parts', 'stock', 'fitment', 'item_references'],
+      dbRawCount:         parts.length,
+      qualifiedCount:     results.length,
+      finalCount:         mappedResults.length,
+      vehicleScope,
+      ...this.computeSourceAndStockBreakdown(mappedResults),
     };
+    return mappedResults;
   }
 
+  // ── FIX-2: Search conditions now include designation_2 ─────────
   private buildSearchConditions(rawTokens: string[], expandedTerms: string[]): any[] {
     const positionWords = ['avant', 'arriere', 'gauche', 'droite', 'av', 'ar', 'g', 'd', 'sup', 'inf'];
     const meaningfulTerms = expandedTerms.filter((t) => t.length >= 3 && !positionWords.includes(t));
     if (meaningfulTerms.length === 0) return [];
 
     return meaningfulTerms.flatMap((term) => [
-      { designation: { contains: term, mode: 'insensitive' } },
-      { reference: { contains: term, mode: 'insensitive' } },
+      // FIX-2: Search French name first (designation_2)
+      { designation2:        { contains: term, mode: 'insensitive' } },
+      // FIX-2: Search NLP field (searchDescription)
+      { searchDescription:   { contains: term, mode: 'insensitive' } },
+      // English OEM name (fallback)
+      { designation:         { contains: term, mode: 'insensitive' } },
+      // Reference lookup
+      { reference:           { contains: term, mode: 'insensitive' } },
+      { categorie:           { contains: term, mode: 'insensitive' } },
+      { fabricant:           { contains: term, mode: 'insensitive' } },
+      { fournisseurCode:     { contains: term, mode: 'insensitive' } },
+      { itemReferences:      { some: { referenceNo: { contains: term, mode: 'insensitive' } } } },
     ]);
   }
 
+  private detectPositionRequirements(allTokens: string[], expandedTerms: string[]): PositionRequirements {
+    const hasAvToken      = allTokens.some((t) => t === 'av');
+    const hasArToken      = allTokens.some((t) => t === 'ar');
+    const hasGToken       = allTokens.some((t) => t === 'g' && !allTokens.includes('gauche'));
+    const hasDToken       = allTokens.some((t) => t === 'd' && !allTokens.includes('droite') && !allTokens.includes('droit'));
+    const hasAvantWord    = allTokens.some((t) => t === 'avant');
+    const hasArriereWord  = allTokens.some((t) => t === 'arriere' || t === 'arrière');
+    const hasGaucheWord   = allTokens.some((t) => t === 'gauche');
+    const hasDroiteWord   = allTokens.some((t) => t === 'droite' || t === 'droit');
+
+    return {
+      avant:   hasAvToken   || hasAvantWord   || this.hasPosition(expandedTerms, ['avant', 'av']),
+      arriere: hasArToken   || hasArriereWord  || this.hasPosition(expandedTerms, ['arriere', 'arrière', 'ar']),
+      gauche:  hasGToken    || hasGaucheWord   || this.hasPosition(expandedTerms, ['gauche', 'conducteur']),
+      droite:  hasDToken    || hasDroiteWord   || this.hasPosition(expandedTerms, ['droite', 'passager']),
+    };
+  }
+
+  // ─── SCORING ────────────────────────────────────────────────────
   private calculatePartScore(part: any, context: SearchContext): number {
     let score = 0;
     score += this.calculateExactMatches(part, context);
@@ -380,9 +833,17 @@ if ((isAlphaNumericRef || isNumericRef) && reference.length >= 8) {
   private calculateExactMatches(part: any, context: SearchContext): number {
     let score = 0;
     const ref = this.normalize(part.reference);
+    const alternateRefs = (part.itemReferences ?? [])
+      .map((itemRef: any) => this.normalize(itemRef.referenceNo || ''))
+      .filter(Boolean);
     if (ref === context.normalizedQuery) {
       score += AdvancedSearchService.SCORE_EXACT_REFERENCE;
     } else if (ref.includes(context.normalizedQuery)) {
+      score += AdvancedSearchService.SCORE_REFERENCE_CONTAINS;
+    }
+    if (alternateRefs.some((altRef: string) => altRef === context.normalizedQuery)) {
+      score += AdvancedSearchService.SCORE_EXACT_REFERENCE;
+    } else if (alternateRefs.some((altRef: string) => altRef.includes(context.normalizedQuery))) {
       score += AdvancedSearchService.SCORE_REFERENCE_CONTAINS;
     }
     return score;
@@ -390,74 +851,86 @@ if ((isAlphaNumericRef || isNumericRef) && reference.length >= 8) {
 
   private calculateContentMatches(part: any, context: SearchContext): number {
     let score = 0;
-    const designation = this.normalize(part.designation);
-    const designationNormalized = this.normalizeForDB(part.designation);
+
+    // ── FIX-6: Check French field (designation_2) first ──────────
+    const frenchName      = this.normalize(part.designation2 || '');
+    const englishName     = this.normalize(part.designation);
+    const searchDesc      = this.normalize(part.searchDescription || '');
+    const auxiliaryText   = this.normalize([
+      part.reference || '',
+      part.categorie || '',
+      part.fabricant || '',
+      part.fournisseurCode || '',
+      ...(part.itemReferences ?? []).map((itemRef: any) => itemRef.referenceNo || ''),
+    ].join(' '));
     const queryNormalized = this.normalizeForDB(context.originalQuery);
 
-    if (designationNormalized === queryNormalized) {
+    // Exact full match checks — prefer French field
+    if (frenchName && this.normalizeForDB(part.designation2 || '') === queryNormalized) {
+      return AdvancedSearchService.SCORE_EXACT_FULL + AdvancedSearchService.SCORE_FRENCH_FIELD_BONUS;
+    }
+    if (searchDesc && this.normalizeForDB(part.searchDescription || '') === queryNormalized) {
+      return AdvancedSearchService.SCORE_EXACT_FULL;
+    }
+    if (this.normalizeForDB(part.designation) === queryNormalized) {
       return AdvancedSearchService.SCORE_EXACT_FULL;
     }
 
-    const queryWords = context.filteredQueryWords;
-    const designationWords = designation.split(' ').filter((w) => w.length >= 1);
-    // userTypedTokens = only the tokens the user actually typed (not synonym-expanded additions)
+    // Determine which text fields to score against
+    // Compatibility is already scoped in the DB query; here we use every
+    // descriptive text field so search_description can add CarPro context.
+    const hasFrenchName = frenchName.length > 0;
+
+    const queryWords     = context.filteredQueryWords;
+    const frenchWords    = frenchName.split(' ').filter((w) => w.length >= 1);
+    const searchDescWords = searchDesc.split(' ').filter((w) => w.length >= 1);
+    const englishWords   = englishName.split(' ').filter((w) => w.length >= 1);
+    const primaryWords   = [...frenchWords, ...searchDescWords, ...englishWords];
+    const auxiliaryWords = auxiliaryText.split(' ').filter((w) => w.length >= 1);
     const userTypedTokens = context.userTypedTokens;
 
-    // ── MAIN PART vs ACCESSORY FILTERING ──────────────────────────────────────
-    const accessoryWords = ['sangle', 'support', 'causse', 'clip', 'jeu', 'kit', 'ensemble', 'set', 'boitier', 'cache', 'couvercle', 'durite', 'tuyau', 'flexible', 'cable', 'câble', 'joint', 'bouchon', 'vis', 'boulon', 'ecrou', 'agrafe', 'agraffe', 'cercle', 'agraffe'];
-    const mainPartWords = ['radiateur', 'moteur', 'alternateur', 'demarreur', 'batterie', 'phare', 'feu', 'porte', 'capot', 'aile', 'retroviseur', 'amortisseur', 'disque', 'plaquette', 'filtre', 'pompe', 'compresseur', 'etrier', 'tambour', 'volant', 'siege', 'tableau'];
-    
-    const userAskedForAccessory = queryWords.some((qw) => accessoryWords.includes(qw));
-    const userAskedForMainPart = queryWords.some((qw) => mainPartWords.includes(qw));
-    const hasAccessoryWord = accessoryWords.some((acc) => designationWords.includes(acc));
-    const hasMainPartWord = mainPartWords.some((main) => designationWords.includes(main));
+    // ── Accessory / main part filtering ─────────────────────────
+    const accessoryWords = ['sangle', 'support', 'causse', 'clip', 'jeu', 'kit', 'ensemble', 'set',
+      'boitier', 'cache', 'couvercle', 'durite', 'tuyau', 'flexible', 'cable', 'câble',
+      'joint', 'bouchon', 'vis', 'boulon', 'ecrou', 'agrafe', 'agraffe', 'cercle'];
+    const mainPartWords = ['radiateur', 'moteur', 'alternateur', 'demarreur', 'batterie', 'phare',
+      'feu', 'porte', 'capot', 'aile', 'retroviseur', 'amortisseur', 'disque', 'plaquette',
+      'filtre', 'pompe', 'compresseur', 'etrier', 'tambour', 'volant', 'siege', 'tableau'];
 
-    // RULE 1: User asked for accessory → BOOST accessories
+    const userAskedForAccessory = queryWords.some((qw) => accessoryWords.includes(qw));
+    const userAskedForMainPart  = queryWords.some((qw) => mainPartWords.includes(qw));
+    const hasAccessoryWord      = accessoryWords.some((acc) => primaryWords.includes(acc));
+    const hasMainPartWord       = mainPartWords.some((main) => primaryWords.includes(main));
+
     if (userAskedForAccessory && hasAccessoryWord) {
-      score += 50000; // Strong boost for matching accessory
+      score += 50000;
     } else if (userAskedForAccessory && !hasAccessoryWord) {
-      score -= 50000; // Penalize non-accessories when user wants accessory
+      score -= 50000;
     }
-    
-    // RULE 2: User asked for main part → PENALIZE accessories heavily
     if (userAskedForMainPart && !userAskedForAccessory) {
       if (hasAccessoryWord && hasMainPartWord) {
-        // Compound part like "DURITE DE RADIATEUR" when user asked "radiateur"
-        // Allow it but score much lower than pure main parts
         score -= 30000;
       } else if (hasAccessoryWord && !hasMainPartWord) {
-        // Pure accessory like "SUPPORT" when user asked "radiateur"
         return AdvancedSearchService.SCORE_REJECTION;
       } else if (!hasAccessoryWord && hasMainPartWord) {
-        // Pure main part like "RADIATEUR" when user asked "radiateur"
-        score += 50000; // Strong boost for pure main parts
+        score += 50000;
       }
     }
-    
+
     const meaningfulQueryWords = queryWords.filter(
-      (w) =>
-        w.length >= 3 &&
-        !['avant', 'arriere', 'gauche', 'droite', 'sup', 'inf', 'para', 'pour', 'avec', 'sans', 'tout', 'tous'].includes(w),
+      (w) => w.length >= 3 && !['avant', 'arriere', 'gauche', 'droite', 'sup', 'inf',
+        'para', 'pour', 'avec', 'sans', 'tout', 'tous'].includes(w),
     );
 
-    // Only require matches for words that originated from the user query (not added by synonym expansion)
     const mandatoryWords = meaningfulQueryWords.filter((w) => userTypedTokens.has(w));
-    const optionalWords = meaningfulQueryWords.filter((w) => !userTypedTokens.has(w));
 
     const positionMap: Record<string, string[]> = {
-      avant: ['avant', 'av'],
-      av: ['avant', 'av'],
-      arriere: ['arriere', 'ar'],
-      ar: ['arriere', 'ar'],
-      gauche: ['gauche', 'g'],
-      g: ['gauche', 'g'],
-      droite: ['droite', 'd', 'droit'],
-      d: ['droite', 'd', 'droit'],
-      droit: ['droite', 'd', 'droit'],
-      superieur: ['superieur', 'sup'],
-      sup: ['superieur', 'sup'],
-      inferieur: ['inferieur', 'inf'],
-      inf: ['inferieur', 'inf'],
+      avant: ['avant', 'av'], av: ['avant', 'av'],
+      arriere: ['arriere', 'ar'], ar: ['arriere', 'ar'],
+      gauche: ['gauche', 'g'], g: ['gauche', 'g'],
+      droite: ['droite', 'd', 'droit'], d: ['droite', 'd', 'droit'], droit: ['droite', 'd', 'droit'],
+      superieur: ['superieur', 'sup'], sup: ['superieur', 'sup'],
+      inferieur: ['inferieur', 'inf'], inf: ['inferieur', 'inf'],
       de: ['de'],
     };
 
@@ -475,28 +948,40 @@ if ((isAlphaNumericRef || isNumericRef) && reference.length >= 8) {
       return false;
     };
 
+    // Check mandatory words against primary text (French or fallback)
     for (const qw of mandatoryWords) {
-      const hasExactMatch = designationWords.some((dw) => dw === qw);
-      const hasPluralMatch = designationWords.some(
-        (dw) => dw === qw + 's' || dw === qw + 'es' || qw === dw + 's' || qw === dw + 'es',
-      );
-      const hasFuzzyMatch = designationWords.some((dw) => this.levenshtein(qw, dw) <= 1);
-      if (!hasExactMatch && !hasPluralMatch && !hasFuzzyMatch) {
+      const hasExact  = primaryWords.some((dw) => dw === qw);
+      const hasPlural = primaryWords.some((dw) => dw === qw + 's' || dw === qw + 'es' || qw === dw + 's' || qw === dw + 'es');
+      const hasFuzzy  = primaryWords.some((dw) => this.levenshtein(qw, dw) <= 1);
+
+      // If not found in primary, check English OEM name as fallback
+      const hasInEnglish = englishWords.some((dw) => dw === qw || this.levenshtein(qw, dw) <= 1);
+      const hasInAuxiliary = auxiliaryWords.some((dw) => dw === qw || this.levenshtein(qw, dw) <= 1);
+
+      if (!hasExact && !hasPlural && !hasFuzzy && !hasInEnglish && !hasInAuxiliary) {
         return AdvancedSearchService.SCORE_REJECTION;
       }
     }
 
     if (context.mainPartType) {
       const partTypeVariants = this.synonymsMap[context.mainPartType] || [context.mainPartType];
-      const hasMainType = partTypeVariants.some((v) => designationWords.some((dw) => wordMatches(v, dw)));
+      const hasMainType = partTypeVariants.some((v) =>
+        primaryWords.some((dw) => wordMatches(v, dw)) ||
+        englishWords.some((dw) => wordMatches(v, dw)),
+      );
       if (!hasMainType) {
         return AdvancedSearchService.SCORE_REJECTION;
       }
       score += AdvancedSearchService.SCORE_MAIN_TYPE_PRESENT;
     }
 
-    const queryNumbers = context.originalQuery.match(/\d+(?:[.,]\d+)?/g) || [];
-    const designationNumbers = part.designation.match(/\d+(?:[.,]\d+)?/g) || [];
+    // Numeric matching
+    const queryNumbers      = context.originalQuery.match(/\d+(?:[.,]\d+)?/g) || [];
+    const designationNumbers = [
+      part.designation2 || '',
+      part.searchDescription || '',
+      part.designation || '',
+    ].join(' ').match(/\d+(?:[.,]\d+)?/g) || [];
 
     if (queryNumbers.length > 0 && designationNumbers.length > 0) {
       const hasNumericMatch = queryNumbers.some((qn) =>
@@ -510,18 +995,18 @@ if ((isAlphaNumericRef || isNumericRef) && reference.length >= 8) {
       if (!hasNumericMatch) {
         return AdvancedSearchService.SCORE_REJECTION;
       }
-      const exactBonus =
-        queryNumbers.filter((qn) =>
-          designationNumbers.some((dn) => {
-            const qNum = parseFloat(qn.replace(',', '.'));
-            const dNum = parseFloat(dn.replace(',', '.'));
-            const qNumAdjusted = qNum >= 100 ? qNum / 100 : qNum;
-            return Math.abs(qNumAdjusted - dNum) < 0.01;
-          }),
-        ).length * AdvancedSearchService.SCORE_NUMERIC_EXACT;
+      const exactBonus = queryNumbers.filter((qn) =>
+        designationNumbers.some((dn) => {
+          const qNum = parseFloat(qn.replace(',', '.'));
+          const dNum = parseFloat(dn.replace(',', '.'));
+          const qNumAdjusted = qNum >= 100 ? qNum / 100 : qNum;
+          return Math.abs(qNumAdjusted - dNum) < 0.01;
+        }),
+      ).length * AdvancedSearchService.SCORE_NUMERIC_EXACT;
       score += exactBonus;
     }
 
+    // Word-level match count
     let matchCount = 0;
     const matchedWords = new Set<string>();
 
@@ -530,9 +1015,31 @@ if ((isAlphaNumericRef || isNumericRef) && reference.length >= 8) {
       const withPlural = [...variants, ...variants.map((v) => v + 's'), ...variants.map((v) => v + 'es')];
       const fuzzyMatches = this.findFuzzyMatches(qw);
       const allVariants = [...withPlural, ...fuzzyMatches];
-      if (allVariants.some((v) => designationWords.some((dw) => wordMatches(v, dw)))) {
+
+      // FIX-6: Check French field first, give bonus if matched there
+      const matchedInFrench = hasFrenchName && allVariants.some((v) =>
+        frenchWords.some((dw) => wordMatches(v, dw)),
+      );
+      const matchedInSearchDescription = allVariants.some((v) =>
+        searchDescWords.some((dw) => wordMatches(v, dw)),
+      );
+      const matchedInEnglish = allVariants.some((v) =>
+        englishWords.some((dw) => wordMatches(v, dw)),
+      );
+      const matchedInAuxiliary = allVariants.some((v) =>
+        auxiliaryWords.some((dw) => wordMatches(v, dw)),
+      );
+
+      if (matchedInFrench || matchedInSearchDescription || matchedInEnglish || matchedInAuxiliary) {
         matchCount++;
         matchedWords.add(qw);
+        if (matchedInFrench) {
+          score += AdvancedSearchService.SCORE_FRENCH_FIELD_BONUS / queryWords.length;
+        } else if (matchedInSearchDescription) {
+          score += 1000;
+        } else if (matchedInAuxiliary) {
+          score += 500;
+        }
       }
     });
 
@@ -540,138 +1047,210 @@ if ((isAlphaNumericRef || isNumericRef) && reference.length >= 8) {
       return AdvancedSearchService.SCORE_REJECTION;
     }
 
+    // Validate important mandatory words
     const importantQueryWords = queryWords.filter(
-      (w) =>
-        w.length > 2 &&
-        !['avant', 'arriere', 'gauche', 'droite', 'av', 'ar', 'g', 'd', 'sup', 'inf', 'para', 'de'].includes(w),
+      (w) => w.length > 2 && !['avant', 'arriere', 'gauche', 'droite', 'av', 'ar', 'g', 'd', 'sup', 'inf', 'para', 'de'].includes(w),
     );
-    // Only enforce important words that were present in the original user query
-    const importantMandatory = importantQueryWords.filter((w) => userTypedTokens.has(w));
+    const importantMandatory    = importantQueryWords.filter((w) => userTypedTokens.has(w));
     const missingImportantWords = importantMandatory.filter((w) => !matchedWords.has(w));
+
     if (missingImportantWords.length > 0) {
       const hasFuzzyMatch = missingImportantWords.every((mw) => {
         const fuzzy = this.findFuzzyMatches(mw);
-        return fuzzy.some((f) => designationWords.some((dw) => wordMatches(f, dw)));
+        return fuzzy.some((f) =>
+          primaryWords.some((dw) => wordMatches(f, dw)) ||
+          englishWords.some((dw) => wordMatches(f, dw)) ||
+          auxiliaryWords.some((dw) => wordMatches(f, dw)),
+        );
       });
       if (!hasFuzzyMatch) {
         return AdvancedSearchService.SCORE_REJECTION;
       }
     }
 
+    // Double-letter checks (ff, pp, ll)
     for (const qw of queryWords) {
-      const hasDoubleF = qw.includes('ff');
-      const hasDoubleP = qw.includes('pp');
-      const hasDoubleL = qw.includes('ll');
-      if (hasDoubleF || hasDoubleP || hasDoubleL) {
-        const designationHasDoubleF = designationWords.some((dw) => dw.includes('ff'));
-        const designationHasDoubleP = designationWords.some((dw) => dw.includes('pp'));
-        const designationHasDoubleL = designationWords.some((dw) => dw.includes('ll'));
-        if (hasDoubleF && !designationHasDoubleF) return AdvancedSearchService.SCORE_REJECTION;
-        if (hasDoubleP && !designationHasDoubleP) return AdvancedSearchService.SCORE_REJECTION;
-        if (hasDoubleL && !designationHasDoubleL) return AdvancedSearchService.SCORE_REJECTION;
+      if (qw.includes('ff') || qw.includes('pp') || qw.includes('ll')) {
+        const checkWords = [...primaryWords, ...englishWords];
+        if (qw.includes('ff') && !checkWords.some((dw) => dw.includes('ff'))) return AdvancedSearchService.SCORE_REJECTION;
+        if (qw.includes('pp') && !checkWords.some((dw) => dw.includes('pp'))) return AdvancedSearchService.SCORE_REJECTION;
+        if (qw.includes('ll') && !checkWords.some((dw) => dw.includes('ll'))) return AdvancedSearchService.SCORE_REJECTION;
       }
     }
 
-    if (matchCount === queryWords.length && designationWords.length === queryWords.length) {
-      return AdvancedSearchService.SCORE_EXACT_FULL;
+    if (matchCount === queryWords.length && primaryWords.length === queryWords.length) {
+      return AdvancedSearchService.SCORE_EXACT_FULL + (hasFrenchName ? AdvancedSearchService.SCORE_FRENCH_FIELD_BONUS : 0);
     }
     if (matchCount === queryWords.length) {
       score += AdvancedSearchService.SCORE_ALL_WORDS_MATCH;
     }
 
-    const extraWords = designationWords.length - queryWords.length;
+    const extraWords = primaryWords.length - queryWords.length;
     score += 50000 - extraWords * 2000;
     return score;
   }
 
   private calculatePositionMatches(part: any, positionInfo: PositionRequirements): number {
     let score = 0;
-    const designationTokens = this.normalize(part.designation).split(/[\s-]+/).filter(Boolean);
-    const hasAvant = this.hasAnyToken(designationTokens, ['avant', 'av', 'front', 'fr', 'avg', 'avd']);
+    // FIX-2: Check position in both French and English fields
+    const textToCheck = [
+      part.designation2 || '',
+      part.designation,
+      part.searchDescription || '',
+    ].join(' ');
+    const designationTokens = this.normalize(textToCheck).split(/[\s-]+/).filter(Boolean);
+
+    const hasAvant   = this.hasAnyToken(designationTokens, ['avant', 'av', 'front', 'fr', 'avg', 'avd']);
     const hasArriere = this.hasAnyToken(designationTokens, ['arriere', 'ar', 'rear', 'rr', 'arg', 'ard']);
-    const hasGauche = this.hasAnyToken(designationTokens, ['gauche', 'g', 'conducteur', 'left', 'lh', 'avg', 'arg']);
-    const hasDroite = this.hasAnyToken(designationTokens, ['droite', 'd', 'passager', 'droit', 'right', 'rh', 'avd', 'ard']);
+    const hasGauche  = this.hasAnyToken(designationTokens, ['gauche', 'g', 'conducteur', 'left', 'lh', 'avg', 'arg', 'lh']);
+    const hasDroite  = this.hasAnyToken(designationTokens, ['droite', 'd', 'passager', 'droit', 'right', 'rh', 'avd', 'ard', 'rh']);
 
-    if (positionInfo.avant && !hasAvant && hasArriere) return -100000;
-    if (positionInfo.arriere && !hasArriere && hasAvant) return -100000;
-    if (positionInfo.gauche && !hasGauche && hasDroite) return -100000;
-    if (positionInfo.droite && !hasDroite && hasGauche) return -100000;
+    if (positionInfo.avant   && !hasAvant   && hasArriere) return -100000;
+    if (positionInfo.arriere && !hasArriere && hasAvant  ) return -100000;
+    if (positionInfo.gauche  && !hasGauche  && hasDroite ) return -100000;
+    if (positionInfo.droite  && !hasDroite  && hasGauche ) return -100000;
 
-    if (positionInfo.avant && hasAvant) score += 500;
+    if (positionInfo.avant   && hasAvant  ) score += 500;
     if (positionInfo.arriere && hasArriere) score += 500;
-    if (positionInfo.gauche && hasGauche) score += 500;
-    if (positionInfo.droite && hasDroite) score += 500;
+    if (positionInfo.gauche  && hasGauche ) score += 500;
+    if (positionInfo.droite  && hasDroite ) score += 500;
 
-    if (positionInfo.avant && hasArriere) score -= 100000;
-    if (positionInfo.arriere && hasAvant) score -= 100000;
-    if (positionInfo.gauche && hasDroite) score -= 100000;
-    if (positionInfo.droite && hasGauche) score -= 100000;
+    if (positionInfo.avant   && hasArriere) score -= 100000;
+    if (positionInfo.arriere && hasAvant  ) score -= 100000;
+    if (positionInfo.gauche  && hasDroite ) score -= 100000;
+    if (positionInfo.droite  && hasGauche ) score -= 100000;
 
     return score;
   }
 
   private hasAnyToken(tokens: string[], expected: string[]): boolean {
-    return expected.some(token => tokens.includes(token));
+    return expected.some((token) => tokens.includes(token));
   }
 
   private calculateBusinessScores(part: any, context: SearchContext): number {
     let score = 0;
-    if (part.stock?.statut === 'Disponible') score += 8;
-    if (
-      context.originalQuery.toLowerCase().includes('celerio') &&
-      part.designation.toLowerCase().includes('celerio')
-    ) {
+    if (this.isStockAvailable(part.stock)) score += 8;
+    // FIX-3: CarPro Parts stock is equally valid — no source-based penalty
+    const queryLower = context.originalQuery.toLowerCase();
+    if (queryLower.includes('celerio') && (part.designation2 || part.designation).toLowerCase().includes('celerio')) {
       score += 50;
     }
     return score;
   }
 
-  private getMinimumScore(context: SearchContext): number {
-    return 0;
+  // ─── REFERENCE SEARCH ───────────────────────────────────────────
+  private async searchByReference(reference: string, vehicle?: any): Promise<PartResult[]> {
+    const cleanRef   = reference.replace(/[^A-Z0-9]/gi, '').toUpperCase();
+    const originalRef = reference.toUpperCase();
+    const vehicleScope = await this.resolveVehicleScope(vehicle);
+    const compatibilityWhere = this.buildCompatibilityWhere(vehicleScope);
+
+    this.logger.log(`[SEARCH] Searching for reference: original="${originalRef}", clean="${cleanRef}"`);
+
+    const include = {
+      stock: { select: { statut: true, totalQuantity: true, stockDisponible: true, stockConsolide: true } },
+      fitments: { select: { modelName: true, typeCode: true } },
+      itemReferences: { select: { referenceNo: true, referenceType: true } },
+    } as const;
+
+    let results = await this.prisma.part.findMany({
+      where: {
+        AND: [
+          {
+            OR: [
+              { reference: { equals: originalRef, mode: 'insensitive' } },
+              { reference: { equals: cleanRef,    mode: 'insensitive' } },
+            ],
+          },
+          ...(vehicleScope.active ? [compatibilityWhere] : []),
+        ],
+      },
+      include,
+      take: 5,
+    });
+
+    if (results.length === 0) {
+      const altRefs = await this.prisma.itemReference.findMany({
+        where: {
+          AND: [
+            {
+              OR: [
+                { referenceNo: { equals: originalRef, mode: 'insensitive' } },
+                { referenceNo: { equals: cleanRef,    mode: 'insensitive' } },
+              ],
+            },
+            ...(vehicleScope.active ? [{ part: compatibilityWhere }] : []),
+          ],
+        },
+        include: { part: { include } },
+        take: 5,
+      });
+      results = altRefs.map((r) => r.part);
+    }
+
+    if (results.length === 0) {
+      results = await this.prisma.part.findMany({
+        where: {
+          AND: [
+            {
+              OR: [
+                { reference: { contains: cleanRef,    mode: 'insensitive' } },
+                { reference: { contains: originalRef, mode: 'insensitive' } },
+                { itemReferences: { some: { referenceNo: { contains: cleanRef, mode: 'insensitive' } } } },
+                { itemReferences: { some: { referenceNo: { contains: originalRef, mode: 'insensitive' } } } },
+              ],
+            },
+            ...(vehicleScope.active ? [compatibilityWhere] : []),
+          ],
+        },
+        include,
+        take: 10,
+      });
+    }
+
+    this.logger.log(`[SEARCH] Reference search found ${results.length} results`);
+    const mappedRefResults = results.map((part) => this.formatPartResult(part, 1000, vehicleScope));
+    // FIX-7 (debug): reference-lookup path gets its own trace shape —
+    // there are no tokens/synonyms/scoring here, just a direct lookup.
+    this.lastSearchDebug = {
+      searchType:         'reference',
+      originalQuery:      reference,
+      normalizedQuery:    cleanRef,
+      hasTunisianDialect: false,
+      rawTokens:          [reference],
+      expandedTerms:      [cleanRef],
+      mainPartType:       null,
+      positionInfo:       { avant: false, arriere: false, gauche: false, droite: false },
+      fieldsSearched:     ['reference', 'item_references.reference_no'],
+      tablesQueried:      vehicleScope.active
+        ? ['vehicles', 'vehicle_model_map', 'vehicle_type_master', 'parts', 'stock', 'fitment', 'item_references']
+        : ['parts', 'stock', 'fitment', 'item_references'],
+      dbRawCount:         mappedRefResults.length,
+      qualifiedCount:     mappedRefResults.length,
+      finalCount:         mappedRefResults.length,
+      vehicleScope,
+      ...this.computeSourceAndStockBreakdown(mappedRefResults),
+    };
+    return mappedRefResults;
   }
 
-  private calculateOptimalResultLimit(context: SearchContext, availableResults: number): number {
-    return Math.min(availableResults, 10);
-  }
-
-  private normalize(text: string): string {
-    return text
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^a-z0-9\s-]/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-  }
-
-  private normalizeForDB(text: string): string {
-    return text
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[(),:'\.\-]/g, '')
-      .replace(/\s+/g, '')
-      .trim();
-  }
-
+  // ─── TOKENIZATION ────────────────────────────────────────────────
   private async tokenize(text: string, preserveShort = false): Promise<string[]> {
     if (!text || text.trim().length === 0) return [];
 
     if (!text.includes(' ') && text.length > 6) {
       const segmented = await this.segmentConcatenatedQuery(text);
       if (segmented.length > 1) {
-        this.logger.log(`[TOKENIZE] Segmented "${text}" → [${segmented.join(', ')}]`);
         text = segmented.join(' ');
       }
     }
 
-    let parts = text.split(' ').map(p => p.trim()).filter(Boolean);
-    // 🆕 Remove database‑driven stop‑words
+    let parts = text.split(' ').map((p) => p.trim()).filter(Boolean);
     const stopWords = this.synonymsService.getStopWords();
-    parts = parts.filter(token => !stopWords.has(token));
+    parts = parts.filter((token) => !stopWords.has(token));
 
     if (preserveShort) return parts;
-    return parts.filter(t => t.length > 2);
+    return parts.filter((t) => t.length > 2);
   }
 
   private async segmentConcatenatedQuery(text: string): Promise<string[]> {
@@ -700,17 +1279,13 @@ Segmented:`;
           max_tokens: 100,
         },
         {
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${this.openaiKey}`,
-          },
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${this.openaiKey}` },
           timeout: 5000,
         },
       );
 
       this.aiSegmentationFailCount = 0;
       this.aiSegmentationAvailable = true;
-
       const segmented = response.data.choices?.[0]?.message?.content?.trim() || text;
       const words = segmented.split(/\s+/).filter(Boolean);
       this.logger.log(`[AI-SEGMENT] "${text}" → [${words.join(', ')}]`);
@@ -719,11 +1294,7 @@ Segmented:`;
       this.aiSegmentationFailCount++;
       if (this.aiSegmentationFailCount >= AdvancedSearchService.AI_FAIL_THRESHOLD) {
         this.aiSegmentationAvailable = false;
-        this.logger.error(
-          `[AI-SEGMENT] Circuit open after ${this.aiSegmentationFailCount} failures — using fallback only`,
-        );
-      } else {
-        this.logger.error(`[AI-SEGMENT] Error (attempt ${this.aiSegmentationFailCount}): ${error.message}`);
+        this.logger.error(`[AI-SEGMENT] Circuit open after ${this.aiSegmentationFailCount} failures`);
       }
       return this.fallbackSegmentation(text);
     }
@@ -739,12 +1310,10 @@ Segmented:`;
     const segments: string[] = [];
     let remaining = text.toLowerCase();
     let attempts = 0;
-    const maxAttempts = 50;
 
-    while (remaining.length > 0 && attempts < maxAttempts) {
+    while (remaining.length > 0 && attempts < 50) {
       attempts++;
       let found = false;
-
       for (const word of knownWords) {
         if (remaining.startsWith(word) && word.length >= 2) {
           segments.push(word);
@@ -753,27 +1322,20 @@ Segmented:`;
           break;
         }
       }
-
       if (!found && remaining.length >= 1 && ['g', 'd', 'b', 'h'].includes(remaining[0])) {
         segments.push(remaining[0]);
         remaining = remaining.slice(1);
         found = true;
       }
-      if (!found && remaining.length >= 2) {
-        const twoLetter = remaining.slice(0, 2);
-        if (['av', 'ar'].includes(twoLetter)) {
-          segments.push(twoLetter);
-          remaining = remaining.slice(2);
-          found = true;
-        }
+      if (!found && remaining.length >= 2 && ['av', 'ar'].includes(remaining.slice(0, 2))) {
+        segments.push(remaining.slice(0, 2));
+        remaining = remaining.slice(2);
+        found = true;
       }
-      if (!found && remaining.length >= 3) {
-        const threeLetter = remaining.slice(0, 3);
-        if (['sup', 'inf', 'int', 'ext'].includes(threeLetter)) {
-          segments.push(threeLetter);
-          remaining = remaining.slice(3);
-          found = true;
-        }
+      if (!found && remaining.length >= 3 && ['sup', 'inf', 'int', 'ext'].includes(remaining.slice(0, 3))) {
+        segments.push(remaining.slice(0, 3));
+        remaining = remaining.slice(3);
+        found = true;
       }
       if (!found) {
         if (segments.length === 0) return [text];
@@ -782,62 +1344,79 @@ Segmented:`;
       }
     }
 
-    if (remaining.length > 0 && segments.length === 0) {
-      const reversed = text.split('').reverse().join('');
-      const revSegments = this.fallbackSegmentation(reversed);
-      if (revSegments.length > 1) {
-        return revSegments.map((s) => s.split('').reverse().join('')).reverse();
-      }
-    }
-
     return segments.length > 1 ? segments : [text];
   }
 
+  // ─── SYNONYM EXPANSION ──────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────
+  // BUGFIX-6: expandWithSynonymsContextual
+  //
+  // ROOT CAUSE OF "capot" → "cache" BUG:
+  // The synonyms table (DB-seeded, 1780 rows) contained a bad row:
+  //   mot='capot', canonical='cache'
+  // findPrimaryCategory('capot') returned 'cache', silently REPLACING
+  // a valid, already-known part type ("capot" exists in typeWeights at
+  // weight 1.2) with the wrong category. The search then ran on "cache"
+  // instead of "capot", returning completely unrelated parts
+  // ("cache soupape", "cache ventilateur") which StrictValidatorService
+  // correctly rejected — resulting in 0 results for a part that exists
+  // in the catalog.
+  //
+  // FIX: If a token is ALREADY a recognized part type in typeWeights,
+  // it is authoritative and must NEVER be silently replaced by a DB
+  // synonym category lookup. DB synonym expansion is only valid for
+  // typo correction / dialect translation of UNKNOWN tokens — not for
+  // overriding tokens we already understand correctly.
+  // ─────────────────────────────────────────────────────────────────
   private expandWithSynonymsContextual(tokens: string[], originalQuery: string): string[] {
     const expanded = new Set<string>();
 
     tokens.forEach((token) => {
       const hasDoubleLetters = token.includes('ff') || token.includes('pp') || token.includes('ll');
-      const normalizedToken = this.normalize(token);
-      const isKnown = this.normalizedSynonymLookup[normalizedToken] !== undefined;
+      const normalizedToken  = this.normalize(token);
+      const isKnown          = this.normalizedSynonymLookup[normalizedToken] !== undefined;
+      const isPartType       = Object.keys(this.typeWeights).includes(token);
+      let addedByExpansion   = false;
 
-      let addedByExpansion = false;
+      // BUGFIX-6: A token that is already a known, correct part type
+      // (e.g. "capot", "porte", "aile") is kept AS-IS. We do not run
+      // fuzzy-match typo correction or DB synonym category lookup on
+      // it, because both can incorrectly override a perfectly valid
+      // and unambiguous term with a wrong DB-seeded mapping.
+      if (isPartType) {
+        expanded.add(token);
+        return;
+      }
 
-      // Fuzzy matches (typo corrections) — if found, add the correction but do NOT keep the original token
-      // If the token is a known car-part type (even if not in synonyms), keep it
-      const isPartType = Object.keys(this.typeWeights).includes(token);
-
-      if (!isKnown && !hasDoubleLetters && !isPartType) {
+      if (!isKnown && !hasDoubleLetters) {
         const fuzzyMatches = this.findFuzzyMatches(token);
         if (fuzzyMatches.length > 0) {
           const validFuzzy = fuzzyMatches.filter((fm) => {
-            const tokenHasFF = token.includes('ff');
-            const tokenHasPP = token.includes('pp');
-            const tokenHasLL = token.includes('ll');
-            const fmHasFF = fm.includes('ff');
-            const fmHasPP = fm.includes('pp');
-            const fmHasLL = fm.includes('ll');
-            return tokenHasFF === fmHasFF && tokenHasPP === fmHasPP && tokenHasLL === fmHasLL;
+            return (
+              token.includes('ff') === fm.includes('ff') &&
+              token.includes('pp') === fm.includes('pp') &&
+              token.includes('ll') === fm.includes('ll')
+            );
           });
           if (validFuzzy.length > 0) {
             expanded.add(validFuzzy[0]);
             addedByExpansion = true;
-            // Do NOT keep original typo token — it would poison scoring
             return;
           }
         }
       }
 
-      // If token maps to a primary canonical category, add the category and drop the original token
+      // BUGFIX-6: DB synonym category lookup only runs for tokens that
+      // are NOT already a recognized part type (handled above via the
+      // early return). This prevents bad DB data (e.g. capot→cache)
+      // from silently corrupting a query that was already correct.
       const primaryCategory = this.findPrimaryCategory(token);
       if (primaryCategory) {
         expanded.add(primaryCategory);
         addedByExpansion = true;
-        // Do NOT add original token — canonical replaces it
         return;
       }
 
-      // If nothing else added the token, keep the original user token
       if (!addedByExpansion) {
         expanded.add(token);
       }
@@ -861,15 +1440,7 @@ Segmented:`;
 
     for (const word of knownWords) {
       if (word === token || word.length < 3) continue;
-      if (
-        word.length === token.length &&
-        word[0] === token[1] &&
-        word[1] === token[0] &&
-        word.slice(2) === token.slice(2)
-      ) {
-        matches.push(word);
-        continue;
-      }
+      if (word.length === token.length && word[0] === token[1] && word[1] === token[0] && word.slice(2) === token.slice(2)) { matches.push(word); continue; }
       if (word.includes(token) && word.length - token.length <= 2) { matches.push(word); continue; }
       if (token.includes(word) && token.length - word.length <= 2) { matches.push(word); continue; }
       if (word.length === token.length + 1 && word.slice(1) === token) { matches.push(word); continue; }
@@ -877,10 +1448,7 @@ Segmented:`;
       if (word.length === token.length && word.slice(1) === token.slice(1)) { matches.push(word); continue; }
       if (token.length >= 4 && token[0] === token[1]) {
         const withoutDouble = token[0] + token.slice(2);
-        if (word === withoutDouble || this.levenshtein(word, withoutDouble) <= 1) {
-          matches.push(word);
-          continue;
-        }
+        if (word === withoutDouble || this.levenshtein(word, withoutDouble) <= 1) { matches.push(word); continue; }
       }
       const distance = this.levenshtein(word, token);
       if (distance <= 2 && Math.abs(word.length - token.length) <= 2 && word.length >= 4) {
@@ -896,10 +1464,8 @@ Segmented:`;
         if (knownWords.includes(singularEs)) matches.push(singularEs);
       }
     } else {
-      const pluralS = token + 's';
-      const pluralEs = token + 'es';
-      if (knownWords.includes(pluralS)) matches.push(pluralS);
-      if (knownWords.includes(pluralEs)) matches.push(pluralEs);
+      if (knownWords.includes(token + 's'))  matches.push(token + 's');
+      if (knownWords.includes(token + 'es')) matches.push(token + 'es');
     }
 
     const result = [...new Set(matches)];
@@ -935,7 +1501,6 @@ Segmented:`;
     if (normalized.includes('triangle') || normalized.includes('triangl')) {
       return '';
     }
-
     const tunisianMap = this.synonymsService.getTunisianMap();
     let result = query.toLowerCase();
     for (const [tunisian, french] of Object.entries(tunisianMap)) {
@@ -943,7 +1508,6 @@ Segmented:`;
       const regex = new RegExp(`\\b${escaped}\\b`, 'gi');
       result = result.replace(regex, french);
     }
-
     return result !== query.toLowerCase() ? result : '';
   }
 
@@ -951,66 +1515,28 @@ Segmented:`;
     return tokens.some((t) => positions.includes(t));
   }
 
-  private async searchByReference(reference: string, vehicle?: any): Promise<any[]> {
-    const cleanRef = reference.replace(/[^A-Z0-9]/gi, '').toUpperCase();
-    const originalRef = reference.toUpperCase();
+  private normalize(text: string): string {
+    return text
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9\s-]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
 
-    this.logger.log(`[SEARCH] Searching for reference: original="${originalRef}", clean="${cleanRef}"`);
-
-    const include = {
-      stock: { select: { statut: true } },
-      fitments: { select: { modelName: true, typeCode: true } },
-    } as const;
-
-    let results = await this.prisma.part.findMany({
-      where: {
-        OR: [
-          { reference: { equals: originalRef, mode: 'insensitive' } },
-          { reference: { equals: cleanRef, mode: 'insensitive' } },
-        ],
-      },
-      include,
-      take: 5,
-    });
-
-    if (results.length === 0) {
-      const altRefs = await this.prisma.itemReference.findMany({
-        where: {
-          OR: [
-            { referenceNo: { equals: originalRef, mode: 'insensitive' } },
-            { referenceNo: { equals: cleanRef, mode: 'insensitive' } },
-          ],
-        },
-        include: { part: { include } },
-        take: 5,
-      });
-      results = altRefs.map((r) => r.part);
-    }
-
-    if (results.length === 0) {
-      results = await this.prisma.part.findMany({
-        where: {
-          OR: [
-            { reference: { contains: cleanRef, mode: 'insensitive' } },
-            { reference: { contains: originalRef, mode: 'insensitive' } },
-          ],
-        },
-        include,
-        take: 10,
-      });
-    }
-
-    this.logger.log(`[SEARCH] Reference search found ${results.length} results`);
-    if (results.length > 0) {
-      this.logger.log(`[SEARCH] First result: ${results[0].reference} - ${results[0].designation}`);
-    }
-    return results.map((part) => ({ ...part, score: 1000 }));
+  private normalizeForDB(text: string): string {
+    return text
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[(),:'\.\-]/g, '')
+      .replace(/\s+/g, '')
+      .trim();
   }
 
   getSearchStats(): { totalSynonyms: number } {
-    return {
-      totalSynonyms: Object.keys(this.synonymsMap).length,
-    };
+    return { totalSynonyms: Object.keys(this.synonymsMap).length };
   }
 
   getSynonymMap(): Record<string, string[]> {
