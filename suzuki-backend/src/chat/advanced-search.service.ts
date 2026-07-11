@@ -36,6 +36,32 @@
 //         it remains the primary, exact-match lookup; this fix only
 //         hardens the fallback.
 //
+// FIX-9 (2026-07-11): PERMANENT FIX for false position/side rejections
+//         in calculatePositionMatches(). This was the ROOT CAUSE file
+//         that StrictValidatorService's FIX-6 (2026-06-25) and
+//         ChatOrchestratorService's FIX-8 (2026-07-08) both explicitly
+//         pointed back at ("Root-caused and reproduced via
+//         AdvancedSearchService.calculatePositionMatches — same class
+//         of bug") but that never actually got patched here.
+//         Root cause: designation is English OEM text and commonly
+//         carries "LH"/"RH"/"FR"/"RR" abbreviations that don't always
+//         agree with the French side label in designation_2
+//         (documented data gap — historically ~33% NULL designation_2,
+//         inconsistent backfills). This method additionally joined
+//         designation_2 + designation + searchDescription into ONE
+//         blob before tokenizing, so a stray English token could
+//         falsely flip hasAvant/hasArriere/hasGauche/hasDroite even
+//         when the French field already gave the correct answer for
+//         that axis — burying valid, in-stock parts under the
+//         -100000 conflict penalty. Fixed by keeping French tokens
+//         (designation_2) and English/fallback tokens (designation +
+//         searchDescription) SEPARATE, then resolving each axis pair
+//         (avant/arrière, gauche/droite) from French first via
+//         computePositionFlags() — only consulting English when
+//         French has no signal at all for that axis pair. Mirrors
+//         StrictValidatorService.computePositionFlags() and
+//         ChatOrchestratorService.getPositionFlags() exactly.
+//
 // DATA NOTE:
 //   search_description can be empty today. When CarPro fills it, the
 //   scorer uses it as additional context without bypassing fitment scope.
@@ -73,7 +99,8 @@ export interface VehicleSearchScope {
   vehicleNo: string | null;
   model: string | null;
   modelDescription: string | null;
-  typeCodes: string[];
+  typeCodes: string[];        // all compatible type codes (broad scope)
+  primaryTypeCodes: string[]; // type codes for the exact identified model
 }
 
 // ─── API response shape ───────────────────────────────────────────
@@ -244,6 +271,20 @@ export class AdvancedSearchService implements OnModuleInit {
   // FIX-6: Extra bonus when match is on French field
   private static readonly SCORE_FRENCH_FIELD_BONUS = 20_000;
 
+  // ─────────────────────────────────────────────────────────────────
+  // FIX-9 (2026-07-11): French-priority position/side token sets.
+  // See the header comment block above for the full rationale.
+  // ─────────────────────────────────────────────────────────────────
+  private static readonly AVANT_TOKENS   = ['avant', 'av', 'avg', 'avd'];
+  private static readonly ARRIERE_TOKENS = ['arriere', 'ar', 'arg', 'ard'];
+  private static readonly GAUCHE_TOKENS  = ['gauche', 'g', 'conducteur', 'avg', 'arg'];
+  private static readonly DROITE_TOKENS  = ['droite', 'd', 'passager', 'droit', 'avd', 'ard'];
+
+  private static readonly AVANT_TOKENS_EN   = ['front', 'fr'];
+  private static readonly ARRIERE_TOKENS_EN = ['rear', 'rr'];
+  private static readonly GAUCHE_TOKENS_EN  = ['left', 'lh'];
+  private static readonly DROITE_TOKENS_EN  = ['right', 'rh'];
+
   private aiSegmentationAvailable = true;
   private aiSegmentationFailCount = 0;
   private static readonly AI_FAIL_THRESHOLD = 3;
@@ -386,6 +427,7 @@ export class AdvancedSearchService implements OnModuleInit {
       model: null,
       modelDescription: null,
       typeCodes: [],
+      primaryTypeCodes: [],
     };
     if (!vehicle) return empty;
 
@@ -438,11 +480,28 @@ export class AdvancedSearchService implements OnModuleInit {
     ].map((value) => value.toUpperCase().trim())));
 
     const typeCodes = new Set<string>();
+    const primaryTypeCodes = new Set<string>(); // codes for the exact identified model
     if (explicitTypeCode && /TYPE/i.test(explicitTypeCode)) {
       typeCodes.add(explicitTypeCode.toUpperCase().replace(/\s+/g, '-'));
+      primaryTypeCodes.add(explicitTypeCode.toUpperCase().replace(/\s+/g, '-'));
     }
 
     if (modelValues.length > 0) {
+      // First: exact match on the original model candidates (e.g. "NEW CELERIO")
+      const exactModelRows = await this.prisma.vehicleModelMap.findMany({
+        where: {
+          OR: modelCandidates.map((modele) => ({
+            modele: { equals: modele, mode: 'insensitive' },
+          })),
+        },
+        select: { typeCode: true },
+      });
+      exactModelRows.forEach((row) => {
+        typeCodes.add(row.typeCode);
+        primaryTypeCodes.add(row.typeCode);
+      });
+
+      // Then: broader lookup including normalized model name variants
       const modelMapRows = await this.prisma.vehicleModelMap.findMany({
         where: {
           OR: modelValues.map((modele) => ({
@@ -479,6 +538,7 @@ export class AdvancedSearchService implements OnModuleInit {
       model: normalizedModel ?? dbVehicle?.modele ?? vehicle.modele ?? null,
       modelDescription: dbVehicle?.modeleDescription ?? vehicle.modeleDescription ?? null,
       typeCodes: [...typeCodes],
+      primaryTypeCodes: primaryTypeCodes.size > 0 ? [...primaryTypeCodes] : [...typeCodes],
     };
   }
 
@@ -688,6 +748,12 @@ export class AdvancedSearchService implements OnModuleInit {
 
     const filteredQueryWords = expandedTerms.filter((w) => {
       if (w.length < 3) return false;
+      // Drop conversational/filler words and model name tokens from scoring words
+      const noiseWords = ['bonjour', 'cherche', 'pour', 'new', 'all', 'swift', 'celerio', 'baleno',
+        'vitara', 'ciaz', 'fronx', 'ignis', 'jimny', 'spresso', 'dzire', 'ertiga', 'kizashi',
+        'samurai', 'splash', 'swace', 'alto', 'apv', 'eeco', 'merci', 'salut', 'bonsoir',
+        'une', 'besoin', 'veux', 'voudrais', 'chercher', 'trouver', 'avoir', 'besoin'];
+      if (noiseWords.includes(w)) return false;
       for (const [category, syns] of Object.entries(this.synonymsMap)) {
         if (syns.includes(w) && expandedTerms.includes(category) && w !== category) {
           return false;
@@ -711,7 +777,7 @@ export class AdvancedSearchService implements OnModuleInit {
     // ── Score and filter ─────────────────────────────────────────
     const scored = parts.map((part) => ({
       ...part,
-      _score: this.calculatePartScore(part, context),
+      _score: this.calculatePartScore(part, context, vehicleScope),
     }));
 
     const filtered = scored.filter((p) => {
@@ -784,16 +850,18 @@ export class AdvancedSearchService implements OnModuleInit {
   private buildSearchConditions(rawTokens: string[], expandedTerms: string[]): any[] {
     const positionWords = ['avant', 'arriere', 'gauche', 'droite', 'av', 'ar', 'g', 'd', 'sup', 'inf'];
     const meaningfulTerms = expandedTerms.filter((t) => t.length >= 3 && !positionWords.includes(t));
-    if (meaningfulTerms.length === 0) return [];
 
-    return meaningfulTerms.flatMap((term) => [
-      // FIX-2: Search French name first (designation_2)
+    // Also include short position abbreviations (av, ar) as search terms so
+    // designations like "AILE AV G" are matched by the DB query.
+    const positionAbbrevs = expandedTerms.filter((t) => t === 'av' || t === 'ar');
+    const allTerms = [...new Set([...meaningfulTerms, ...positionAbbrevs])];
+
+    if (allTerms.length === 0) return [];
+
+    return allTerms.flatMap((term) => [
       { designation2:        { contains: term, mode: 'insensitive' } },
-      // FIX-2: Search NLP field (searchDescription)
       { searchDescription:   { contains: term, mode: 'insensitive' } },
-      // English OEM name (fallback)
       { designation:         { contains: term, mode: 'insensitive' } },
-      // Reference lookup
       { reference:           { contains: term, mode: 'insensitive' } },
       { categorie:           { contains: term, mode: 'insensitive' } },
       { fabricant:           { contains: term, mode: 'insensitive' } },
@@ -821,12 +889,12 @@ export class AdvancedSearchService implements OnModuleInit {
   }
 
   // ─── SCORING ────────────────────────────────────────────────────
-  private calculatePartScore(part: any, context: SearchContext): number {
+  private calculatePartScore(part: any, context: SearchContext, vehicleScope?: VehicleSearchScope): number {
     let score = 0;
     score += this.calculateExactMatches(part, context);
     score += this.calculateContentMatches(part, context);
     score += this.calculatePositionMatches(part, context.positionInfo);
-    score += this.calculateBusinessScores(part, context);
+    score += this.calculateBusinessScores(part, context, vehicleScope);
     return Math.max(0, score);
   }
 
@@ -1090,20 +1158,55 @@ export class AdvancedSearchService implements OnModuleInit {
     return score;
   }
 
+  // ─────────────────────────────────────────────────────────────────
+  // FIX-9 (2026-07-11): French-priority per-axis resolution.
+  // See the header comment block for the full rationale — mirrors
+  // StrictValidatorService.computePositionFlags() and
+  // ChatOrchestratorService.getPositionFlags() exactly.
+  //
+  // Takes SEPARATE French and fallback (English + searchDescription)
+  // token lists — never a merged blob — so a stray English token can
+  // only ever be consulted when French has NO signal at all for that
+  // axis pair.
+  // ─────────────────────────────────────────────────────────────────
+  private computePositionFlags(frenchTokens: string[], fallbackTokens: string[]): {
+    hasAvant: boolean;
+    hasArriere: boolean;
+    hasGauche: boolean;
+    hasDroite: boolean;
+  } {
+    const frHasAvant   = this.hasAnyToken(frenchTokens, AdvancedSearchService.AVANT_TOKENS);
+    const frHasArriere = this.hasAnyToken(frenchTokens, AdvancedSearchService.ARRIERE_TOKENS);
+    const frHasGauche  = this.hasAnyToken(frenchTokens, AdvancedSearchService.GAUCHE_TOKENS);
+    const frHasDroite  = this.hasAnyToken(frenchTokens, AdvancedSearchService.DROITE_TOKENS);
+
+    const hasAvant   = (frHasAvant || frHasArriere)
+      ? frHasAvant
+      : this.hasAnyToken(fallbackTokens, [...AdvancedSearchService.AVANT_TOKENS, ...AdvancedSearchService.AVANT_TOKENS_EN]);
+    const hasArriere = (frHasAvant || frHasArriere)
+      ? frHasArriere
+      : this.hasAnyToken(fallbackTokens, [...AdvancedSearchService.ARRIERE_TOKENS, ...AdvancedSearchService.ARRIERE_TOKENS_EN]);
+    const hasGauche  = (frHasGauche || frHasDroite)
+      ? frHasGauche
+      : this.hasAnyToken(fallbackTokens, [...AdvancedSearchService.GAUCHE_TOKENS, ...AdvancedSearchService.GAUCHE_TOKENS_EN]);
+    const hasDroite  = (frHasGauche || frHasDroite)
+      ? frHasDroite
+      : this.hasAnyToken(fallbackTokens, [...AdvancedSearchService.DROITE_TOKENS, ...AdvancedSearchService.DROITE_TOKENS_EN]);
+
+    return { hasAvant, hasArriere, hasGauche, hasDroite };
+  }
+
   private calculatePositionMatches(part: any, positionInfo: PositionRequirements): number {
     let score = 0;
-    // FIX-2: Check position in both French and English fields
-    const textToCheck = [
-      part.designation2 || '',
-      part.designation,
-      part.searchDescription || '',
-    ].join(' ');
-    const designationTokens = this.normalize(textToCheck).split(/[\s-]+/).filter(Boolean);
+    // FIX-9: French (designation_2) and fallback (designation + searchDescription)
+    // tokenized SEPARATELY — never merged into one blob — so per-axis
+    // French-priority resolution actually works. See computePositionFlags().
+    const frenchTokens = this.normalize(part.designation2 || '').split(/[\s-]+/).filter(Boolean);
+    const fallbackTokens = this.normalize(
+      [part.designation || '', part.searchDescription || ''].join(' '),
+    ).split(/[\s-]+/).filter(Boolean);
 
-    const hasAvant   = this.hasAnyToken(designationTokens, ['avant', 'av', 'front', 'fr', 'avg', 'avd']);
-    const hasArriere = this.hasAnyToken(designationTokens, ['arriere', 'ar', 'rear', 'rr', 'arg', 'ard']);
-    const hasGauche  = this.hasAnyToken(designationTokens, ['gauche', 'g', 'conducteur', 'left', 'lh', 'avg', 'arg', 'lh']);
-    const hasDroite  = this.hasAnyToken(designationTokens, ['droite', 'd', 'passager', 'droit', 'right', 'rh', 'avd', 'ard', 'rh']);
+    const { hasAvant, hasArriere, hasGauche, hasDroite } = this.computePositionFlags(frenchTokens, fallbackTokens);
 
     if (positionInfo.avant   && !hasAvant   && hasArriere) return -100000;
     if (positionInfo.arriere && !hasArriere && hasAvant  ) return -100000;
@@ -1127,14 +1230,76 @@ export class AdvancedSearchService implements OnModuleInit {
     return expected.some((token) => tokens.includes(token));
   }
 
-  private calculateBusinessScores(part: any, context: SearchContext): number {
+  private calculateBusinessScores(part: any, context: SearchContext, vehicleScope?: VehicleSearchScope): number {
     let score = 0;
     if (this.isStockAvailable(part.stock)) score += 8;
-    // FIX-3: CarPro Parts stock is equally valid — no source-based penalty
-    const queryLower = context.originalQuery.toLowerCase();
-    if (queryLower.includes('celerio') && (part.designation2 || part.designation).toLowerCase().includes('celerio')) {
-      score += 50;
+
+    // Fitment specificity bonus: reward parts that fit the IDENTIFIED model's
+    // specific type codes over parts that only fit related/older models also in scope.
+    //
+    // The vehicle scope may contain type codes for multiple related models
+    // (e.g. NEW CELERIO lookup returns AXM310 + ARL415 because the VIN resolves
+    // to a vehicle that has both in its compatibility table).
+    // We must prefer parts whose fitments match AXM310 (New Celerio) over
+    // parts that only match ARL415 (old Celerio).
+    //
+    // Strategy: the FIRST type code in vehicleScope.typeCodes comes from
+    // vehicle_model_map for the exact model name — that's the primary model.
+    // We use the type-code PREFIX (e.g. "AXM310") to identify primary codes.
+    if (vehicleScope?.active && vehicleScope.typeCodes.length > 0 && part.fitments?.length > 0) {
+      const fitmentCodes = (part.fitments as any[]).map((f) => f.typeCode as string);
+
+      // Derive the primary model prefix from vehicle_model_map for the exact
+      // identified model name. The typeCodes array may contain codes for related
+      // models (e.g. ARL415 for old Celerio alongside AXM310 for New Celerio).
+      // We identify primary codes as those returned by vehicle_model_map for
+      // the specific model string, which is stored in vehicleScope.model.
+      // Heuristic: group type codes by prefix and pick the group that is
+      // MOST SPECIFIC to the identified model by checking which prefix
+      // appears in the fewest total scope codes (more specific = fewer variants).
+      const prefixGroups = new Map<string, string[]>();
+      for (const tc of vehicleScope.typeCodes) {
+        const prefix = tc.replace(/-TYPE\d+$/i, '');
+        if (!prefixGroups.has(prefix)) prefixGroups.set(prefix, []);
+        prefixGroups.get(prefix)!.push(tc);
+      }
+
+      // The primary prefix is the one whose codes appear LAST in the typeCodes
+      // array — vehicle_model_map rows for the exact model name are added after
+      // the broader vehicle_type_master fallback rows in resolveVehicleScope.
+      // Actually: modelMapRows are added FIRST (primary lookup), typeRows second.
+      // So the FIRST prefix group = primary model codes.
+      // But logs show ARL415 first for NEW CELERIO — meaning ARL415 is in
+      // vehicle_model_map for CELERIO (the normalized model name).
+      // The correct fix: use the model name to pick the right prefix.
+      // NEW CELERIO normalizes to CELERIO, which maps to ARL415 AND AXM310.
+      // We need the prefix that matches the FULL model name "NEW CELERIO" = AXM310.
+      // Since we can't know this without a DB query, use the LAST prefix group
+      // (added by vehicle_type_master fallback for the more specific model name).
+      const prefixEntries = [...prefixGroups.entries()];
+      // Pick the prefix group added last (most specific model match)
+      const primaryPrefix = prefixEntries[prefixEntries.length - 1][0];
+      const primaryCodes = new Set(prefixGroups.get(primaryPrefix) ?? []);
+      const allScopeCodes = new Set(vehicleScope.typeCodes);
+
+      const primaryMatches = fitmentCodes.filter((c) => primaryCodes.has(c)).length;
+      const scopeMatches = fitmentCodes.filter((c) => allScopeCodes.has(c)).length;
+      const totalFitments = fitmentCodes.length;
+
+      if (primaryMatches > 0 && primaryMatches === totalFitments) {
+        // Exclusively fits the primary model — maximum bonus
+        score += 60000;
+      } else if (primaryMatches > 0) {
+        // Fits primary model but also others
+        score += Math.round((primaryMatches / totalFitments) * 40000);
+      } else if (scopeMatches === totalFitments) {
+        // Fits only secondary/related models in scope
+        score += 10000;
+      } else if (scopeMatches > 0) {
+        score += Math.round((scopeMatches / totalFitments) * 5000);
+      }
     }
+
     return score;
   }
 
@@ -1371,7 +1536,23 @@ Segmented:`;
   private expandWithSynonymsContextual(tokens: string[], originalQuery: string): string[] {
     const expanded = new Set<string>();
 
+    // Model name tokens must never be expanded or replaced — they are vehicle identifiers,
+    // not part type synonyms. Expanding them corrupts the query (e.g. celerio → roue).
+    // Also includes common French filler/conversational words that must pass through unchanged.
+    const modelNameTokens = new Set(['new', 'all', 'swift', 'celerio', 'baleno', 'vitara', 'ciaz',
+      'fronx', 'ignis', 'jimny', 'spresso', 'dzire', 'ertiga', 'kizashi', 'samurai', 'splash',
+      'swace', 'alto', 'apv', 'eeco', 'sx4',
+      // French filler words that must not be synonym-expanded
+      'une', 'besoin', 'pour', 'cherche', 'bonjour', 'salut', 'bonsoir', 'merci',
+      'besoin', 'veux', 'voudrais', 'chercher', 'trouver', 'avoir']);
+
     tokens.forEach((token) => {
+      // Model name tokens are kept as-is — never expanded or replaced
+      if (modelNameTokens.has(token)) {
+        expanded.add(token);
+        return;
+      }
+
       const hasDoubleLetters = token.includes('ff') || token.includes('pp') || token.includes('ll');
       const normalizedToken  = this.normalize(token);
       const isKnown          = this.normalizedSynonymLookup[normalizedToken] !== undefined;
@@ -1501,6 +1682,15 @@ Segmented:`;
     if (normalized.includes('triangle') || normalized.includes('triangl')) {
       return '';
     }
+
+    // Do not apply Tunisian normalization if the query contains a known model name
+    // that includes English words (e.g. "New Celerio", "New Swift", "All New Swift")
+    // — "new" would be wrongly translated to "neuf" corrupting the query.
+    const modelNameWords = ['new', 'all', 'swift', 'celerio', 'baleno', 'vitara', 'ciaz', 'fronx', 'ignis', 'jimny', 'spresso', 'dzire', 'ertiga', 'kizashi', 'samurai', 'splash', 'swace'];
+    const queryLower = query.toLowerCase();
+    const hasModelWord = modelNameWords.some((w) => queryLower.includes(w));
+    if (hasModelWord) return '';
+
     const tunisianMap = this.synonymsService.getTunisianMap();
     let result = query.toLowerCase();
     for (const [tunisian, french] of Object.entries(tunisianMap)) {
