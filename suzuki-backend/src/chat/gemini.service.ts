@@ -67,17 +67,17 @@ export class GeminiService {
           temperature: 0.1,
           topK: 1,
           topP: 0.8,
-          maxOutputTokens: 1024
+          maxOutputTokens: 2048
         }
       }, {
         headers: { 'Content-Type': 'application/json' },
-        timeout: 15000
+        timeout: 60000
       });
 
       const text = response.data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
       this.logger.log(`🤖 Gemini raw response (full): ${text}`);
       
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      const jsonMatch = text.match(/\{[\s\S]*/);
       if (!jsonMatch) {
         this.logger.error('❌ No JSON found in Gemini response');
         this.logger.error(`Full text was: ${text}`);
@@ -88,24 +88,28 @@ export class GeminiService {
       try {
         parsed = JSON.parse(jsonMatch[0]);
       } catch (parseError) {
-        // Try to fix incomplete JSON by adding closing braces
         this.logger.warn('⚠️ Incomplete JSON detected, attempting to fix...');
         let fixedJson = jsonMatch[0];
-        
-        // Count open/close braces and quotes to fix incomplete JSON
-        const openBraces = (fixedJson.match(/\{/g) || []).length;
+
+        // Strip trailing incomplete field — covers all truncation patterns:
+        // 1. truncated string value:  , "vin": "MA3TFC62
+        // 2. empty value not closed:  , "vin": "
+        // 3. truncated key:           , "vi
+        // 4. key with no value:       , "vin":
+        fixedJson = fixedJson
+          .replace(/,\s*"[^"]+":\s*"[^"]*$/, '')   // truncated string value
+          .replace(/,\s*"[^"]+":\s*$/, '')           // key with no value
+          .replace(/,\s*"[^"]*$/, '');               // truncated key
+
+        // Close any unclosed braces
+        const openBraces  = (fixedJson.match(/\{/g) || []).length;
         const closeBraces = (fixedJson.match(/\}/g) || []).length;
-        
         if (openBraces > closeBraces) {
-          fixedJson = fixedJson + '}'.repeat(openBraces - closeBraces);
+          fixedJson = fixedJson.trimEnd().replace(/,\s*$/, '') + '}'.repeat(openBraces - closeBraces);
         }
-        
-        // Remove incomplete last field if it exists
-        fixedJson = fixedJson.replace(/,\s*"[^"]*":\s*"[^"]*$/g, '');
-        fixedJson = fixedJson.replace(/\}*$/, '}');
-        
+
         this.logger.log(`🔧 Fixed JSON: ${fixedJson}`);
-        
+
         try {
           parsed = JSON.parse(fixedJson);
           this.logger.log('✅ Successfully parsed fixed JSON');
@@ -150,7 +154,13 @@ export class GeminiService {
         marque: 'SUZUKI',
         modele: modeleCanon || modeleRaw.toUpperCase(),
         typeMoteur: parsed.typeMoteur?.trim() || null,
-        annee: parsed.annee || null
+        annee: parsed.annee || null,
+        // VIN: extracted from "Numéro dans la série" / "N° de châssis" field
+        // Validate: must be 17 alphanumeric chars, Suzuki VINs start with JS or MA
+        vin: (() => {
+          const raw = (parsed.vin || '').toString().trim().replace(/\s+/g, '').toUpperCase();
+          return /^[A-HJ-NPR-Z0-9]{17}$/.test(raw) ? raw : null;
+        })(),
       };
     } catch (error) {
       throw error;

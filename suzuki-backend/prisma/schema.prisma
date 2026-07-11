@@ -1,5 +1,18 @@
+// ═══════════════════════════════════════════════════════════════════
+// suzuki_parts — Prisma Schema
+// Fixed: 2026-06-25
+// Changes:
+//   - Parts search now targets designation_2 (French) as primary field
+//   - Added GIN trigram index on designation_2 for NLP search
+//   - Added GIN trigram index on search_description
+//   - Added model_label mapping table (vehicles ↔ vehicle_type_master)
+//   - Clarified source enum values in comments
+//   - Fixed fitment.model_name marked as redundant (kept for backward compat)
+// ═══════════════════════════════════════════════════════════════════
+
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["fullTextSearch"]
 }
 
 datasource db {
@@ -8,26 +21,44 @@ datasource db {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// NEW DATA TABLES (production data)
+// PARTS DOMAIN
 // ═══════════════════════════════════════════════════════════════════
 
 // ============================================
 // Parts Catalog
-// Source: 01_PROD_Item + 02_PARTS_Item (merged, deduplicated)
+// Sources: 01_PROD_Item + 02_CARPRO_Item (merged, deduplicated)
+//
+// DISPLAY PRIORITY:
+//   designation_2 (French) → show to user first
+//   designation   (English OEM name) → fallback / internal use
+//   search_description → NLP search field (backfill from designation_2 WHERE NULL)
 // ============================================
 model Part {
   id                Int       @id @default(autoincrement())
   reference         String    @unique @db.VarChar(50)
+
+  // OEM English name — used internally and as fallback
   designation       String    @db.Text
-  searchDescription String?   @map("search_description") @db.VarChar(100)
-  designation2      String?   @map("designation_2") @db.VarChar(100)
+
+  // ★ French name — PRIMARY display field shown to users
+  // 33% NULL → backfill from designation where missing
+  designation2      String?   @map("designation_2") @db.VarChar(200)
+
+  // NLP search field — PRIMARY search target
+  // 72.5% NULL → must be backfilled: COALESCE(designation_2, designation)
+  searchDescription String?   @map("search_description") @db.VarChar(200)
+
   prixHt            Decimal?  @map("prix_ht") @db.Decimal(10, 3)
   prixTtc           Decimal?  @map("prix_ttc") @db.Decimal(10, 3)
   unite             String?   @db.VarChar(20)
   categorie         String?   @db.VarChar(50)
   fabricant         String?   @db.VarChar(100)
   fournisseurCode   String?   @map("fournisseur_code") @db.VarChar(50)
-  source            String    @db.VarChar(20)    // '01_PROD' or '02_CARPRO'
+
+  // '01_PROD' = Suzuki OEM catalog
+  // '02_CARPRO' = CarPro Parts wholesale stock (MUST be included in searches)
+  source            String    @db.VarChar(20)
+
   createdAt         DateTime  @default(now()) @map("created_at")
   updatedAt         DateTime  @updatedAt @map("updated_at")
 
@@ -36,21 +67,41 @@ model Part {
   itemReferences    ItemReference[]
 
   @@map("parts")
+
+  // Indexes for direct-reference lookup
   @@index([categorie])
   @@index([fabricant])
   @@index([fournisseurCode])
-  @@index([designation(ops: raw("gin_trgm_ops"))], type: Gin)
-  @@index([reference(ops: raw("gin_trgm_ops"))], type: Gin)
+  @@index([source])
+
+  // GIN trigram indexes — ALL three text fields used in NLP search
+  @@index([designation(ops: raw("gin_trgm_ops"))],        type: Gin)
+  @@index([designation2(ops: raw("gin_trgm_ops"))],       type: Gin, name: "parts_designation2_gin_idx")
+  @@index([searchDescription(ops: raw("gin_trgm_ops"))],  type: Gin, name: "parts_search_description_gin_idx")
+  @@index([reference(ops: raw("gin_trgm_ops"))],          type: Gin)
 }
 
 // ============================================
 // Stock (aggregated per reference)
-// Source: 05_Stock (GROUP BY Item No_, SUM Quantity)
+// Sources: 01_PROD stock + 02_CARPRO stock (both must be merged)
+//
+// Client rule confirmed 2026-07-07:
+//   - stock_disponible and stock_consolide are separate source values
+//   - a part is sellable/Disponible only when stock_consolide > 2
+//   - total_quantity is kept temporarily for backward compatibility
+//
+// FIX NEEDED: Insert Indisponible rows for 5,567 parts with no stock entry
+//   INSERT INTO stock (reference, total_quantity, statut, updated_at)
+//   SELECT p.reference, 0, 'Indisponible', NOW()
+//   FROM parts p LEFT JOIN stock s ON p.reference = s.reference
+//   WHERE s.reference IS NULL;
 // ============================================
 model Stock {
   id            Int      @id @default(autoincrement())
   reference     String   @unique @db.VarChar(50)
   totalQuantity Int      @default(0) @map("total_quantity")
+  stockDisponible Int    @default(0) @map("stock_disponible")
+  stockConsolide  Int    @default(0) @map("stock_consolide")
   statut        String   @default("Indisponible") @db.VarChar(20)
   updatedAt     DateTime @updatedAt @map("updated_at")
 
@@ -58,18 +109,23 @@ model Stock {
 
   @@map("stock")
   @@index([statut])
+  @@index([stockConsolide])
 }
 
 // ============================================
 // Vehicle Type Master
-// Source: bloker_Vehicle Type master.csv (43 rows)
+// Internal type codes (AON312-TYPE1, AVB415-TYPE2…)
+// NOTE: type_code format is inconsistent — some use spaces, some hyphens.
+//       Normalize to hyphen format: UPDATE vehicle_type_master
+//       SET type_code = REPLACE(type_code, ' ', '-')
 // ============================================
 model VehicleTypeMaster {
-  id        Int       @id @default(autoincrement())
-  typeCode  String    @unique @map("type_code") @db.VarChar(30)
-  modelName String    @map("model_name") @db.VarChar(100)
+  id         Int       @id @default(autoincrement())
+  typeCode   String    @unique @map("type_code") @db.VarChar(30)
+  modelName  String    @map("model_name") @db.VarChar(100)
 
-  fitments  Fitment[]
+  fitments   Fitment[]
+  modelMap   VehicleModelMap[]
 
   @@map("vehicle_type_master")
 }
@@ -77,6 +133,8 @@ model VehicleTypeMaster {
 // ============================================
 // Fitment – part to vehicle type compatibility
 // Source: 03_Vehicle_Fitment (9,504 rows)
+// NOTE: model_name is redundant (denormalized copy of vehicle_type_master.model_name)
+//       Kept for backward compatibility — do not rely on it for display.
 // ============================================
 model Fitment {
   id            Int               @id @default(autoincrement())
@@ -95,17 +153,52 @@ model Fitment {
 }
 
 // ============================================
+// Vehicle Model Map — BRIDGE TABLE (NEW)
+// Links vehicles.modele (friendly names) ↔ vehicle_type_master.type_code
+// Resolves the critical gap: no join path between vehicles and fitment
+//
+// Seed data example:
+//   INSERT INTO vehicle_model_map (modele, type_code) VALUES
+//     ('SPRESSO',     'ABU310-TYPE1'),
+//     ('S-PRESSO',    'ABU310-TYPE1'),
+//     ('BALENO',      'AVB415-TYPE2'),
+//     ('SWIFT',       'AVH310-TYPE1'),
+//     ('NEW SWIFT',   'AVH310-TYPE2'),
+//     ('CELERIO',     'ARL415-TYPE1'),
+//     ('NEW CELERIO', 'ARL415-TYPE2'),
+//     ('DZIRE',       'AON312-TYPE1'),
+//     ('CIAZ',        'AZI412-TYPE3'),
+//     ('FRONX',       'APK416-TYPE1');
+// ============================================
+model VehicleModelMap {
+  id          Int               @id @default(autoincrement())
+  modele      String            @db.VarChar(50)  // matches vehicles.modele
+  typeCode    String            @map("type_code") @db.VarChar(30)  // FK to vehicle_type_master
+
+  vehicleType VehicleTypeMaster @relation(fields: [typeCode], references: [typeCode])
+
+  @@unique([modele, typeCode])
+  @@map("vehicle_model_map")
+  @@index([modele])
+  @@index([typeCode])
+}
+
+// ============================================
 // Vehicles – master registry
 // Source: 11_Vehicle (28,830 rows)
+// WARNING: statut column contains license plate numbers (Tunisian format)
+//          Rename to: immatriculation or plaque
 // ============================================
 model Vehicle {
   id                 Int     @id @default(autoincrement())
   vehicleNo          String  @unique @map("vehicle_no") @db.VarChar(20)
-  vin                String? @db.VarChar(25)  // Changed from 17 to 25 to accommodate longer VINs
+  vin                String? @db.VarChar(25)
   marque             String? @db.VarChar(20)
   modele             String? @db.VarChar(20)
   modeleDescription  String? @map("modele_description") @db.VarChar(100)
-  statut             String? @db.VarChar(20)
+  // WARNING: This column stores license plate numbers, NOT status values.
+  // TODO: Rename column to "immatriculation" in next migration.
+  immatriculation    String? @map("statut") @db.VarChar(20)
 
   @@map("vehicles")
   @@index([vin])
@@ -117,27 +210,28 @@ model Vehicle {
 // Source: 04_Item_Reference (7,194 rows)
 // ============================================
 model ItemReference {
-  id             Int    @id @default(autoincrement())
-  partReference  String @map("part_reference") @db.VarChar(50)
-  referenceNo    String @map("reference_no") @db.VarChar(50)
+  id             Int     @id @default(autoincrement())
+  partReference  String  @map("part_reference") @db.VarChar(50)
+  referenceNo    String  @map("reference_no") @db.VarChar(50)
   referenceType  String? @map("reference_type") @db.VarChar(20)
 
-  part           Part   @relation(fields: [partReference], references: [reference])
+  part           Part    @relation(fields: [partReference], references: [reference])
 
   @@unique([partReference, referenceNo])
   @@map("item_references")
   @@index([referenceNo])
+  @@index([partReference])
 }
 
 // ============================================
 // Synonyms – NLP dialect/synonym expansion
-// Seeded manually after import
+// 1,780 rows — fr + tn languages
 // ============================================
 model Synonym {
   id        Int    @id @default(autoincrement())
-  mot       String @db.VarChar(100)      // user input
-  canonical String @db.VarChar(100)      // DB search term
-  langue    String @default("fr") @db.VarChar(5) // 'fr' | 'tn'
+  mot       String @db.VarChar(100)
+  canonical String @db.VarChar(100)
+  langue    String @default("fr") @db.VarChar(5)
 
   @@unique([mot, langue])
   @@map("synonyms")
@@ -146,7 +240,7 @@ model Synonym {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// CHAT / INFRASTRUCTURE TABLES (unchanged)
+// CHAT / INFRASTRUCTURE TABLES
 // ═══════════════════════════════════════════════════════════════════
 
 model ChatSession {
@@ -154,6 +248,8 @@ model ChatSession {
   vehicleInfo Json?         @map("vehicle_info")
   startedAt   DateTime      @default(now()) @map("started_at")
   endedAt     DateTime?     @map("ended_at")
+  // TODO: Populate endedAt on session close — currently 100% NULL
+  // TODO: Drop metadata column — currently 100% NULL
   metadata    Json?
   messages    ChatMessage[]
   prompts     ChatPrompt[]
@@ -163,13 +259,13 @@ model ChatSession {
 }
 
 model ChatMessage {
-  id        String      @id @default(uuid())
-  sessionId String      @map("session_id")
+  id        String       @id @default(uuid())
+  sessionId String       @map("session_id")
   sender    String
-  message   String      @db.Text
-  timestamp DateTime    @default(now())
+  message   String       @db.Text
+  timestamp DateTime     @default(now())
   metadata  Json?
-  session   ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  session   ChatSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   feedback  ChatFeedback?
 
   @@map("chat_messages")
@@ -205,11 +301,11 @@ model ChatFeedback {
 }
 
 model UploadTracking {
-  id        String   @id @default(uuid())
-  userIp    String   @map("user_ip") @db.VarChar(45)
-  uploadedAt DateTime @default(now()) @map("uploaded_at")
-  success   Boolean  @default(true)
-  vehicleInfo Json?  @map("vehicle_info")
+  id          String   @id @default(uuid())
+  userIp      String   @map("user_ip") @db.VarChar(45)
+  uploadedAt  DateTime @default(now()) @map("uploaded_at")
+  success     Boolean  @default(true)
+  vehicleInfo Json?    @map("vehicle_info")
 
   @@map("upload_tracking")
   @@index([userIp, uploadedAt])

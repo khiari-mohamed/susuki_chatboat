@@ -8,6 +8,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { StockModule } from './stock/stock.module';
 import { SynonymsModule } from './synonyms/synonyms.module';
 import { VehicleModelsModule } from './constants/vehicle-models.module';
+import { DebugModule } from './debug/debug.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { VehicleModelsModule } from './constants/vehicle-models.module';
     ChatModule,
     VerificationModule,
     StockModule,
+    DebugModule, // @Global() — DebugService available everywhere
   ],
   controllers: [AppController],
   providers: [AppService],

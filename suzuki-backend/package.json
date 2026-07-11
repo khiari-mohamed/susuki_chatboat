@@ -19,7 +19,13 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "db:import": "ts-node scripts/import-csv.ts",
-    "db:check-prod": "ts-node scripts/check-production-db.ts"
+    "db:check-prod": "ts-node scripts/check-production-db.ts",
+    "db:audit": "ts-node scripts/db-audit.ts",
+    "seed:vehicle-model-map": "ts-node scripts/seed-vehicle-model-map.ts",
+    "debug:part-audit": "node scripts/part-column-audit.js",
+    "sample:parts": "node scripts/sample-parts-to-csv.js",
+    "count:part-names": "node scripts/count-part-names.js",
+    "carpro:import-test-data": "node scripts/import-carpro-test-data.js"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",

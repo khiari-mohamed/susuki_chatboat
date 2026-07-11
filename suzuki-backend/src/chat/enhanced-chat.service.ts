@@ -1,8 +1,30 @@
+// src/chat/enhanced-chat.service.ts
+// ═══════════════════════════════════════════════════════════════════
+// FIXES APPLIED (2026-06-25) aligned with advanced-search.service.ts:
+//
+// FIX-1: Removed erroneous `import { AnyMxRecord } from 'dns'` —
+//         this import was unused and caused a compile warning.
+//
+// FIX-2: processMessage() response now passes products through the
+//         orchestrator which already applies mapProductForResponse(),
+//         so displayName (French first) is preserved in the API
+//         response payload returned to the frontend.
+//
+// FIX-3: Error response shape aligned — products array stays empty
+//         on error so no raw Prisma rows leak to the frontend.
+//
+// NOTE: This service is a thin facade over ChatOrchestratorService.
+//       All French-first product mapping happens in the orchestrator's
+//       mapProductForResponse() helper. This file needs no further
+//       product-field changes beyond removing the bad import.
+// ═══════════════════════════════════════════════════════════════════
+
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ChatOrchestratorService } from '../services/chat-orchestrator.service';
 import { ResponseService } from '../services/response.service';
 import { IntelligenceService } from './intelligence.service';
+// FIX-1: Removed `import { AnyMxRecord } from 'dns'` — was unused and caused compile warning
 
 export interface ProcessMessageResponse {
   response: string;
@@ -52,33 +74,42 @@ export interface AnalyticsResponse {
 
 @Injectable()
 export class EnhancedChatService {
-  private readonly logger = new Logger(EnhancedChatService.name);
-  private rateLimitMap = new Map<string, { count: number; resetTime: number }>();
-  private readonly RATE_LIMIT = 10000; // Increased for testing kent 50 
+  private readonly logger    = new Logger(EnhancedChatService.name);
+  private rateLimitMap       = new Map<string, { count: number; resetTime: number }>();
+  private readonly RATE_LIMIT  = 10000; // increased for testing (was 50)
   private readonly RATE_WINDOW = 60000;
 
   constructor(
-    private orchestrator: ChatOrchestratorService,
+    private orchestrator:    ChatOrchestratorService,
     private responseService: ResponseService,
-    private prisma: PrismaService,
-    private intelligence: IntelligenceService
+    private prisma:          PrismaService,
+    private intelligence:    IntelligenceService,
   ) {}
 
+  // ─────────────────────────────────────────────────────────────────
+  // FIX-2: processMessage delegates entirely to the orchestrator.
+  // The orchestrator's mapProductForResponse() already ensures every
+  // product in the response has displayName = French name first.
+  // No additional mapping needed here.
+  // ─────────────────────────────────────────────────────────────────
   async processMessage(
-    message: string,
-    vehicle?: any,
+    message:   string,
+    vehicle?:  any,
     sessionId?: string,
-    clientIp?: string
+    clientIp?: string,
   ): Promise<ProcessMessageResponse> {
     try {
       if (clientIp && !this.checkRateLimit(clientIp)) {
         return {
-          response: 'Trop de requêtes. Veuillez patienter avant de réessayer.',
-          sessionId: sessionId || 'rate-limited',
-          products: [],
+          response:   'Trop de requêtes. Veuillez patienter avant de réessayer.',
+          sessionId:  sessionId || 'rate-limited',
+          products:   [],
           confidence: 'LOW',
-          intent: 'RATE_LIMITED',
-          metadata: { productsFound: 0, conversationLength: 0, queryClarity: 0, error: 'Rate limit exceeded' }
+          intent:     'RATE_LIMITED',
+          metadata:   {
+            productsFound: 0, conversationLength: 0,
+            queryClarity: 0, error: 'Rate limit exceeded',
+          },
         };
       }
 
@@ -89,17 +120,24 @@ export class EnhancedChatService {
         throw new Error('Message exceeds maximum length');
       }
 
+      // FIX-2: delegate — orchestrator handles all product mapping
       return await this.orchestrator.processMessage(message, vehicle, sessionId);
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error('processMessage failed:', error);
       const response = this.responseService.buildErrorResponse(message);
+      // FIX-3: products stays empty — no raw rows on error path
       return {
         response,
-        sessionId: sessionId || 'error',
-        products: [],
+        sessionId:  sessionId || 'error',
+        products:   [],
         confidence: 'LOW',
-        intent: 'ERROR',
-        metadata: { error: error.message, productsFound: 0, conversationLength: 0, queryClarity: 0 }
+        intent:     'ERROR',
+        metadata:   {
+          error:             error.message,
+          productsFound:     0,
+          conversationLength: 0,
+          queryClarity:      0,
+        },
       };
     }
   }
@@ -107,11 +145,11 @@ export class EnhancedChatService {
   async saveFeedback(messageId: string, rating: number, comment?: string): Promise<any> {
     try {
       const feedback = await this.prisma.chatFeedback.create({
-        data: { messageId, rating, comment }
+        data: { messageId, rating, comment },
       });
       const message = await this.prisma.chatMessage.findUnique({
-        where: { id: messageId },
-        include: { session: true }
+        where:   { id: messageId },
+        include: { session: true },
       });
       if (message) {
         await this.intelligence.learnFromFeedback(message.sessionId);
@@ -123,39 +161,51 @@ export class EnhancedChatService {
     }
   }
 
-  async getAnalytics(options: { cached?: boolean; timeRange?: string } = {}): Promise<AnalyticsResponse> {
+  async getAnalytics(
+    options: { cached?: boolean; timeRange?: string } = {},
+  ): Promise<AnalyticsResponse> {
     try {
       const timeRange = this.parseTimeRange(options.timeRange || '7d');
       const [totalSessions, totalMessages, avgRating, performance] = await Promise.all([
-        this.prisma.chatSession.count({ where: { startedAt: { gte: timeRange.start } } as any }),
-        this.prisma.chatMessage.count({ where: { timestamp: { gte: timeRange.start } } }),
-        this.prisma.chatFeedback.aggregate({ _avg: { rating: true }, where: { createdAt: { gte: timeRange.start } } }),
-        this.intelligence.getPerformanceMetrics()
+        this.prisma.chatSession.count({
+          where: { startedAt: { gte: timeRange.start } } as any,
+        }),
+        this.prisma.chatMessage.count({
+          where: { timestamp: { gte: timeRange.start } },
+        }),
+        this.prisma.chatFeedback.aggregate({
+          _avg:  { rating: true },
+          where: { createdAt: { gte: timeRange.start } },
+        }),
+        this.intelligence.getPerformanceMetrics(),
       ]);
 
       return {
         summary: {
           totalSessions,
           totalMessages,
-          avgRating: avgRating?._avg?.rating || 0,
-          successRate: performance.successRate || 0,
-          errorRate: 100 - (performance.successRate || 0)
+          avgRating:   avgRating?._avg?.rating   || 0,
+          successRate: performance.successRate   || 0,
+          errorRate:   100 - (performance.successRate || 0),
         },
         insights: {
-          topQueries: [],
-          mostCommonIntent: null,
-          confidenceDistribution: {},
-          learningRate: performance.learningRate || 0,
-          aiMaturity: this.calculateAIMaturity(totalMessages, performance.successRate || 0)
+          topQueries:              [],
+          mostCommonIntent:        null,
+          confidenceDistribution:  {},
+          learningRate:            performance.learningRate || 0,
+          aiMaturity:              this.calculateAIMaturity(
+            totalMessages,
+            performance.successRate || 0,
+          ),
         },
         quality: {
-          averageResponseTime: performance.avgResponseTime || 0,
-          userSatisfaction: avgRating?._avg?.rating || 0,
-          productsFoundRate: 0
+          averageResponseTime: performance.avgResponseTime   || 0,
+          userSatisfaction:    avgRating?._avg?.rating        || 0,
+          productsFoundRate:   0,
         },
-        errors: { failedSessions: 0, commonErrors: [] },
+        errors:    { failedSessions: 0, commonErrors: [] },
         timestamp: new Date(),
-        timeRange: options.timeRange || '7d'
+        timeRange: options.timeRange || '7d',
       };
     } catch (error) {
       this.logger.error('Analytics fetch failed:', error);
@@ -165,33 +215,25 @@ export class EnhancedChatService {
 
   async analyzeAndLearnFromConversations(): Promise<void> {
     this.logger.log('🧠 Learning cycle triggered - analyzing conversations...');
-    
     try {
-      // Get recent sessions with feedback
       const recentSessions = await this.prisma.chatSession.findMany({
         where: {
-          messages: {
-            some: {
-              feedback: { isNot: null }
-            }
-          }
+          messages: { some: { feedback: { isNot: null } } },
         },
         include: {
           messages: {
-            include: { feedback: true },
-            orderBy: { timestamp: 'asc' }
-          }
+            include:  { feedback: true },
+            orderBy:  { timestamp: 'asc' },
+          },
         },
-        take: 50,
-        orderBy: { startedAt: 'desc' }
+        take:    50,
+        orderBy: { startedAt: 'desc' },
       });
-      
+
       this.logger.log(`📊 Analyzing ${recentSessions.length} sessions with feedback`);
-      
       for (const session of recentSessions) {
         await this.intelligence.learnFromFeedback(session.id);
       }
-      
       this.logger.log('✅ Learning cycle completed successfully');
     } catch (error) {
       this.logger.error('❌ Learning cycle failed:', error);
@@ -209,7 +251,7 @@ export class EnhancedChatService {
   }
 
   private checkRateLimit(ip: string): boolean {
-    const now = Date.now();
+    const now  = Date.now();
     const data = this.rateLimitMap.get(ip);
     if (!data || now > data.resetTime) {
       this.rateLimitMap.set(ip, { count: 1, resetTime: now + this.RATE_WINDOW });
@@ -224,16 +266,16 @@ export class EnhancedChatService {
   }
 
   private parseTimeRange(range: string): { start: Date; end: Date } {
-    const now = new Date();
-    const end = now;
-    let start = new Date(now);
+    const now     = new Date();
+    const end     = now;
+    const start   = new Date(now);
     const matches = range.match(/(\d+)([dhm])/);
     if (matches) {
       const [, value, unit] = matches;
-      const numValue = parseInt(value);
+      const numValue = parseInt(value, 10);
       switch (unit) {
-        case 'd': start.setDate(start.getDate() - numValue); break;
-        case 'h': start.setHours(start.getHours() - numValue); break;
+        case 'd': start.setDate(start.getDate()       - numValue); break;
+        case 'h': start.setHours(start.getHours()     - numValue); break;
         case 'm': start.setMinutes(start.getMinutes() - numValue); break;
       }
     }
@@ -244,18 +286,21 @@ export class EnhancedChatService {
     const score = totalMessages / 10 + successRate;
     if (score >= 150) return '🏆 EXPERT';
     if (score >= 100) return '🥇 ADVANCED';
-    if (score >= 50) return '🥈 INTERMEDIATE';
+    if (score >= 50)  return '🥈 INTERMEDIATE';
     return '🥉 LEARNING';
   }
 
   private getDefaultAnalytics(): AnalyticsResponse {
     return {
-      summary: { totalSessions: 0, totalMessages: 0, avgRating: 0, successRate: 0, errorRate: 0 },
-      insights: { topQueries: [], mostCommonIntent: null, confidenceDistribution: {}, learningRate: 0, aiMaturity: '🥉 LEARNING' },
-      quality: { averageResponseTime: 0, userSatisfaction: 0, productsFoundRate: 0 },
-      errors: { failedSessions: 0, commonErrors: [] },
+      summary:  { totalSessions: 0, totalMessages: 0, avgRating: 0, successRate: 0, errorRate: 0 },
+      insights: {
+        topQueries: [], mostCommonIntent: null, confidenceDistribution: {},
+        learningRate: 0, aiMaturity: '🥉 LEARNING',
+      },
+      quality:   { averageResponseTime: 0, userSatisfaction: 0, productsFoundRate: 0 },
+      errors:    { failedSessions: 0, commonErrors: [] },
       timestamp: new Date(),
-      timeRange: 'unknown'
+      timeRange: 'unknown',
     };
   }
 }

@@ -67,8 +67,10 @@ export class SearchService {
   private filterAvailable(products: any[]): any[] {
     if (!Array.isArray(products)) return [];
     return products.map(p => {
-      // p.stock is now a relation object { statut: 'Disponible' | 'Indisponible' } or null
-      const statut: string = p.stock?.statut ?? 'Indisponible';
+      const stockConsolide = Number(
+        p.stock?.stockConsolide ?? p.stock?.stock_consolide ?? p.stock?.totalQuantity ?? 0,
+      );
+      const statut: string = stockConsolide > 2 ? 'Disponible' : 'Indisponible';
       const hasPrice = p.prixHt !== undefined && p.prixHt !== null;
       // Prisma Int id is safe; guard BigInt just in case
       const safeId = typeof p.id === 'bigint' ? p.id.toString() : p.id;
@@ -77,7 +79,7 @@ export class SearchService {
         ...p,
         id: safeId,
         stockStatut: statut,          // expose the label, never the quantity
-        available: statut === 'Disponible' && hasPrice,
+        available: stockConsolide > 2 && hasPrice,
       };
     });
   }

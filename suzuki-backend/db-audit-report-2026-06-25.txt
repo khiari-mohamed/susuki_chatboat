@@ -1,0 +1,300 @@
+DATABASE AUDIT REPORT
+================================================================================
+Generated: 2026-06-25T14:04:03.383Z
+
+ENVIRONMENT CHECK
+--------------------------------------------------------------------------------
+env path: D:\house_md\Suzuki\suzuki-backend\.env
+DATABASE_URL loaded: postgresql://postgres:23044943@localhost:5432/suzuki_parts?schema=public
+  protocol: postgresql
+  host: localhost
+  port: 5432
+  database: suzuki_parts
+  schema: public
+  user: postgres
+
+SUMMARY
+--------------------------------------------------------------------------------
+Tables inspected: 7
+Total rows counted: 63532
+Total columns inspected: 41
+Total foreign key relationships: 0
+Audit scope: parts
+Empty tables: 0
+Missing schema models: 5
+Database tables missing in schema: 0
+Detected issues: 16
+
+PART DOMAIN ANALYSIS
+--------------------------------------------------------------------------------
+Total parts: 10870
+Parts linked to stock rows: 5303
+Parts linked to fitment rows: 4654
+Parts linked to item references: 5193
+Distinct categories in parts: 8
+Total manufacturers in top list: 3
+Total vehicle master rows: 28830
+Total vehicle type master rows: 51
+
+Top part categories:
+  - CARROSSERIE: 3920
+  - PR: 2682
+  - MÉCANIQUE: 2492
+  - ELECTRIQUE: 1226
+  - P.PEINTURE: 282
+  - ACCESSOIRES: 147
+  - VEHICULE: 77
+  - (null): 40
+  - LUBRIFIANTS: 4
+
+Top manufacturers by part count:
+  - AUTRES: 6331
+  - SUZUKI: 4496
+  - (null): 43
+
+Top vehicle models by registry count:
+  - NEW CELERIO: 6558
+  - NEW SWIFT: 4846
+  - CELERIO: 4147
+  - DZIRE: 3304
+  - SWIFT IV: 1877
+  - CIAZ: 1521
+  - SWIFT: 1081
+  - SPRESSO: 863
+  - BALENO: 589
+  - FRONX: 542
+
+Top fitment type/model combinations:
+  - AON312-TYPE1/AON312: 839
+  - AVB415-TYPE2/AVB415-TYPE2: 700
+  - AVB415-TYPE3/AVB415-TYPE3: 696
+  - AVB414-TYPE1/AVB414-TYPE1: 676
+  - ARL415-TYPE2/ARL415-2-TYPE2: 651
+  - ARL415-TYPE1/ARL415-TYPE1: 644
+  - AZI412-TYPE3/AZI412-TYPE3: 641
+  - AVH310-TYPE2/AVH310-TYPE 2: 637
+  - AVH310-TYPE1/AVH310-TYPE 1: 621
+  - ABU310-TYPE1/ABU310-TYPE1: 607
+
+Prisma relation mapping summary:
+  - Fitment.part (partReference) -> Part.reference
+  - Fitment.vehicleType (typeCode) -> VehicleTypeMaster.typeCode
+  - ItemReference.part (partReference) -> Part.reference
+  - Stock.part (reference) -> Part.reference
+
+FOREIGN KEY RELATIONSHIPS
+--------------------------------------------------------------------------------
+No foreign key relationships were detected in the database schema.
+
+TABLE DETAILS
+--------------------------------------------------------------------------------
+TABLE: fitment
+  rowCount: 9504
+  columns: 4
+  Prisma model: Fitment
+  Mapped table: fitment
+  ISSUES:
+    - Prisma field 'part' maps to column 'part', but the column is not present in database table 'fitment'.
+    - Prisma field 'vehicleType' maps to column 'vehicleType', but the column is not present in database table 'fitment'.
+    - Prisma relation field 'part' references local database column 'partReference', which does not exist in table 'fitment'.
+    - Prisma relation field 'vehicleType' references local database column 'typeCode', which does not exist in table 'fitment'.
+  COLUMNS:
+    - id (integer) PK required default=nextval('fitment_id_seq'::regclass) nulls=0 rate=0.0%
+    - part_reference (character varying)    required default=none nulls=0 rate=0.0%
+    - type_code (character varying)    required default=none nulls=0 rate=0.0%
+    - model_name (character varying)    required default=none nulls=0 rate=0.0%
+  SAMPLE ROWS:
+    - sample row 1: {"id":1,"part_reference":"01550-0830A-000","type_code":"APK416-TYPE1","model_name":"APK416-TYPE1"}
+    - sample row 2: {"id":2,"part_reference":"01550-0830A-000","type_code":"AZI412-TYPE3","model_name":"AZI412-TYPE3"}
+    - sample row 3: {"id":3,"part_reference":"01550-0855A-000","type_code":"APK416-TYPE1","model_name":"APK416-TYPE1"}
+  SCHEMA FIELD MAPPING:
+    - field id -> column id type=Int optional=false
+    - field partReference -> column part_reference type=String optional=false
+    - field typeCode -> column type_code type=String optional=false
+    - field modelName -> column model_name type=String optional=false
+    - relation part -> column part type=Part optional=false
+      relation fields: partReference
+      references: reference
+    - relation vehicleType -> column vehicleType type=VehicleTypeMaster optional=false
+      relation fields: typeCode
+      references: typeCode
+
+TABLE: item_references
+  rowCount: 7194
+  columns: 4
+  Prisma model: ItemReference
+  Mapped table: item_references
+  ISSUES:
+    - Prisma field 'part' maps to column 'part', but the column is not present in database table 'item_references'.
+    - Prisma relation field 'part' references local database column 'partReference', which does not exist in table 'item_references'.
+  COLUMNS:
+    - id (integer) PK required default=nextval('item_references_id_seq'::regclass) nulls=0 rate=0.0%
+    - part_reference (character varying)    required default=none nulls=0 rate=0.0%
+    - reference_no (character varying)    required default=none nulls=0 rate=0.0%
+    - reference_type (character varying)    nullable default=none nulls=0 rate=0.0%
+  SAMPLE ROWS:
+    - sample row 1: {"id":1,"part_reference":"00533069","reference_no":"4016987119365","reference_type":"3.0"}
+    - sample row 2: {"id":2,"part_reference":"00533069","reference_no":"4016987119747","reference_type":"3.0"}
+    - sample row 3: {"id":3,"part_reference":"00591124","reference_no":"4016987119617","reference_type":"3.0"}
+  SCHEMA FIELD MAPPING:
+    - field id -> column id type=Int optional=false
+    - field partReference -> column part_reference type=String optional=false
+    - field referenceNo -> column reference_no type=String optional=false
+    - field referenceType -> column reference_type type=String? optional=true
+    - relation part -> column part type=Part optional=false
+      relation fields: partReference
+      references: reference
+
+TABLE: parts
+  rowCount: 10870
+  columns: 14
+  Prisma model: Part
+  Mapped table: parts
+  ISSUES:
+    - Prisma field 'stock' maps to column 'stock', but the column is not present in database table 'parts'.
+    - Prisma field 'fitments' maps to column 'fitments', but the column is not present in database table 'parts'.
+    - Prisma field 'itemReferences' maps to column 'itemReferences', but the column is not present in database table 'parts'.
+  COLUMNS:
+    - id (integer) PK required default=nextval('parts_id_seq'::regclass) nulls=0 rate=0.0%
+    - reference (character varying)    required default=none nulls=0 rate=0.0%
+    - designation (text)    required default=none nulls=0 rate=0.0%
+    - search_description (character varying)    nullable default=none nulls=7881 rate=72.5%
+    - designation_2 (character varying)    nullable default=none nulls=3594 rate=33.1%
+    - prix_ht (numeric)    nullable default=none nulls=970 rate=8.9%
+    - prix_ttc (numeric)    nullable default=none nulls=970 rate=8.9%
+    - unite (character varying)    nullable default=none nulls=2 rate=0.0%
+    - categorie (character varying)    nullable default=none nulls=40 rate=0.4%
+    - fabricant (character varying)    nullable default=none nulls=43 rate=0.4%
+    - fournisseur_code (character varying)    nullable default=none nulls=1395 rate=12.8%
+    - source (character varying)    required default=none nulls=0 rate=0.0%
+    - created_at (timestamp without time zone)    required default=CURRENT_TIMESTAMP nulls=0 rate=0.0%
+    - updated_at (timestamp without time zone)    required default=none nulls=0 rate=0.0%
+  SAMPLE ROWS:
+    - sample row 1: {"id":1,"reference":"00533069","designation":"BATTERIE L2","search_description":"BATTERIE L2","designation_2":null,"prix_ht":"305.952","prix_ttc":"364.083","unite":"UNITE","categorie":"PR","fabricant":"AUTRES","fournisseur_code":"CAR PRO PARTS","source":"01_PROD","created_at":"2026-05-04T16:11:38.119Z","updated_at":"2026-05-04T16:11:38.119Z"}
+    - sample row 2: {"id":2,"reference":"00591124","designation":"BATTERIE L1","search_description":"BATTERIE L1","designation_2":null,"prix_ht":"317.116","prix_ttc":"377.368","unite":"UNITE","categorie":"PR","fabricant":"AUTRES","fournisseur_code":"CAR PRO PARTS","source":"01_PROD","created_at":"2026-05-04T16:11:38.119Z","updated_at":"2026-05-04T16:11:38.119Z"}
+    - sample row 3: {"id":3,"reference":"01550-0830A-000","designation":"BOLT RS413 4WD","search_description":"BOLT RS413 4WD","designation_2":"BOULON","prix_ht":"17.176","prix_ttc":"20.439","unite":"PCS","categorie":"MÉCANIQUE","fabricant":"SUZUKI","fournisseur_code":"CAR PRO PARTS","source":"01_PROD","created_at":"2026-05-04T16:11:38.119Z","updated_at":"2026-05-04T16:11:38.119Z"}
+  SCHEMA FIELD MAPPING:
+    - field id -> column id type=Int optional=false
+    - field reference -> column reference type=String optional=false
+    - field designation -> column designation type=String optional=false
+    - field searchDescription -> column search_description type=String? optional=true
+    - field designation2 -> column designation_2 type=String? optional=true
+    - field prixHt -> column prix_ht type=Decimal? optional=true
+    - field prixTtc -> column prix_ttc type=Decimal? optional=true
+    - field unite -> column unite type=String? optional=true
+    - field categorie -> column categorie type=String? optional=true
+    - field fabricant -> column fabricant type=String? optional=true
+    - field fournisseurCode -> column fournisseur_code type=String? optional=true
+    - field source -> column source type=String optional=false
+    - field createdAt -> column created_at type=DateTime optional=false
+    - field updatedAt -> column updated_at type=DateTime optional=false
+    - field stock -> column stock type=Stock? optional=true
+    - field fitments -> column fitments type=Fitment[] optional=false
+    - field itemReferences -> column itemReferences type=ItemReference[] optional=false
+
+TABLE: stock
+  rowCount: 5303
+  columns: 5
+  Prisma model: Stock
+  Mapped table: stock
+  ISSUES:
+    - Prisma field 'part' maps to column 'part', but the column is not present in database table 'stock'.
+  COLUMNS:
+    - id (integer) PK required default=nextval('stock_id_seq'::regclass) nulls=0 rate=0.0%
+    - reference (character varying)    required default=none nulls=0 rate=0.0%
+    - total_quantity (integer)    required default=0 nulls=0 rate=0.0%
+    - statut (character varying)    required default='Indisponible'::character varying nulls=0 rate=0.0%
+    - updated_at (timestamp without time zone)    required default=none nulls=0 rate=0.0%
+  SAMPLE ROWS:
+    - sample row 1: {"id":1,"reference":"00533069","total_quantity":6,"statut":"Disponible","updated_at":"2026-05-04T16:12:06.891Z"}
+    - sample row 2: {"id":2,"reference":"00591124","total_quantity":14,"statut":"Disponible","updated_at":"2026-05-04T16:12:06.891Z"}
+    - sample row 3: {"id":3,"reference":"01550-0830A-000","total_quantity":3,"statut":"Disponible","updated_at":"2026-05-04T16:12:06.891Z"}
+  SCHEMA FIELD MAPPING:
+    - field id -> column id type=Int optional=false
+    - field reference -> column reference type=String optional=false
+    - field totalQuantity -> column total_quantity type=Int optional=false
+    - field statut -> column statut type=String optional=false
+    - field updatedAt -> column updated_at type=DateTime optional=false
+    - relation part -> column part type=Part optional=false
+      relation fields: reference
+      references: reference
+
+TABLE: synonyms
+  rowCount: 1780
+  columns: 4
+  Prisma model: Synonym
+  Mapped table: synonyms
+  ISSUES: none detected
+  COLUMNS:
+    - id (integer) PK required default=nextval('synonyms_id_seq'::regclass) nulls=0 rate=0.0%
+    - mot (character varying)    required default=none nulls=0 rate=0.0%
+    - canonical (character varying)    required default=none nulls=0 rate=0.0%
+    - langue (character varying)    required default='fr'::character varying nulls=0 rate=0.0%
+  SAMPLE ROWS:
+    - sample row 1: {"id":1,"mot":"filtre","canonical":"filtre","langue":"fr"}
+    - sample row 2: {"id":2,"mot":"filter","canonical":"filtre","langue":"fr"}
+    - sample row 3: {"id":3,"mot":"filtr","canonical":"filtre","langue":"fr"}
+  SCHEMA FIELD MAPPING:
+    - field id -> column id type=Int optional=false
+    - field mot -> column mot type=String optional=false
+    - field canonical -> column canonical type=String optional=false
+    - field langue -> column langue type=String optional=false
+
+TABLE: vehicle_type_master
+  rowCount: 51
+  columns: 3
+  Prisma model: VehicleTypeMaster
+  Mapped table: vehicle_type_master
+  ISSUES:
+    - Prisma field 'fitments' maps to column 'fitments', but the column is not present in database table 'vehicle_type_master'.
+  COLUMNS:
+    - id (integer) PK required default=nextval('vehicle_type_master_id_seq'::regclass) nulls=0 rate=0.0%
+    - type_code (character varying)    required default=none nulls=0 rate=0.0%
+    - model_name (character varying)    required default=none nulls=0 rate=0.0%
+  SAMPLE ROWS:
+    - sample row 1: {"id":1,"type_code":"A1K414 TYPE 1","model_name":"A1K414 TYPE 1"}
+    - sample row 2: {"id":2,"type_code":"A1M414","model_name":"A1M414"}
+    - sample row 3: {"id":3,"type_code":"A2L412","model_name":"A2L412-3"}
+  SCHEMA FIELD MAPPING:
+    - field id -> column id type=Int optional=false
+    - field typeCode -> column type_code type=String optional=false
+    - field modelName -> column model_name type=String optional=false
+    - field fitments -> column fitments type=Fitment[] optional=false
+
+TABLE: vehicles
+  rowCount: 28830
+  columns: 7
+  Prisma model: Vehicle
+  Mapped table: vehicles
+  ISSUES: none detected
+  COLUMNS:
+    - id (integer) PK required default=nextval('vehicles_id_seq'::regclass) nulls=0 rate=0.0%
+    - vehicle_no (character varying)    required default=none nulls=0 rate=0.0%
+    - vin (character varying)    nullable default=none nulls=95 rate=0.3%
+    - marque (character varying)    nullable default=none nulls=0 rate=0.0%
+    - modele (character varying)    nullable default=none nulls=0 rate=0.0%
+    - modele_description (character varying)    nullable default=none nulls=0 rate=0.0%
+    - statut (character varying)    nullable default=none nulls=0 rate=0.0%
+  SAMPLE ROWS:
+    - sample row 1: {"id":1,"vehicle_no":"VN0000952","vin":"MA3WB52S7JA307786","marque":"SUZUKI","modele":"BALENO","modele_description":"BALENO GLX","statut":"4927TU196"}
+    - sample row 2: {"id":2,"vehicle_no":"VN0000953","vin":"MA3WB52S2JA309235","marque":"SUZUKI","modele":"BALENO","modele_description":"BALENO GLX","statut":"7826TU196"}
+    - sample row 3: {"id":3,"vehicle_no":"VN0000954","vin":"MA3WB52S8JA309207","marque":"SUZUKI","modele":"BALENO","modele_description":"BALENO GLX","statut":"4956TU196"}
+  SCHEMA FIELD MAPPING:
+    - field id -> column id type=Int optional=false
+    - field vehicleNo -> column vehicle_no type=String optional=false
+    - field vin -> column vin type=String? optional=true
+    - field marque -> column marque type=String? optional=true
+    - field modele -> column modele type=String? optional=true
+    - field modeleDescription -> column modele_description type=String? optional=true
+    - field statut -> column statut type=String? optional=true
+
+SCHEMA MISMATCHES
+--------------------------------------------------------------------------------
+  - Prisma model exists for 'chat_sessions', but no matching database table was found.
+  - Prisma model exists for 'chat_messages', but no matching database table was found.
+  - Prisma model exists for 'chat_prompts', but no matching database table was found.
+  - Prisma model exists for 'chat_feedback', but no matching database table was found.
+  - Prisma model exists for 'upload_tracking', but no matching database table was found.
+
+END OF REPORT
+================================================================================

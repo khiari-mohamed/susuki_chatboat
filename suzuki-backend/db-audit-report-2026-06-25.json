@@ -1,0 +1,1406 @@
+{
+  "timestamp": "2026-06-25T14:04:03.383Z",
+  "env": {
+    "envPath": "D:\\house_md\\Suzuki\\suzuki-backend\\.env",
+    "databaseUrl": "postgresql://postgres:23044943@localhost:5432/suzuki_parts?schema=public",
+    "parsedDatabaseUrl": {
+      "protocol": "postgresql",
+      "host": "localhost",
+      "port": "5432",
+      "database": "suzuki_parts",
+      "schema": "public",
+      "user": "postgres"
+    },
+    "warnings": []
+  },
+  "tables": [
+    {
+      "tableName": "fitment",
+      "rowCount": 9504,
+      "columns": [
+        {
+          "name": "id",
+          "type": "integer",
+          "nullable": false,
+          "isPrimaryKey": true,
+          "defaultValue": "nextval('fitment_id_seq'::regclass)",
+          "nullCount": 0,
+          "emptyRate": "0.0%"
+        },
+        {
+          "name": "part_reference",
+          "type": "character varying",
+          "nullable": false,
+          "isPrimaryKey": false,
+          "defaultValue": null,
+          "nullCount": 0,
+          "emptyRate": "0.0%"
+        },
+        {
+          "name": "type_code",
+          "type": "character varying",
+          "nullable": false,
+          "isPrimaryKey": false,
+          "defaultValue": null,
+          "nullCount": 0,
+          "emptyRate": "0.0%"
+        },
+        {
+          "name": "model_name",
+          "type": "character varying",
+          "nullable": false,
+          "isPrimaryKey": false,
+          "defaultValue": null,
+          "nullCount": 0,
+          "emptyRate": "0.0%"
+        }
+      ],
+      "sampleRows": [
+        {
+          "id": 1,
+          "part_reference": "01550-0830A-000",
+          "type_code": "APK416-TYPE1",
+          "model_name": "APK416-TYPE1"
+        },
+        {
+          "id": 2,
+          "part_reference": "01550-0830A-000",
+          "type_code": "AZI412-TYPE3",
+          "model_name": "AZI412-TYPE3"
+        },
+        {
+          "id": 3,
+          "part_reference": "01550-0855A-000",
+          "type_code": "APK416-TYPE1",
+          "model_name": "APK416-TYPE1"
+        }
+      ],
+      "issues": [
+        "Prisma field 'part' maps to column 'part', but the column is not present in database table 'fitment'.",
+        "Prisma field 'vehicleType' maps to column 'vehicleType', but the column is not present in database table 'fitment'.",
+        "Prisma relation field 'part' references local database column 'partReference', which does not exist in table 'fitment'.",
+        "Prisma relation field 'vehicleType' references local database column 'typeCode', which does not exist in table 'fitment'."
+      ],
+      "schemaModel": {
+        "modelName": "Fitment",
+        "tableName": "fitment",
+        "fields": [
+          {
+            "fieldName": "id",
+            "columnName": "id",
+            "type": "Int",
+            "isOptional": false,
+            "isRelation": false,
+            "rawLine": "id            Int               @id @default(autoincrement())"
+          },
+          {
+            "fieldName": "partReference",
+            "columnName": "part_reference",
+            "type": "String",
+            "isOptional": false,
+            "isRelation": false,
+            "rawLine": "partReference String            @map(\"part_reference\") @db.VarChar(50)"
+          },
+          {
+            "fieldName": "typeCode",
+            "columnName": "type_code",
+            "type": "String",
+            "isOptional": false,
+            "isRelation": false,
+            "rawLine": "typeCode      String            @map(\"type_code\") @db.VarChar(30)"
+          },
+          {
+            "fieldName": "modelName",
+            "columnName": "model_name",
+            "type": "String",
+            "isOptional": false,
+            "isRelation": false,
+            "rawLine": "modelName     String            @map(\"model_name\") @db.VarChar(100)"
+          },
+          {
+            "fieldName": "part",
+            "columnName": "part",
+            "type": "Part",
+            "isOptional": false,
+            "isRelation": true,
+            "relationFields": [
+              "partReference"
+            ],
+            "references": [
+              "reference"
+            ],
+            "rawLine": "part          Part              @relation(fields: [partReference], references: [reference])"
+          },
+          {
+            "fieldName": "vehicleType",
+            "columnName": "vehicleType",
+            "type": "VehicleTypeMaster",
+            "isOptional": false,
+            "isRelation": true,
+            "relationFields": [
+              "typeCode"
+            ],
+            "references": [
+              "typeCode"
+            ],
+            "rawLine": "vehicleType   VehicleTypeMaster @relation(fields: [typeCode], references: [typeCode])"
+          }
+        ]
+      },
+      "warnings": []
+    },
+    {
+      "tableName": "item_references",
+      "rowCount": 7194,
+      "columns": [
+        {
+          "name": "id",
+          "type": "integer",
+          "nullable": false,
+          "isPrimaryKey": true,
+          "defaultValue": "nextval('item_references_id_seq'::regclass)",
+          "nullCount": 0,
+          "emptyRate": "0.0%"
+        },
+        {
+          "name": "part_reference",
+          "type": "character varying",
+          "nullable": false,
+          "isPrimaryKey": false,
+          "defaultValue": null,
+          "nullCount": 0,
+          "emptyRate": "0.0%"
+        },
+        {
+          "name": "reference_no",
+          "type": "character varying",
+          "nullable": false,
+          "isPrimaryKey": false,
+          "defaultValue": null,
+          "nullCount": 0,
+          "emptyRate": "0.0%"
+        },
+        {
+          "name": "reference_type",
+          "type": "character varying",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": null,
+          "nullCount": 0,
+          "emptyRate": "0.0%"
+        }
+      ],
+      "sampleRows": [
+        {
+          "id": 1,
+          "part_reference": "00533069",
+          "reference_no": "4016987119365",
+          "reference_type": "3.0"
+        },
+        {
+          "id": 2,
+          "part_reference": "00533069",
+          "reference_no": "4016987119747",
+          "reference_type": "3.0"
+        },
+        {
+          "id": 3,
+          "part_reference": "00591124",
+          "reference_no": "4016987119617",
+          "reference_type": "3.0"
+        }
+      ],
+      "issues": [
+        "Prisma field 'part' maps to column 'part', but the column is not present in database table 'item_references'.",
+        "Prisma relation field 'part' references local database column 'partReference', which does not exist in table 'item_references'."
+      ],
+      "schemaModel": {
+        "modelName": "ItemReference",
+        "tableName": "item_references",
+        "fields": [
+          {
+            "fieldName": "id",
+            "columnName": "id",
+            "type": "Int",
+            "isOptional": false,
+            "isRelation": false,
+            "rawLine": "id             Int    @id @default(autoincrement())"
+          },
+          {
+            "fieldName": "partReference",
+            "columnName": "part_reference",
+            "type": "String",
+            "isOptional": false,
+            "isRelation": false,
+            "rawLine": "partReference  String @map(\"part_reference\") @db.VarChar(50)"
+          },
+          {
+            "fieldName": "referenceNo",
+            "columnName": "reference_no",
+            "type": "String",
+            "isOptional": false,
+            "isRelation": false,
+            "rawLine": "referenceNo    String @map(\"reference_no\") @db.VarChar(50)"
+          },
+          {
+            "fieldName": "referenceType",
+            "columnName": "reference_type",
+            "type": "String?",
+            "isOptional": true,
+            "isRelation": false,
+            "rawLine": "referenceType  String? @map(\"reference_type\") @db.VarChar(20)"
+          },
+          {
+            "fieldName": "part",
+            "columnName": "part",
+            "type": "Part",
+            "isOptional": false,
+            "isRelation": true,
+            "relationFields": [
+              "partReference"
+            ],
+            "references": [
+              "reference"
+            ],
+            "rawLine": "part           Part   @relation(fields: [partReference], references: [reference])"
+          }
+        ]
+      },
+      "warnings": []
+    },
+    {
+      "tableName": "parts",
+      "rowCount": 10870,
+      "columns": [
+        {
+          "name": "id",
+          "type": "integer",
+          "nullable": false,
+          "isPrimaryKey": true,
+          "defaultValue": "nextval('parts_id_seq'::regclass)",
+          "nullCount": 0,
+          "emptyRate": "0.0%"
+        },
+        {
+          "name": "reference",
+          "type": "character varying",
+          "nullable": false,
+          "isPrimaryKey": false,
+          "defaultValue": null,
+          "nullCount": 0,
+          "emptyRate": "0.0%"
+        },
+        {
+          "name": "designation",
+          "type": "text",
+          "nullable": false,
+          "isPrimaryKey": false,
+          "defaultValue": null,
+          "nullCount": 0,
+          "emptyRate": "0.0%"
+        },
+        {
+          "name": "search_description",
+          "type": "character varying",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": null,
+          "nullCount": 7881,
+          "emptyRate": "72.5%"
+        },
+        {
+          "name": "designation_2",
+          "type": "character varying",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": null,
+          "nullCount": 3594,
+          "emptyRate": "33.1%"
+        },
+        {
+          "name": "prix_ht",
+          "type": "numeric",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": null,
+          "nullCount": 970,
+          "emptyRate": "8.9%"
+        },
+        {
+          "name": "prix_ttc",
+          "type": "numeric",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": null,
+          "nullCount": 970,
+          "emptyRate": "8.9%"
+        },
+        {
+          "name": "unite",
+          "type": "character varying",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": null,
+          "nullCount": 2,
+          "emptyRate": "0.0%"
+        },
+        {
+          "name": "categorie",
+          "type": "character varying",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": null,
+          "nullCount": 40,
+          "emptyRate": "0.4%"
+        },
+        {
+          "name": "fabricant",
+          "type": "character varying",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": null,
+          "nullCount": 43,
+          "emptyRate": "0.4%"
+        },
+        {
+          "name": "fournisseur_code",
+          "type": "character varying",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": null,
+          "nullCount": 1395,
+          "emptyRate": "12.8%"
+        },
+        {
+          "name": "source",
+          "type": "character varying",
+          "nullable": false,
+          "isPrimaryKey": false,
+          "defaultValue": null,
+          "nullCount": 0,
+          "emptyRate": "0.0%"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp without time zone",
+          "nullable": false,
+          "isPrimaryKey": false,
+          "defaultValue": "CURRENT_TIMESTAMP",
+          "nullCount": 0,
+          "emptyRate": "0.0%"
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp without time zone",
+          "nullable": false,
+          "isPrimaryKey": false,
+          "defaultValue": null,
+          "nullCount": 0,
+          "emptyRate": "0.0%"
+        }
+      ],
+      "sampleRows": [
+        {
+          "id": 1,
+          "reference": "00533069",
+          "designation": "BATTERIE L2",
+          "search_description": "BATTERIE L2",
+          "designation_2": null,
+          "prix_ht": "305.952",
+          "prix_ttc": "364.083",
+          "unite": "UNITE",
+          "categorie": "PR",
+          "fabricant": "AUTRES",
+          "fournisseur_code": "CAR PRO PARTS",
+          "source": "01_PROD",
+          "created_at": "2026-05-04T16:11:38.119Z",
+          "updated_at": "2026-05-04T16:11:38.119Z"
+        },
+        {
+          "id": 2,
+          "reference": "00591124",
+          "designation": "BATTERIE L1",
+          "search_description": "BATTERIE L1",
+          "designation_2": null,
+          "prix_ht": "317.116",
+          "prix_ttc": "377.368",
+          "unite": "UNITE",
+          "categorie": "PR",
+          "fabricant": "AUTRES",
+          "fournisseur_code": "CAR PRO PARTS",
+          "source": "01_PROD",
+          "created_at": "2026-05-04T16:11:38.119Z",
+          "updated_at": "2026-05-04T16:11:38.119Z"
+        },
+        {
+          "id": 3,
+          "reference": "01550-0830A-000",
+          "designation": "BOLT RS413 4WD",
+          "search_description": "BOLT RS413 4WD",
+          "designation_2": "BOULON",
+          "prix_ht": "17.176",
+          "prix_ttc": "20.439",
+          "unite": "PCS",
+          "categorie": "MÉCANIQUE",
+          "fabricant": "SUZUKI",
+          "fournisseur_code": "CAR PRO PARTS",
+          "source": "01_PROD",
+          "created_at": "2026-05-04T16:11:38.119Z",
+          "updated_at": "2026-05-04T16:11:38.119Z"
+        }
+      ],
+      "issues": [
+        "Prisma field 'stock' maps to column 'stock', but the column is not present in database table 'parts'.",
+        "Prisma field 'fitments' maps to column 'fitments', but the column is not present in database table 'parts'.",
+        "Prisma field 'itemReferences' maps to column 'itemReferences', but the column is not present in database table 'parts'."
+      ],
+      "schemaModel": {
+        "modelName": "Part",
+        "tableName": "parts",
+        "fields": [
+          {
+            "fieldName": "id",
+            "columnName": "id",
+            "type": "Int",
+            "isOptional": false,
+            "isRelation": false,
+            "rawLine": "id                Int       @id @default(autoincrement())"
+          },
+          {
+            "fieldName": "reference",
+            "columnName": "reference",
+            "type": "String",
+            "isOptional": false,
+            "isRelation": false,
+            "rawLine": "reference         String    @unique @db.VarChar(50)"
+          },
+          {
+            "fieldName": "designation",
+            "columnName": "designation",
+            "type": "String",
+            "isOptional": false,
+            "isRelation": false,
+            "rawLine": "designation       String    @db.Text"
+          },
+          {
+            "fieldName": "searchDescription",
+            "columnName": "search_description",
+            "type": "String?",
+            "isOptional": true,
+            "isRelation": false,
+            "rawLine": "searchDescription String?   @map(\"search_description\") @db.VarChar(100)"
+          },
+          {
+            "fieldName": "designation2",
+            "columnName": "designation_2",
+            "type": "String?",
+            "isOptional": true,
+            "isRelation": false,
+            "rawLine": "designation2      String?   @map(\"designation_2\") @db.VarChar(100)"
+          },
+          {
+            "fieldName": "prixHt",
+            "columnName": "prix_ht",
+            "type": "Decimal?",
+            "isOptional": true,
+            "isRelation": false,
+            "rawLine": "prixHt            Decimal?  @map(\"prix_ht\") @db.Decimal(10, 3)"
+          },
+          {
+            "fieldName": "prixTtc",
+            "columnName": "prix_ttc",
+            "type": "Decimal?",
+            "isOptional": true,
+            "isRelation": false,
+            "rawLine": "prixTtc           Decimal?  @map(\"prix_ttc\") @db.Decimal(10, 3)"
+          },
+          {
+            "fieldName": "unite",
+            "columnName": "unite",
+            "type": "String?",
+            "isOptional": true,
+            "isRelation": false,
+            "rawLine": "unite             String?   @db.VarChar(20)"
+          },
+          {
+            "fieldName": "categorie",
+            "columnName": "categorie",
+            "type": "String?",
+            "isOptional": true,
+            "isRelation": false,
+            "rawLine": "categorie         String?   @db.VarChar(50)"
+          },
+          {
+            "fieldName": "fabricant",
+            "columnName": "fabricant",
+            "type": "String?",
+            "isOptional": true,
+            "isRelation": false,
+            "rawLine": "fabricant         String?   @db.VarChar(100)"
+          },
+          {
+            "fieldName": "fournisseurCode",
+            "columnName": "fournisseur_code",
+            "type": "String?",
+            "isOptional": true,
+            "isRelation": false,
+            "rawLine": "fournisseurCode   String?   @map(\"fournisseur_code\") @db.VarChar(50)"
+          },
+          {
+            "fieldName": "source",
+            "columnName": "source",
+            "type": "String",
+            "isOptional": false,
+            "isRelation": false,
+            "rawLine": "source            String    @db.VarChar(20)    // '01_PROD' or '02_CARPRO'"
+          },
+          {
+            "fieldName": "createdAt",
+            "columnName": "created_at",
+            "type": "DateTime",
+            "isOptional": false,
+            "isRelation": false,
+            "rawLine": "createdAt         DateTime  @default(now()) @map(\"created_at\")"
+          },
+          {
+            "fieldName": "updatedAt",
+            "columnName": "updated_at",
+            "type": "DateTime",
+            "isOptional": false,
+            "isRelation": false,
+            "rawLine": "updatedAt         DateTime  @updatedAt @map(\"updated_at\")"
+          },
+          {
+            "fieldName": "stock",
+            "columnName": "stock",
+            "type": "Stock?",
+            "isOptional": true,
+            "isRelation": false,
+            "rawLine": "stock             Stock?"
+          },
+          {
+            "fieldName": "fitments",
+            "columnName": "fitments",
+            "type": "Fitment[]",
+            "isOptional": false,
+            "isRelation": false,
+            "rawLine": "fitments          Fitment[]"
+          },
+          {
+            "fieldName": "itemReferences",
+            "columnName": "itemReferences",
+            "type": "ItemReference[]",
+            "isOptional": false,
+            "isRelation": false,
+            "rawLine": "itemReferences    ItemReference[]"
+          }
+        ]
+      },
+      "warnings": []
+    },
+    {
+      "tableName": "stock",
+      "rowCount": 5303,
+      "columns": [
+        {
+          "name": "id",
+          "type": "integer",
+          "nullable": false,
+          "isPrimaryKey": true,
+          "defaultValue": "nextval('stock_id_seq'::regclass)",
+          "nullCount": 0,
+          "emptyRate": "0.0%"
+        },
+        {
+          "name": "reference",
+          "type": "character varying",
+          "nullable": false,
+          "isPrimaryKey": false,
+          "defaultValue": null,
+          "nullCount": 0,
+          "emptyRate": "0.0%"
+        },
+        {
+          "name": "total_quantity",
+          "type": "integer",
+          "nullable": false,
+          "isPrimaryKey": false,
+          "defaultValue": "0",
+          "nullCount": 0,
+          "emptyRate": "0.0%"
+        },
+        {
+          "name": "statut",
+          "type": "character varying",
+          "nullable": false,
+          "isPrimaryKey": false,
+          "defaultValue": "'Indisponible'::character varying",
+          "nullCount": 0,
+          "emptyRate": "0.0%"
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp without time zone",
+          "nullable": false,
+          "isPrimaryKey": false,
+          "defaultValue": null,
+          "nullCount": 0,
+          "emptyRate": "0.0%"
+        }
+      ],
+      "sampleRows": [
+        {
+          "id": 1,
+          "reference": "00533069",
+          "total_quantity": 6,
+          "statut": "Disponible",
+          "updated_at": "2026-05-04T16:12:06.891Z"
+        },
+        {
+          "id": 2,
+          "reference": "00591124",
+          "total_quantity": 14,
+          "statut": "Disponible",
+          "updated_at": "2026-05-04T16:12:06.891Z"
+        },
+        {
+          "id": 3,
+          "reference": "01550-0830A-000",
+          "total_quantity": 3,
+          "statut": "Disponible",
+          "updated_at": "2026-05-04T16:12:06.891Z"
+        }
+      ],
+      "issues": [
+        "Prisma field 'part' maps to column 'part', but the column is not present in database table 'stock'."
+      ],
+      "schemaModel": {
+        "modelName": "Stock",
+        "tableName": "stock",
+        "fields": [
+          {
+            "fieldName": "id",
+            "columnName": "id",
+            "type": "Int",
+            "isOptional": false,
+            "isRelation": false,
+            "rawLine": "id            Int      @id @default(autoincrement())"
+          },
+          {
+            "fieldName": "reference",
+            "columnName": "reference",
+            "type": "String",
+            "isOptional": false,
+            "isRelation": false,
+            "rawLine": "reference     String   @unique @db.VarChar(50)"
+          },
+          {
+            "fieldName": "totalQuantity",
+            "columnName": "total_quantity",
+            "type": "Int",
+            "isOptional": false,
+            "isRelation": false,
+            "rawLine": "totalQuantity Int      @default(0) @map(\"total_quantity\")"
+          },
+          {
+            "fieldName": "statut",
+            "columnName": "statut",
+            "type": "String",
+            "isOptional": false,
+            "isRelation": false,
+            "rawLine": "statut        String   @default(\"Indisponible\") @db.VarChar(20)"
+          },
+          {
+            "fieldName": "updatedAt",
+            "columnName": "updated_at",
+            "type": "DateTime",
+            "isOptional": false,
+            "isRelation": false,
+            "rawLine": "updatedAt     DateTime @updatedAt @map(\"updated_at\")"
+          },
+          {
+            "fieldName": "part",
+            "columnName": "part",
+            "type": "Part",
+            "isOptional": false,
+            "isRelation": true,
+            "relationFields": [
+              "reference"
+            ],
+            "references": [
+              "reference"
+            ],
+            "rawLine": "part          Part     @relation(fields: [reference], references: [reference])"
+          }
+        ]
+      },
+      "warnings": []
+    },
+    {
+      "tableName": "synonyms",
+      "rowCount": 1780,
+      "columns": [
+        {
+          "name": "id",
+          "type": "integer",
+          "nullable": false,
+          "isPrimaryKey": true,
+          "defaultValue": "nextval('synonyms_id_seq'::regclass)",
+          "nullCount": 0,
+          "emptyRate": "0.0%"
+        },
+        {
+          "name": "mot",
+          "type": "character varying",
+          "nullable": false,
+          "isPrimaryKey": false,
+          "defaultValue": null,
+          "nullCount": 0,
+          "emptyRate": "0.0%"
+        },
+        {
+          "name": "canonical",
+          "type": "character varying",
+          "nullable": false,
+          "isPrimaryKey": false,
+          "defaultValue": null,
+          "nullCount": 0,
+          "emptyRate": "0.0%"
+        },
+        {
+          "name": "langue",
+          "type": "character varying",
+          "nullable": false,
+          "isPrimaryKey": false,
+          "defaultValue": "'fr'::character varying",
+          "nullCount": 0,
+          "emptyRate": "0.0%"
+        }
+      ],
+      "sampleRows": [
+        {
+          "id": 1,
+          "mot": "filtre",
+          "canonical": "filtre",
+          "langue": "fr"
+        },
+        {
+          "id": 2,
+          "mot": "filter",
+          "canonical": "filtre",
+          "langue": "fr"
+        },
+        {
+          "id": 3,
+          "mot": "filtr",
+          "canonical": "filtre",
+          "langue": "fr"
+        }
+      ],
+      "issues": [],
+      "schemaModel": {
+        "modelName": "Synonym",
+        "tableName": "synonyms",
+        "fields": [
+          {
+            "fieldName": "id",
+            "columnName": "id",
+            "type": "Int",
+            "isOptional": false,
+            "isRelation": false,
+            "rawLine": "id        Int    @id @default(autoincrement())"
+          },
+          {
+            "fieldName": "mot",
+            "columnName": "mot",
+            "type": "String",
+            "isOptional": false,
+            "isRelation": false,
+            "rawLine": "mot       String @db.VarChar(100)      // user input"
+          },
+          {
+            "fieldName": "canonical",
+            "columnName": "canonical",
+            "type": "String",
+            "isOptional": false,
+            "isRelation": false,
+            "rawLine": "canonical String @db.VarChar(100)      // DB search term"
+          },
+          {
+            "fieldName": "langue",
+            "columnName": "langue",
+            "type": "String",
+            "isOptional": false,
+            "isRelation": false,
+            "rawLine": "langue    String @default(\"fr\") @db.VarChar(5) // 'fr' | 'tn'"
+          }
+        ]
+      },
+      "warnings": []
+    },
+    {
+      "tableName": "vehicle_type_master",
+      "rowCount": 51,
+      "columns": [
+        {
+          "name": "id",
+          "type": "integer",
+          "nullable": false,
+          "isPrimaryKey": true,
+          "defaultValue": "nextval('vehicle_type_master_id_seq'::regclass)",
+          "nullCount": 0,
+          "emptyRate": "0.0%"
+        },
+        {
+          "name": "type_code",
+          "type": "character varying",
+          "nullable": false,
+          "isPrimaryKey": false,
+          "defaultValue": null,
+          "nullCount": 0,
+          "emptyRate": "0.0%"
+        },
+        {
+          "name": "model_name",
+          "type": "character varying",
+          "nullable": false,
+          "isPrimaryKey": false,
+          "defaultValue": null,
+          "nullCount": 0,
+          "emptyRate": "0.0%"
+        }
+      ],
+      "sampleRows": [
+        {
+          "id": 1,
+          "type_code": "A1K414 TYPE 1",
+          "model_name": "A1K414 TYPE 1"
+        },
+        {
+          "id": 2,
+          "type_code": "A1M414",
+          "model_name": "A1M414"
+        },
+        {
+          "id": 3,
+          "type_code": "A2L412",
+          "model_name": "A2L412-3"
+        }
+      ],
+      "issues": [
+        "Prisma field 'fitments' maps to column 'fitments', but the column is not present in database table 'vehicle_type_master'."
+      ],
+      "schemaModel": {
+        "modelName": "VehicleTypeMaster",
+        "tableName": "vehicle_type_master",
+        "fields": [
+          {
+            "fieldName": "id",
+            "columnName": "id",
+            "type": "Int",
+            "isOptional": false,
+            "isRelation": false,
+            "rawLine": "id        Int       @id @default(autoincrement())"
+          },
+          {
+            "fieldName": "typeCode",
+            "columnName": "type_code",
+            "type": "String",
+            "isOptional": false,
+            "isRelation": false,
+            "rawLine": "typeCode  String    @unique @map(\"type_code\") @db.VarChar(30)"
+          },
+          {
+            "fieldName": "modelName",
+            "columnName": "model_name",
+            "type": "String",
+            "isOptional": false,
+            "isRelation": false,
+            "rawLine": "modelName String    @map(\"model_name\") @db.VarChar(100)"
+          },
+          {
+            "fieldName": "fitments",
+            "columnName": "fitments",
+            "type": "Fitment[]",
+            "isOptional": false,
+            "isRelation": false,
+            "rawLine": "fitments  Fitment[]"
+          }
+        ]
+      },
+      "warnings": []
+    },
+    {
+      "tableName": "vehicles",
+      "rowCount": 28830,
+      "columns": [
+        {
+          "name": "id",
+          "type": "integer",
+          "nullable": false,
+          "isPrimaryKey": true,
+          "defaultValue": "nextval('vehicles_id_seq'::regclass)",
+          "nullCount": 0,
+          "emptyRate": "0.0%"
+        },
+        {
+          "name": "vehicle_no",
+          "type": "character varying",
+          "nullable": false,
+          "isPrimaryKey": false,
+          "defaultValue": null,
+          "nullCount": 0,
+          "emptyRate": "0.0%"
+        },
+        {
+          "name": "vin",
+          "type": "character varying",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": null,
+          "nullCount": 95,
+          "emptyRate": "0.3%"
+        },
+        {
+          "name": "marque",
+          "type": "character varying",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": null,
+          "nullCount": 0,
+          "emptyRate": "0.0%"
+        },
+        {
+          "name": "modele",
+          "type": "character varying",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": null,
+          "nullCount": 0,
+          "emptyRate": "0.0%"
+        },
+        {
+          "name": "modele_description",
+          "type": "character varying",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": null,
+          "nullCount": 0,
+          "emptyRate": "0.0%"
+        },
+        {
+          "name": "statut",
+          "type": "character varying",
+          "nullable": true,
+          "isPrimaryKey": false,
+          "defaultValue": null,
+          "nullCount": 0,
+          "emptyRate": "0.0%"
+        }
+      ],
+      "sampleRows": [
+        {
+          "id": 1,
+          "vehicle_no": "VN0000952",
+          "vin": "MA3WB52S7JA307786",
+          "marque": "SUZUKI",
+          "modele": "BALENO",
+          "modele_description": "BALENO GLX",
+          "statut": "4927TU196"
+        },
+        {
+          "id": 2,
+          "vehicle_no": "VN0000953",
+          "vin": "MA3WB52S2JA309235",
+          "marque": "SUZUKI",
+          "modele": "BALENO",
+          "modele_description": "BALENO GLX",
+          "statut": "7826TU196"
+        },
+        {
+          "id": 3,
+          "vehicle_no": "VN0000954",
+          "vin": "MA3WB52S8JA309207",
+          "marque": "SUZUKI",
+          "modele": "BALENO",
+          "modele_description": "BALENO GLX",
+          "statut": "4956TU196"
+        }
+      ],
+      "issues": [],
+      "schemaModel": {
+        "modelName": "Vehicle",
+        "tableName": "vehicles",
+        "fields": [
+          {
+            "fieldName": "id",
+            "columnName": "id",
+            "type": "Int",
+            "isOptional": false,
+            "isRelation": false,
+            "rawLine": "id                 Int     @id @default(autoincrement())"
+          },
+          {
+            "fieldName": "vehicleNo",
+            "columnName": "vehicle_no",
+            "type": "String",
+            "isOptional": false,
+            "isRelation": false,
+            "rawLine": "vehicleNo          String  @unique @map(\"vehicle_no\") @db.VarChar(20)"
+          },
+          {
+            "fieldName": "vin",
+            "columnName": "vin",
+            "type": "String?",
+            "isOptional": true,
+            "isRelation": false,
+            "rawLine": "vin                String? @db.VarChar(25)  // Changed from 17 to 25 to accommodate longer VINs"
+          },
+          {
+            "fieldName": "marque",
+            "columnName": "marque",
+            "type": "String?",
+            "isOptional": true,
+            "isRelation": false,
+            "rawLine": "marque             String? @db.VarChar(20)"
+          },
+          {
+            "fieldName": "modele",
+            "columnName": "modele",
+            "type": "String?",
+            "isOptional": true,
+            "isRelation": false,
+            "rawLine": "modele             String? @db.VarChar(20)"
+          },
+          {
+            "fieldName": "modeleDescription",
+            "columnName": "modele_description",
+            "type": "String?",
+            "isOptional": true,
+            "isRelation": false,
+            "rawLine": "modeleDescription  String? @map(\"modele_description\") @db.VarChar(100)"
+          },
+          {
+            "fieldName": "statut",
+            "columnName": "statut",
+            "type": "String?",
+            "isOptional": true,
+            "isRelation": false,
+            "rawLine": "statut             String? @db.VarChar(20)"
+          }
+        ]
+      },
+      "warnings": []
+    }
+  ],
+  "foreignKeys": [],
+  "schemaIssues": [
+    "Prisma model exists for 'chat_sessions', but no matching database table was found.",
+    "Prisma model exists for 'chat_messages', but no matching database table was found.",
+    "Prisma model exists for 'chat_prompts', but no matching database table was found.",
+    "Prisma model exists for 'chat_feedback', but no matching database table was found.",
+    "Prisma model exists for 'upload_tracking', but no matching database table was found."
+  ],
+  "summary": {
+    "tables": 7,
+    "totalRows": 63532,
+    "totalColumns": 41,
+    "totalIssues": 16,
+    "emptyTables": 0,
+    "missingSchemaModels": 5,
+    "missingDatabaseTables": 0,
+    "missingColumns": 8,
+    "foreignKeys": 0,
+    "scope": "parts"
+  },
+  "partAnalysis": {
+    "totalParts": 10870,
+    "partsWithStock": 5303,
+    "partsWithFitments": 4654,
+    "partsWithItemReferences": 5193,
+    "distinctPartCategories": 8,
+    "categoryCounts": [
+      {
+        "categorie": "CARROSSERIE",
+        "count": 3920
+      },
+      {
+        "categorie": "PR",
+        "count": 2682
+      },
+      {
+        "categorie": "MÉCANIQUE",
+        "count": 2492
+      },
+      {
+        "categorie": "ELECTRIQUE",
+        "count": 1226
+      },
+      {
+        "categorie": "P.PEINTURE",
+        "count": 282
+      },
+      {
+        "categorie": "ACCESSOIRES",
+        "count": 147
+      },
+      {
+        "categorie": "VEHICULE",
+        "count": 77
+      },
+      {
+        "categorie": null,
+        "count": 40
+      },
+      {
+        "categorie": "LUBRIFIANTS",
+        "count": 4
+      }
+    ],
+    "topManufacturers": [
+      {
+        "fabricant": "AUTRES",
+        "count": 6331
+      },
+      {
+        "fabricant": "SUZUKI",
+        "count": 4496
+      },
+      {
+        "fabricant": null,
+        "count": 43
+      }
+    ],
+    "vehicleModelFitmentCounts": [
+      {
+        "typeCode": "AON312-TYPE1",
+        "modelName": "AON312",
+        "fitmentCount": 839
+      },
+      {
+        "typeCode": "AVB415-TYPE2",
+        "modelName": "AVB415-TYPE2",
+        "fitmentCount": 700
+      },
+      {
+        "typeCode": "AVB415-TYPE3",
+        "modelName": "AVB415-TYPE3",
+        "fitmentCount": 696
+      },
+      {
+        "typeCode": "AVB414-TYPE1",
+        "modelName": "AVB414-TYPE1",
+        "fitmentCount": 676
+      },
+      {
+        "typeCode": "ARL415-TYPE2",
+        "modelName": "ARL415-2-TYPE2",
+        "fitmentCount": 651
+      },
+      {
+        "typeCode": "ARL415-TYPE1",
+        "modelName": "ARL415-TYPE1",
+        "fitmentCount": 644
+      },
+      {
+        "typeCode": "AZI412-TYPE3",
+        "modelName": "AZI412-TYPE3",
+        "fitmentCount": 641
+      },
+      {
+        "typeCode": "AVH310-TYPE2",
+        "modelName": "AVH310-TYPE 2",
+        "fitmentCount": 637
+      },
+      {
+        "typeCode": "AVH310-TYPE1",
+        "modelName": "AVH310-TYPE 1",
+        "fitmentCount": 621
+      },
+      {
+        "typeCode": "ABU310-TYPE1",
+        "modelName": "ABU310-TYPE1",
+        "fitmentCount": 607
+      },
+      {
+        "typeCode": "APK416-TYPE1",
+        "modelName": "APK416-TYPE1",
+        "fitmentCount": 602
+      },
+      {
+        "typeCode": "AXM310-TYPE1",
+        "modelName": "AXM310",
+        "fitmentCount": 598
+      },
+      {
+        "typeCode": "APK414-TYPE3",
+        "modelName": "APK414-3-TYPE3",
+        "fitmentCount": 575
+      },
+      {
+        "typeCode": "AXM310-TYPE2",
+        "modelName": "AXM310",
+        "fitmentCount": 555
+      },
+      {
+        "typeCode": "APQ415-TYPE2",
+        "modelName": "APQ415",
+        "fitmentCount": 462
+      }
+    ],
+    "vehicleModelCounts": [
+      {
+        "modele": "NEW CELERIO",
+        "count": 6558
+      },
+      {
+        "modele": "NEW SWIFT",
+        "count": 4846
+      },
+      {
+        "modele": "CELERIO",
+        "count": 4147
+      },
+      {
+        "modele": "DZIRE",
+        "count": 3304
+      },
+      {
+        "modele": "SWIFT IV",
+        "count": 1877
+      },
+      {
+        "modele": "CIAZ",
+        "count": 1521
+      },
+      {
+        "modele": "SWIFT",
+        "count": 1081
+      },
+      {
+        "modele": "SPRESSO",
+        "count": 863
+      },
+      {
+        "modele": "BALENO",
+        "count": 589
+      },
+      {
+        "modele": "FRONX",
+        "count": 542
+      },
+      {
+        "modele": "VITARA",
+        "count": 526
+      },
+      {
+        "modele": "DZIRE IV",
+        "count": 420
+      },
+      {
+        "modele": "JIMNY",
+        "count": 372
+      },
+      {
+        "modele": "CELERIO BVA",
+        "count": 366
+      },
+      {
+        "modele": "NEW BALENO",
+        "count": 335
+      },
+      {
+        "modele": "JIMNY 5D AT",
+        "count": 319
+      },
+      {
+        "modele": "NAN",
+        "count": 295
+      },
+      {
+        "modele": "ERTIGA FL",
+        "count": 237
+      },
+      {
+        "modele": "ERTIGA",
+        "count": 145
+      },
+      {
+        "modele": "GRAND VITARA",
+        "count": 100
+      },
+      {
+        "modele": "NEW VITARA",
+        "count": 78
+      },
+      {
+        "modele": "PARTNER",
+        "count": 26
+      },
+      {
+        "modele": "SX4",
+        "count": 15
+      },
+      {
+        "modele": "J7 PHEV",
+        "count": 14
+      },
+      {
+        "modele": "BERLINGO",
+        "count": 14
+      },
+      {
+        "modele": "IGNIS",
+        "count": 11
+      },
+      {
+        "modele": "JIMNY 5D MT",
+        "count": 10
+      },
+      {
+        "modele": "RIO",
+        "count": 8
+      },
+      {
+        "modele": "PIPPER",
+        "count": 8
+      },
+      {
+        "modele": "GOLF",
+        "count": 8
+      }
+    ],
+    "totalVehicleTypes": 51,
+    "totalVehicles": 28830,
+    "partRelationSummaries": [
+      {
+        "sourceModel": "Fitment",
+        "relationField": "part",
+        "sourceColumn": "partReference",
+        "targetModel": "Part",
+        "targetColumn": "reference"
+      },
+      {
+        "sourceModel": "Fitment",
+        "relationField": "vehicleType",
+        "sourceColumn": "typeCode",
+        "targetModel": "VehicleTypeMaster",
+        "targetColumn": "typeCode"
+      },
+      {
+        "sourceModel": "ItemReference",
+        "relationField": "part",
+        "sourceColumn": "partReference",
+        "targetModel": "Part",
+        "targetColumn": "reference"
+      },
+      {
+        "sourceModel": "Stock",
+        "relationField": "part",
+        "sourceColumn": "reference",
+        "targetModel": "Part",
+        "targetColumn": "reference"
+      }
+    ]
+  }
+}
