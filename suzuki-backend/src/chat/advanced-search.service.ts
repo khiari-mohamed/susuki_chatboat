@@ -766,7 +766,8 @@ export class AdvancedSearchService implements OnModuleInit {
       const noiseWords = ['bonjour', 'cherche', 'pour', 'new', 'all', 'swift', 'celerio', 'baleno',
         'vitara', 'ciaz', 'fronx', 'ignis', 'jimny', 'spresso', 'dzire', 'ertiga', 'kizashi',
         'samurai', 'splash', 'swace', 'alto', 'apv', 'eeco', 'merci', 'salut', 'bonsoir',
-        'une', 'besoin', 'veux', 'voudrais', 'chercher', 'trouver', 'avoir', 'besoin'];
+        'une', 'besoin', 'veux', 'voudrais', 'chercher', 'trouver', 'avoir', 'besoin',
+        'elle', 'est', 'disponible', 'dispo', 'ils', 'elles', 'vous', 'nous', 'ils'];
       if (noiseWords.includes(w)) return false;
       for (const [category, syns] of Object.entries(this.synonymsMap)) {
         if (syns.includes(w) && expandedTerms.includes(category) && w !== category) {
@@ -1511,9 +1512,10 @@ Segmented:`;
     const modelNameTokens = new Set(['new', 'all', 'swift', 'celerio', 'baleno', 'vitara', 'ciaz',
       'fronx', 'ignis', 'jimny', 'spresso', 'dzire', 'ertiga', 'kizashi', 'samurai', 'splash',
       'swace', 'alto', 'apv', 'eeco', 'sx4',
-      // French filler words that must not be synonym-expanded
+      // French filler/conversational words that must not be synonym-expanded
       'une', 'besoin', 'pour', 'cherche', 'bonjour', 'salut', 'bonsoir', 'merci',
-      'besoin', 'veux', 'voudrais', 'chercher', 'trouver', 'avoir']);
+      'veux', 'voudrais', 'chercher', 'trouver', 'avoir',
+      'elle', 'est', 'disponible', 'dispo', 'ils', 'elles', 'vous', 'nous']);
 
     tokens.forEach((token) => {
       // Model name tokens are kept as-is — never expanded or replaced
