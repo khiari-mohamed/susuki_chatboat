@@ -1234,67 +1234,20 @@ export class AdvancedSearchService implements OnModuleInit {
     let score = 0;
     if (this.isStockAvailable(part.stock)) score += 8;
 
-    // Fitment specificity bonus: reward parts that fit the IDENTIFIED model's
-    // specific type codes over parts that only fit related/older models also in scope.
-    //
-    // The vehicle scope may contain type codes for multiple related models
-    // (e.g. NEW CELERIO lookup returns AXM310 + ARL415 because the VIN resolves
-    // to a vehicle that has both in its compatibility table).
-    // We must prefer parts whose fitments match AXM310 (New Celerio) over
-    // parts that only match ARL415 (old Celerio).
-    //
-    // Strategy: the FIRST type code in vehicleScope.typeCodes comes from
-    // vehicle_model_map for the exact model name — that's the primary model.
-    // We use the type-code PREFIX (e.g. "AXM310") to identify primary codes.
     if (vehicleScope?.active && vehicleScope.typeCodes.length > 0 && part.fitments?.length > 0) {
       const fitmentCodes = (part.fitments as any[]).map((f) => f.typeCode as string);
-
-      // Derive the primary model prefix from vehicle_model_map for the exact
-      // identified model name. The typeCodes array may contain codes for related
-      // models (e.g. ARL415 for old Celerio alongside AXM310 for New Celerio).
-      // We identify primary codes as those returned by vehicle_model_map for
-      // the specific model string, which is stored in vehicleScope.model.
-      // Heuristic: group type codes by prefix and pick the group that is
-      // MOST SPECIFIC to the identified model by checking which prefix
-      // appears in the fewest total scope codes (more specific = fewer variants).
-      const prefixGroups = new Map<string, string[]>();
-      for (const tc of vehicleScope.typeCodes) {
-        const prefix = tc.replace(/-TYPE\d+$/i, '');
-        if (!prefixGroups.has(prefix)) prefixGroups.set(prefix, []);
-        prefixGroups.get(prefix)!.push(tc);
-      }
-
-      // The primary prefix is the one whose codes appear LAST in the typeCodes
-      // array — vehicle_model_map rows for the exact model name are added after
-      // the broader vehicle_type_master fallback rows in resolveVehicleScope.
-      // Actually: modelMapRows are added FIRST (primary lookup), typeRows second.
-      // So the FIRST prefix group = primary model codes.
-      // But logs show ARL415 first for NEW CELERIO — meaning ARL415 is in
-      // vehicle_model_map for CELERIO (the normalized model name).
-      // The correct fix: use the model name to pick the right prefix.
-      // NEW CELERIO normalizes to CELERIO, which maps to ARL415 AND AXM310.
-      // We need the prefix that matches the FULL model name "NEW CELERIO" = AXM310.
-      // Since we can't know this without a DB query, use the LAST prefix group
-      // (added by vehicle_type_master fallback for the more specific model name).
-      const prefixEntries = [...prefixGroups.entries()];
-      // Pick the prefix group added last (most specific model match)
-      const primaryPrefix = prefixEntries[prefixEntries.length - 1][0];
-      const primaryCodes = new Set(prefixGroups.get(primaryPrefix) ?? []);
+      const primaryCodes = new Set(vehicleScope.primaryTypeCodes);
       const allScopeCodes = new Set(vehicleScope.typeCodes);
-
-      const primaryMatches = fitmentCodes.filter((c) => primaryCodes.has(c)).length;
-      const scopeMatches = fitmentCodes.filter((c) => allScopeCodes.has(c)).length;
       const totalFitments = fitmentCodes.length;
+      const primaryMatches = fitmentCodes.filter((c) => primaryCodes.has(c)).length;
+      const scopeMatches   = fitmentCodes.filter((c) => allScopeCodes.has(c)).length;
 
       if (primaryMatches > 0 && primaryMatches === totalFitments) {
-        // Exclusively fits the primary model — maximum bonus
-        score += 60000;
+        score += 60000; // exclusively fits the identified model
       } else if (primaryMatches > 0) {
-        // Fits primary model but also others
         score += Math.round((primaryMatches / totalFitments) * 40000);
       } else if (scopeMatches === totalFitments) {
-        // Fits only secondary/related models in scope
-        score += 10000;
+        score += 10000; // fits only related/secondary models in scope
       } else if (scopeMatches > 0) {
         score += Math.round((scopeMatches / totalFitments) * 5000);
       }
