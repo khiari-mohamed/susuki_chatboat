@@ -159,7 +159,7 @@ Analyse L'IMAGE fournie et retourne UNIQUEMENT un JSON strict (sans texte autour
   "modele": "modèle exact (Swift, Vitara, Celerio, S-Presso, Jimny, Baleno, Ignis, Alto, Ertiga, Dzire, Fronx, etc.)",
   "typeMoteur": "type de moteur (si visible)",
   "annee": "année de fabrication (4 chiffres)",
-  "vin": "numéro de châssis / VIN (17 caractères alphanumériques — champ 'Numéro dans la série' ou 'N° de châssis' sur la carte grise). Laisse vide si non lisible."
+  "vin": "numéro de châssis / VIN (17 caractères alphanumériques). Laisse vide si non lisible."
 }
 
 RÈGLES STRICTES:
@@ -167,7 +167,7 @@ RÈGLES STRICTES:
 - MODÈLE: accepte TOUS les modèles Suzuki (Swift, Vitara, Celerio, S-Presso, Jimny, Baleno, Ignis, Alto, Ertiga, Dzire, Fronx, etc.).
   Normalise le nom: "SPRESSO" → "S-Presso", "NEW CELERIO" → "New Celerio", "SWIFT IV" → "Swift IV".
 - IMMATRICULATION: lis TOUT le champ incluant chiffres ET texte arabe (تونس, etc.). Format tunisien: "XXX تونس XXXX" ou format français standard. Préserve EXACTEMENT le texte arabe. Ne remplace PAS par des points ou caractères spéciaux.
-- VIN: cherche activement le champ "Numéro dans la série", "N° de châssis", ou toute séquence de 17 caractères alphanumériques commençant par JS (Suzuki Japan) ou MA (Suzuki Inde). Extrais-le tel quel, sans espaces.
+- VIN: cherche activement TOUTE séquence de 17 caractères alphanumériques (lettres majuscules + chiffres, sans espaces) présente sur le document, quel que soit le libellé du champ qui la contient — les libellés varient selon le pays et le modèle de carte grise : "Numéro dans la série", "N° de châssis", "N° Série du type", "العدد الرتبي في النوع", etc. Ne rejette JAMAIS une séquence de 17 caractères au seul motif qu'elle ne commence pas par JS ou MA — Suzuki utilise aussi d'autres préfixes WMI (ex: MB pour certains sites d'assemblage hors Japon/Inde). Le préfixe n'est qu'une indication, pas un critère d'exclusion. Extrais la séquence telle qu'elle apparaît, sans espaces.
 - ANNÉE: extrais 4 chiffres plausibles (2000..année courante+1). Si non lisible, laisse vide.
 - Réponds STRICTEMENT avec le JSON, sans commentaire, sans markdown, sans texte en plus.`;
 

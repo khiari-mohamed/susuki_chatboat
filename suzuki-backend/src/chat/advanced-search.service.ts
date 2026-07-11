@@ -459,16 +459,27 @@ export class AdvancedSearchService implements OnModuleInit {
       });
     }
 
-    const modelCandidates = [
-      dbVehicle?.modele,
-      vehicle.modele,
-      vehicle.model,
-      vehicle.modelName,
+    // primaryCandidates: the most specific model identifiers — modeleDescription
+    // (e.g. "ALL NEW SW GL MT", "NEW CELERIO POP 6AB") comes first because it
+    // uniquely identifies the exact variant. modele (e.g. "SWIFT IV", "CELERIO")
+    // is a broader fallback used only for the wider compatibility scope.
+    const primaryCandidates = [
       dbVehicle?.modeleDescription,
       vehicle.modeleDescription,
+      vehicle.model,
+      vehicle.modelName,
     ]
       .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
       .map((value) => value.trim());
+
+    const broadCandidates = [
+      dbVehicle?.modele,
+      vehicle.modele,
+    ]
+      .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+      .map((value) => value.trim());
+
+    const modelCandidates = [...new Set([...primaryCandidates, ...broadCandidates])];
 
     const normalizedModel = modelCandidates
       .map((value) => this.vehicleModels.normalize(value))
@@ -487,21 +498,24 @@ export class AdvancedSearchService implements OnModuleInit {
     }
 
     if (modelValues.length > 0) {
-      // First: exact match on the original model candidates (e.g. "NEW CELERIO")
-      const exactModelRows = await this.prisma.vehicleModelMap.findMany({
-        where: {
-          OR: modelCandidates.map((modele) => ({
-            modele: { equals: modele, mode: 'insensitive' },
-          })),
-        },
-        select: { typeCode: true },
-      });
-      exactModelRows.forEach((row) => {
-        typeCodes.add(row.typeCode);
-        primaryTypeCodes.add(row.typeCode);
-      });
+      // Primary: exact match on modeleDescription / specific model name only
+      // (e.g. "ALL NEW SW GL MT" → AON312, "NEW CELERIO" → AXM310)
+      if (primaryCandidates.length > 0) {
+        const exactPrimaryRows = await this.prisma.vehicleModelMap.findMany({
+          where: {
+            OR: primaryCandidates.map((modele) => ({
+              modele: { equals: modele, mode: 'insensitive' },
+            })),
+          },
+          select: { typeCode: true },
+        });
+        exactPrimaryRows.forEach((row) => {
+          typeCodes.add(row.typeCode);
+          primaryTypeCodes.add(row.typeCode);
+        });
+      }
 
-      // Then: broader lookup including normalized model name variants
+      // Broader: all candidates including modele (e.g. "SWIFT IV" → AVH310)
       const modelMapRows = await this.prisma.vehicleModelMap.findMany({
         where: {
           OR: modelValues.map((modele) => ({
@@ -1245,7 +1259,9 @@ export class AdvancedSearchService implements OnModuleInit {
       if (primaryMatches > 0 && primaryMatches === totalFitments) {
         score += 60000; // exclusively fits the identified model
       } else if (primaryMatches > 0) {
-        score += Math.round((primaryMatches / totalFitments) * 40000);
+        // Has at least one primary match — strong bonus regardless of total fitments
+        // (e.g. AON312 part that also fits AVH310 still beats a pure AVH310 part)
+        score += 50000 + Math.round((primaryMatches / totalFitments) * 10000);
       } else if (scopeMatches === totalFitments) {
         score += 10000; // fits only related/secondary models in scope
       } else if (scopeMatches > 0) {
