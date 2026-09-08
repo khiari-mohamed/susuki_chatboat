@@ -11,6 +11,50 @@ export class VerificationService {
     private openai: OpenAIService,  // reserved for future cross-validation
   ) {}
 
+  async verifyVin(rawVin: string) {
+    const vin = rawVin.trim().replace(/[\s-]/g, '').toUpperCase();
+
+    if (!/^[A-Z0-9]{17}$/.test(vin)) {
+      return {
+        success: false,
+        message: 'Le VIN doit contenir exactement 17 caractères alphanumériques.',
+      };
+    }
+
+    const vehicle = await this.prisma.vehicle.findFirst({
+      where: { vin: { equals: vin, mode: 'insensitive' } },
+      select: {
+        vin: true,
+        vehicleNo: true,
+        marque: true,
+        modele: true,
+        modeleDescription: true,
+        immatriculation: true,
+      },
+    });
+
+    if (!vehicle) {
+      return {
+        success: false,
+        message: 'Ce VIN ne correspond pas à un véhicule Suzuki enregistré.',
+      };
+    }
+
+    return {
+      success: true,
+      vehicleInfo: {
+        vin: vehicle.vin ?? vin,
+        vehicleNo: vehicle.vehicleNo,
+        marque: vehicle.marque ?? 'SUZUKI',
+        modele: vehicle.modele ?? vehicle.modeleDescription ?? '',
+        modeleDescription: vehicle.modeleDescription ?? '',
+        immatriculation: vehicle.immatriculation ?? '',
+        vinValidated: true,
+        source: 'VIN direct',
+      },
+    };
+  }
+
   async verifyDocument(file: any, userIp?: string) {
     const startTime = Date.now();
     const fileHash = Buffer.from(file.buffer.slice(0, 100)).toString('base64').substring(0, 20);
@@ -53,6 +97,7 @@ export class VerificationService {
             marque: true,
             modele: true,
             modeleDescription: true,
+            typeCode: true,
             vehicleNo: true,
           },
         });
@@ -62,6 +107,7 @@ export class VerificationService {
           vehicleInfo.marque = dbVehicle.marque || vehicleInfo.marque;
           vehicleInfo.modele = dbVehicle.modele || vehicleInfo.modele;
           vehicleInfo.modeleDescription = dbVehicle.modeleDescription || vehicleInfo.modeleDescription;
+          vehicleInfo.typeCode = dbVehicle.typeCode;
           vehicleInfo.vehicleNo = dbVehicle.vehicleNo;
           vehicleInfo.vinValidated = true;
           console.log(`✅ VIN ${vehicleInfo.vin} validated against database`);
@@ -115,6 +161,10 @@ export class VerificationService {
           ? 'Seules les cartes grises Suzuki sont acceptées.'
           : error.message === 'OCR_FAILED'
           ? 'Impossible de lire le document. Veuillez utiliser une image plus claire.'
+            : error.message === 'GEMINI_AUTH_FAILED'
+            ? 'Le service de vérification est mal configuré. Contactez l’administrateur.'
+            : error.message === 'GEMINI_QUOTA_EXCEEDED'
+            ? 'Le service de vérification est temporairement indisponible. Veuillez réessayer plus tard.'
           : 'Erreur lors de la vérification. Veuillez réessayer.'
       };
     }

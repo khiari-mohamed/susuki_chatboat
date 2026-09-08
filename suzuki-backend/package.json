@@ -25,6 +25,12 @@
     "debug:part-audit": "node scripts/part-column-audit.js",
     "sample:parts": "node scripts/sample-parts-to-csv.js",
     "count:part-names": "node scripts/count-part-names.js",
+    "db:find-part": "node scripts/find-part.js",
+    "db:find-windshield": "node scripts/find-windshield.js",
+    "db:compare-csv": "node scripts/compare-csv-db.js",
+    "db:sync-csv": "node scripts/sync-csv-to-db.js",
+    "db:sync-vehicles": "node scripts/sync-vehicles-csv.js",
+    "db:sync-fitments": "node scripts/sync-fitments-csv.js",
     "carpro:import-test-data": "node scripts/import-carpro-test-data.js"
   },
   "dependencies": {

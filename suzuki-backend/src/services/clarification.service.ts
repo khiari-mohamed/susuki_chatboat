@@ -160,7 +160,7 @@ export class ClarificationService {
     // Asking for side clarification on these is always wrong.
     const noSideParts = [
       'radiateur', 'calandre', 'capot', 'pare brise', 'parebrise',
-      'lunette', 'toit', 'reservoir', 'batterie', 'moteur',
+      'lunette', 'toit', 'reservoir', 'batterie', 'moteur', 'traverse',
     ];
     const queryHasNoSidePart = noSideParts.some((p) => lower.includes(p));
 
@@ -178,9 +178,30 @@ export class ClarificationService {
       .replace(/[\u0300-\u036f]/g, '')
       .split(/[\s-]+/)
       .filter((t) => t.length >= 3);
+    const explicitFilterType = queryTokens.some((token) =>
+      ['air', 'huile', 'gazoile', 'habitacle', 'carburant', 'essence', 'climatiseur'].includes(token),
+    );
 
     // FIX-3: extractDimensions now uses combined text
     const dims = this.extractDimensions(candidates, queryTokens);
+    const sideSensitivePart = this.isBilateralPart(candidates, queryTokens);
+
+    // "Pare choc" is an intentional broad category search. Return the best
+    // compatible result instead of forcing an unnecessary front/rear choice;
+    // an explicit "pare choc avant/arriere" query remains position-scoped.
+    const bumperQuery = /\bpare\s*-?\s*choc\b/i.test(lower);
+    const broadBumperQuery = bumperQuery && !hasPos && !hasSide;
+    if (broadBumperQuery) return { needed: false, variants: [], dimension: '' };
+
+    const windshieldQuery = /\bpare\s*-?\s*brise\b/i.test(lower);
+    if (windshieldQuery) return { needed: false, variants: [], dimension: '' };
+    const traverseQuery = /\btraverse\b/i.test(lower);
+    if (traverseQuery) {
+      if (!hasPos && dims.positions.length > 1) {
+        return { needed: true, variants: dims.positions, dimension: 'position' };
+      }
+      return { needed: false, variants: [], dimension: '' };
+    }
 
     if (!hasPos && dims.positions.length > 1) {
       return { needed: true, variants: dims.positions, dimension: 'position' };
@@ -195,25 +216,14 @@ export class ClarificationService {
     // together as if there were no ambiguity. The cap had no principled
     // justification: ambiguity (dims.sides.length > 1) is the only
     // correct trigger condition, regardless of candidate count.
-    if (!hasSide && !queryHasNoSidePart && dims.sides.length > 1) {
+    if (!hasSide && !bumperQuery && !queryHasNoSidePart && sideSensitivePart && dims.sides.length > 1) {
       return { needed: true, variants: dims.sides, dimension: 'side' };
     }
 
-    if (!hasPos && !hasSide && dims.types.length > 1) {
+    if (!hasPos && !hasSide && !explicitFilterType && dims.types.length > 1) {
       return { needed: true, variants: dims.types, dimension: 'type' };
     }
-
-    // BUGFIX: genericSubTypes catches the case the old logic completely
-    // missed — query results that are genuinely DIFFERENT PARTS sharing
-    // a common word, with no position/side/fluid-type ambiguity at all.
-    // Example: "capot" → TIGE CAPOT (hood stay), SERRURE CAPOT (hood
-    // lock), CALLE CAPOT (hood wedge). Without this check, all of these
-    // were silently dumped together as if they were the same part.
-    //
-    // Threshold: only trigger if there are at least 2 distinct
-    // qualifying words AND they appear across at least 2 different
-    // products (avoids over-triggering on a single odd token).
-    if (!hasPos && !hasSide && dims.genericSubTypes.length >= 2) {
+    if (queryTokens.length <= 1 && !hasPos && !hasSide && dims.genericSubTypes.length >= 2) {
       // Only ask if the candidates are genuinely split across these
       // qualifiers — i.e. not all candidates share the exact same
       // qualifier set (which would mean no real ambiguity).
@@ -255,14 +265,27 @@ export class ClarificationService {
   }
 
   // FIX-4: isBilateralPart checks combined text
-  private isBilateralPart(products: any[]): boolean {
+  private isBilateralPart(products: any[], queryTokens: string[] = []): boolean {
     const bilateral = [
       'retroviseur', 'feu', 'phare', 'aile', 'amortisseur', 'amorto', 'porte',
       'clignotant', 'essuie', 'vitre', 'poignee', 'poignée',
       // FIX-4: French designation_2 terms also bilateral
       'optique', 'charniere', 'serrure', 'enjoliveur', 'custode',
     ];
-    return products.some((p) => {
+
+
+    if (queryTokens.length > 0) {
+      return queryTokens.some((token) => bilateral.includes(token));
+    }
+
+    const relevantProducts = queryTokens.length > 0
+      ? products.filter((p) => {
+          const text = this.getCombinedText(p).toLowerCase();
+          return queryTokens.every((token) => text.includes(token));
+        })
+      : products;
+
+    return relevantProducts.some((p) => {
       const combined = this.getCombinedText(p).toLowerCase();
       return bilateral.some((part) => combined.includes(part));
     });

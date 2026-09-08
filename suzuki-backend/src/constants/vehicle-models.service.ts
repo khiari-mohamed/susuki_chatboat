@@ -1,36 +1,5 @@
-// src/constants/vehicle-models.service.ts
-// ═══════════════════════════════════════════════════════════════════
-// FIXES APPLIED (2026-06-25) aligned with advanced-search.service.ts:
-//
-// FIX-1: hasModelInDesignation() now checks BOTH designation_2
-//         (French primary field) AND designation (English OEM).
-//         Previously only the English field was checked, so parts
-//         that store model names only in designation_2 were treated
-//         as "universal" parts and shown to all vehicle types.
-//
-// FIX-2: matchesModel() now also checks designation_2 for the model
-//         name so model-specific French-named parts are correctly
-//         matched to the user's vehicle.
-//
-// FIX-3: getCombinedDesignation() helper centralises the two-field
-//         concatenation used by FIX-1 and FIX-2.
-//
-// FIX-4: MODEL_ALIASES extended with FRONX and DZIRE variants that
-//         appear in the database but were missing from the alias map.
-//
-// FIX-5: normalize() now also strips the SPRESSO/S-PRESSO hyphen
-//         variant using the existing alias logic, so downstream code
-//         that calls normalize() gets a consistent result regardless
-//         of which spelling the vehicle_info JSON uses.
-//
-// NOTE:  loadModels() and all DB-loading logic are unchanged —
-//        the model list is still sourced from the vehicles table.
-// ═══════════════════════════════════════════════════════════════════
-
 import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-
-// FIX-4: Extended alias map — added FRONX, DZIRE, BALENO variants
 export const MODEL_ALIASES: Record<string, string> = {
   // Original aliases
   'NEW CIAZ':              'CIAZ',
@@ -41,7 +10,6 @@ export const MODEL_ALIASES: Record<string, string> = {
   'S PRESSO':              'S-PRESSO',
   'WAGONR':                'WAGON R',
   'WAGON-R':               'WAGON R',
-  // FIX-4: Additional variants found in the vehicles table
   'NEW CELERIO':           'CELERIO',
   'NEW SWIFT':             'SWIFT',
   'SWIFT 4':               'SWIFT',
@@ -137,13 +105,6 @@ export class VehicleModelsService implements OnModuleInit {
     if (french.toLowerCase() === english.toLowerCase()) return french.toUpperCase();
     return `${french} ${english}`.toUpperCase();
   }
-
-  // ─────────────────────────────────────────────────────────────────
-  // FIX-1: hasModelInDesignation — checks BOTH fields.
-  //
-  // Accepts either a raw designation string (original call signature)
-  // OR a part object (new call signature when full part is available).
-  // ─────────────────────────────────────────────────────────────────
   hasModelInDesignation(designationOrPart: string | any): boolean {
     let upper: string;
 
@@ -160,12 +121,6 @@ export class VehicleModelsService implements OnModuleInit {
 
     return this.models.some((model) => upper.includes(model));
   }
-
-  // ─────────────────────────────────────────────────────────────────
-  // FIX-2: matchesModel — checks BOTH fields.
-  //
-  // Accepts either a raw designation string OR a part object.
-  // ─────────────────────────────────────────────────────────────────
   matchesModel(designationOrPart: string | any, model: string): boolean {
     let upper: string;
 

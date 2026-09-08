@@ -1,0 +1,5463 @@
+===== New Celerio (12) =====
+Prompt: Bonjour, je cherche un radiateur pour ma New Celerio
+Expected: ref=17700M81R00 | price=747.957 | avail=Disponible
+Actual : ref=17700M81R00 | price=747.957 | avail=Disponible
+Passed: true
+Response text: Pièces disponibles pour votre SUZUKI NEW CELERIO :
+
+• RADIATEUR — 747.957 TND
+
+💡 Contactez CarPro au ☎️ 70 603 500 pour réserver.
+Structured payload:
+{
+  "response": "Pièces disponibles pour votre SUZUKI NEW CELERIO :\n\n• RADIATEUR — 747.957 TND\n\n💡 Contactez CarPro au ☎️ 70 603 500 pour réserver.",
+  "sessionId": "580a0e46-ca71-4b55-bdfa-7251725026f5",
+  "products": [
+    {
+      "id": 1302,
+      "designation": "RADIATEUR",
+      "designationOem": "RADIATORASSY",
+      "designation2": "RADIATEUR",
+      "searchDescription": "RADIATEUR",
+      "reference": "17700M81R00",
+      "prixHt": "628.535",
+      "prixTtc": "747.957",
+      "unite": "PCS",
+      "categorie": "MÉCANIQUE",
+      "fabricant": "AUTRES",
+      "fournisseurCode": "CAR PRO PARTS",
+      "source": "01_PROD",
+      "sourceLabel": "Suzuki OEM",
+      "stock": {
+        "statut": "Disponible",
+        "totalQuantity": 5,
+        "stockDisponible": 3,
+        "stockConsolide": 41
+      },
+      "fitments": [
+        {
+          "modelName": "AXM310",
+          "typeCode": "AXM310-TYPE1"
+        },
+        {
+          "modelName": "AXM310",
+          "typeCode": "AXM310-TYPE2"
+        }
+      ],
+      "itemReferences": [],
+      "identificationSource": {
+        "vin": "MA3TFC62S00270261",
+        "vehicleNo": "VN0169176",
+        "model": "CELERIO",
+        "modelDescription": "CELERIO POP GL MT",
+        "typeCodes": [
+          "ARL415-TYPE1",
+          "ARL415-TYPE2",
+          "AXM310-TYPE1",
+          "AXM310-TYPE2"
+        ],
+        "articleNumber": "17700M81R00"
+      },
+      "score": 261008
+    }
+  ],
+  "confidence": "HIGH",
+  "confidenceScore": 87.5,
+  "suggestions": [],
+  "intent": "PARTS_SEARCH",
+  "metadata": {
+    "productsFound": 6,
+    "conversationLength": 1,
+    "queryClarity": 20,
+    "duration": 2297,
+    "userMessageId": "ba2de24d-6f63-4eca-839c-be75c44b3007"
+  },
+  "productsDetail": [
+    {
+      "id": 1302,
+      "displayName": "RADIATEUR",
+      "designation": "RADIATORASSY",
+      "designation2": "RADIATEUR",
+      "searchDescription": "RADIATEUR",
+      "reference": "17700M81R00",
+      "prixHt": "628.535",
+      "prixTtc": "747.957",
+      "unite": "PCS",
+      "categorie": "MÉCANIQUE",
+      "fabricant": "AUTRES",
+      "fournisseurCode": "CAR PRO PARTS",
+      "source": "01_PROD",
+      "sourceLabel": "Suzuki OEM",
+      "stock": {
+        "statut": "Disponible",
+        "totalQuantity": 5,
+        "stockDisponible": 3,
+        "stockConsolide": 41
+      },
+      "fitments": [
+        {
+          "modelName": "AXM310",
+          "typeCode": "AXM310-TYPE1"
+        },
+        {
+          "modelName": "AXM310",
+          "typeCode": "AXM310-TYPE2"
+        }
+      ],
+      "itemReferences": [],
+      "identificationSource": {
+        "vin": "MA3TFC62S00270261",
+        "vehicleNo": "VN0169176",
+        "model": "CELERIO",
+        "modelDescription": "CELERIO POP GL MT",
+        "typeCodes": [
+          "ARL415-TYPE1",
+          "ARL415-TYPE2",
+          "AXM310-TYPE1",
+          "AXM310-TYPE2"
+        ],
+        "articleNumber": "17700M81R00"
+      },
+      "score": 261008
+    }
+  ],
+  "searchDebug": {
+    "searchType": "text",
+    "originalQuery": "Bonjour, je cherche un radiateur pour ma New Celerio",
+    "normalizedQuery": "bonjour je cherche un radiateur pour ma new celerio",
+    "hasTunisianDialect": false,
+    "rawTokens": [
+      "bonjour",
+      "cherche",
+      "radiateur",
+      "pour",
+      "new",
+      "celerio"
+    ],
+    "expandedTerms": [
+      "bonjour",
+      "cherche",
+      "radiateur",
+      "pour",
+      "new",
+      "celerio"
+    ],
+    "mainPartType": "radiateur",
+    "positionInfo": {
+      "avant": false,
+      "arriere": false,
+      "gauche": false,
+      "droite": false
+    },
+    "fieldsSearched": [
+      "designation_2",
+      "search_description",
+      "designation",
+      "reference",
+      "categorie",
+      "fabricant",
+      "fournisseur_code",
+      "item_references.reference_no"
+    ],
+    "tablesQueried": [
+      "vehicles",
+      "vehicle_model_map",
+      "vehicle_type_master",
+      "parts",
+      "stock",
+      "fitment",
+      "item_references"
+    ],
+    "dbRawCount": 19,
+    "qualifiedCount": 19,
+    "finalCount": 10,
+    "vehicleScope": {
+      "active": true,
+      "vin": "MA3TFC62S00270261",
+      "vehicleNo": "VN0169176",
+      "model": "CELERIO",
+      "modelDescription": "CELERIO POP GL MT",
+      "typeCodes": [
+        "ARL415-TYPE1",
+        "ARL415-TYPE2",
+        "AXM310-TYPE1",
+        "AXM310-TYPE2"
+      ],
+      "primaryTypeCodes": [
+        "ARL415-TYPE1",
+        "ARL415-TYPE2",
+        "AXM310-TYPE1",
+        "AXM310-TYPE2"
+      ]
+    },
+    "sourceBreakdown": {
+      "suzukiOem": 10,
+      "carproParts": 0
+    },
+    "stockBreakdown": {
+      "disponible": 3,
+      "indisponible": 7
+    }
+  }
+}
+===== New Celerio (12) =====
+Prompt: il me faut un optique droit pour New Celerio
+Expected: ref=35121M81R30 | price=762.652 | avail=Disponible
+Actual : ref=35121M81R30 | price=762.652 | avail=Disponible
+Passed: true
+Response text: Pièces disponibles pour votre SUZUKI NEW CELERIO :
+
+• OPTIQUE D — 762.652 TND
+
+💡 Contactez CarPro au ☎️ 70 603 500 pour réserver.
+Structured payload:
+{
+  "response": "Pièces disponibles pour votre SUZUKI NEW CELERIO :\n\n• OPTIQUE D — 762.652 TND\n\n💡 Contactez CarPro au ☎️ 70 603 500 pour réserver.",
+  "sessionId": "4373ae9c-ae80-4aeb-9c60-838b1045a74f",
+  "products": [
+    {
+      "id": 2328,
+      "designation": "OPTIQUE D",
+      "designationOem": "UNIT HEADLAMP",
+      "designation2": "OPTIQUE D",
+      "searchDescription": "OPTIQUE D",
+      "reference": "35121M81R30",
+      "prixHt": "640.884",
+      "prixTtc": "762.652",
+      "unite": "PCS",
+      "categorie": "ELECTRIQUE",
+      "fabricant": "SUZUKI",
+      "fournisseurCode": "CAR PRO PARTS",
+      "source": "01_PROD",
+      "sourceLabel": "Suzuki OEM",
+      "stock": {
+        "statut": "Disponible",
+        "totalQuantity": 13,
+        "stockDisponible": 2,
+        "stockConsolide": 31
+      },
+      "fitments": [
+        {
+          "modelName": "AXM310",
+          "typeCode": "AXM310-TYPE1"
+        },
+        {
+          "modelName": "AXM310",
+          "typeCode": "AXM310-TYPE2"
+        }
+      ],
+      "itemReferences": [],
+      "identificationSource": {
+        "vin": "MA3TFC62S00270261",
+        "vehicleNo": "VN0169176",
+        "model": "CELERIO",
+        "modelDescription": "CELERIO POP GL MT",
+        "typeCodes": [
+          "ARL415-TYPE1",
+          "ARL415-TYPE2",
+          "AXM310-TYPE1",
+          "AXM310-TYPE2"
+        ],
+        "articleNumber": "35121M81R30"
+      },
+      "score": 0
+    }
+  ],
+  "confidence": "MEDIUM",
+  "confidenceScore": 62.5,
+  "suggestions": [],
+  "intent": "PARTS_SEARCH",
+  "metadata": {
+    "productsFound": 2,
+    "conversationLength": 1,
+    "queryClarity": 20,
+    "duration": 1763,
+    "userMessageId": "bdf37b97-895e-425d-9b6e-43fbd0e4f922"
+  },
+  "productsDetail": [
+    {
+      "id": 2328,
+      "displayName": "OPTIQUE D",
+      "designation": "UNIT HEADLAMP",
+      "designation2": "OPTIQUE D",
+      "searchDescription": "OPTIQUE D",
+      "reference": "35121M81R30",
+      "prixHt": "640.884",
+      "prixTtc": "762.652",
+      "unite": "PCS",
+      "categorie": "ELECTRIQUE",
+      "fabricant": "SUZUKI",
+      "fournisseurCode": "CAR PRO PARTS",
+      "source": "01_PROD",
+      "sourceLabel": "Suzuki OEM",
+      "stock": {
+        "statut": "Disponible",
+        "totalQuantity": 13,
+        "stockDisponible": 2,
+        "stockConsolide": 31
+      },
+      "fitments": [
+        {
+          "modelName": "AXM310",
+          "typeCode": "AXM310-TYPE1"
+        },
+        {
+          "modelName": "AXM310",
+          "typeCode": "AXM310-TYPE2"
+        }
+      ],
+      "itemReferences": [],
+      "identificationSource": {
+        "vin": "MA3TFC62S00270261",
+        "vehicleNo": "VN0169176",
+        "model": "CELERIO",
+        "modelDescription": "CELERIO POP GL MT",
+        "typeCodes": [
+          "ARL415-TYPE1",
+          "ARL415-TYPE2",
+          "AXM310-TYPE1",
+          "AXM310-TYPE2"
+        ],
+        "articleNumber": "35121M81R30"
+      },
+      "score": 0
+    }
+  ],
+  "searchDebug": {
+    "searchType": "text",
+    "originalQuery": "il me faut un optique droit pour New Celerio",
+    "normalizedQuery": "il me faut un optique droit pour new celerio",
+    "hasTunisianDialect": false,
+    "rawTokens": [
+      "faut",
+      "optique",
+      "droit",
+      "pour",
+      "new",
+      "celerio"
+    ],
+    "expandedTerms": [
+      "haute",
+      "optique",
+      "droit",
+      "pour",
+      "new",
+      "celerio"
+    ],
+    "mainPartType": "optique",
+    "positionInfo": {
+      "avant": false,
+      "arriere": false,
+      "gauche": false,
+      "droite": true
+    },
+    "fieldsSearched": [
+      "designation_2",
+      "search_description",
+      "designation",
+      "reference",
+      "categorie",
+      "fabricant",
+      "fournisseur_code",
+      "item_references.reference_no"
+    ],
+    "tablesQueried": [
+      "vehicles",
+      "vehicle_model_map",
+      "vehicle_type_master",
+      "parts",
+      "stock",
+      "fitment",
+      "item_references"
+    ],
+    "dbRawCount": 9,
+    "qualifiedCount": 9,
+    "finalCount": 9,
+    "vehicleScope": {
+      "active": true,
+      "vin": "MA3TFC62S00270261",
+      "vehicleNo": "VN0169176",
+      "model": "CELERIO",
+      "modelDescription": "CELERIO POP GL MT",
+      "typeCodes": [
+        "ARL415-TYPE1",
+        "ARL415-TYPE2",
+        "AXM310-TYPE1",
+        "AXM310-TYPE2"
+      ],
+      "primaryTypeCodes": [
+        "ARL415-TYPE1",
+        "ARL415-TYPE2",
+        "AXM310-TYPE1",
+        "AXM310-TYPE2"
+      ]
+    },
+    "sourceBreakdown": {
+      "suzukiOem": 9,
+      "carproParts": 0
+    },
+    "stockBreakdown": {
+      "disponible": 3,
+      "indisponible": 6
+    }
+  }
+}
+===== New Celerio (12) =====
+Prompt: optique gauche New Celerio SVP
+Expected: ref=35321M81R30 | price=762.645 | avail=Disponible
+Actual : ref=35321M81R30 | price=762.645 | avail=Disponible
+Passed: true
+Response text: Pièces disponibles pour votre SUZUKI NEW CELERIO :
+
+• OPTIQUE G — 762.645 TND
+
+💡 Contactez CarPro au ☎️ 70 603 500 pour réserver.
+Structured payload:
+{
+  "response": "Pièces disponibles pour votre SUZUKI NEW CELERIO :\n\n• OPTIQUE G — 762.645 TND\n\n💡 Contactez CarPro au ☎️ 70 603 500 pour réserver.",
+  "sessionId": "94e7987f-09cd-4746-9c73-0abc14a80cd0",
+  "products": [
+    {
+      "id": 2377,
+      "designation": "OPTIQUE G",
+      "designationOem": "UNIT HEADLAMP, LH",
+      "designation2": "OPTIQUE G",
+      "searchDescription": "OPTIQUE G",
+      "reference": "35321M81R30",
+      "prixHt": "640.878",
+      "prixTtc": "762.645",
+      "unite": "PCS",
+      "categorie": "ELECTRIQUE",
+      "fabricant": "AUTRES",
+      "fournisseurCode": "CAR PRO PARTS",
+      "source": "01_PROD",
+      "sourceLabel": "Suzuki OEM",
+      "stock": {
+        "statut": "Disponible",
+        "totalQuantity": 50,
+        "stockDisponible": 39,
+        "stockConsolide": 39
+      },
+      "fitments": [
+        {
+          "modelName": "AXM310",
+          "typeCode": "AXM310-TYPE1"
+        },
+        {
+          "modelName": "AXM310",
+          "typeCode": "AXM310-TYPE2"
+        }
+      ],
+      "itemReferences": [
+        {
+          "referenceNo": "35321M81R30",
+          "referenceType": "3.0"
+        },
+        {
+          "referenceNo": "35321M81R30-000",
+          "referenceType": "3.0"
+        }
+      ],
+      "identificationSource": {
+        "vin": "MA3TFC62S00270261",
+        "vehicleNo": "VN0169176",
+        "model": "CELERIO",
+        "modelDescription": "CELERIO POP GL MT",
+        "typeCodes": [
+          "ARL415-TYPE1",
+          "ARL415-TYPE2",
+          "AXM310-TYPE1",
+          "AXM310-TYPE2"
+        ],
+        "articleNumber": "35321M81R30"
+      },
+      "score": 0
+    }
+  ],
+  "confidence": "MEDIUM",
+  "confidenceScore": 62.5,
+  "suggestions": [],
+  "intent": "PARTS_SEARCH",
+  "metadata": {
+    "productsFound": 2,
+    "conversationLength": 1,
+    "queryClarity": 20,
+    "duration": 1501,
+    "userMessageId": "b2e60baf-143c-4902-b6bd-be8b304f5793"
+  },
+  "productsDetail": [
+    {
+      "id": 2377,
+      "displayName": "OPTIQUE G",
+      "designation": "UNIT HEADLAMP, LH",
+      "designation2": "OPTIQUE G",
+      "searchDescription": "OPTIQUE G",
+      "reference": "35321M81R30",
+      "prixHt": "640.878",
+      "prixTtc": "762.645",
+      "unite": "PCS",
+      "categorie": "ELECTRIQUE",
+      "fabricant": "AUTRES",
+      "fournisseurCode": "CAR PRO PARTS",
+      "source": "01_PROD",
+      "sourceLabel": "Suzuki OEM",
+      "stock": {
+        "statut": "Disponible",
+        "totalQuantity": 50,
+        "stockDisponible": 39,
+        "stockConsolide": 39
+      },
+      "fitments": [
+        {
+          "modelName": "AXM310",
+          "typeCode": "AXM310-TYPE1"
+        },
+        {
+          "modelName": "AXM310",
+          "typeCode": "AXM310-TYPE2"
+        }
+      ],
+      "itemReferences": [
+        {
+          "referenceNo": "35321M81R30",
+          "referenceType": "3.0"
+        },
+        {
+          "referenceNo": "35321M81R30-000",
+          "referenceType": "3.0"
+        }
+      ],
+      "identificationSource": {
+        "vin": "MA3TFC62S00270261",
+        "vehicleNo": "VN0169176",
+        "model": "CELERIO",
+        "modelDescription": "CELERIO POP GL MT",
+        "typeCodes": [
+          "ARL415-TYPE1",
+          "ARL415-TYPE2",
+          "AXM310-TYPE1",
+          "AXM310-TYPE2"
+        ],
+        "articleNumber": "35321M81R30"
+      },
+      "score": 0
+    }
+  ],
+  "searchDebug": {
+    "searchType": "text",
+    "originalQuery": "optique gauche New Celerio SVP",
+    "normalizedQuery": "optique gauche new celerio svp",
+    "hasTunisianDialect": false,
+    "rawTokens": [
+      "optique",
+      "gauche",
+      "new",
+      "celerio",
+      "svp"
+    ],
+    "expandedTerms": [
+      "optique",
+      "gauche",
+      "new",
+      "celerio",
+      "stop"
+    ],
+    "mainPartType": "optique",
+    "positionInfo": {
+      "avant": false,
+      "arriere": false,
+      "gauche": true,
+      "droite": false
+    },
+    "fieldsSearched": [
+      "designation_2",
+      "search_description",
+      "designation",
+      "reference",
+      "categorie",
+      "fabricant",
+      "fournisseur_code",
+      "item_references.reference_no"
+    ],
+    "tablesQueried": [
+      "vehicles",
+      "vehicle_model_map",
+      "vehicle_type_master",
+      "parts",
+      "stock",
+      "fitment",
+      "item_references"
+    ],
+    "dbRawCount": 16,
+    "qualifiedCount": 16,
+    "finalCount": 10,
+    "vehicleScope": {
+      "active": true,
+      "vin": "MA3TFC62S00270261",
+      "vehicleNo": "VN0169176",
+      "model": "CELERIO",
+      "modelDescription": "CELERIO POP GL MT",
+      "typeCodes": [
+        "ARL415-TYPE1",
+        "ARL415-TYPE2",
+        "AXM310-TYPE1",
+        "AXM310-TYPE2"
+      ],
+      "primaryTypeCodes": [
+        "ARL415-TYPE1",
+        "ARL415-TYPE2",
+        "AXM310-TYPE1",
+        "AXM310-TYPE2"
+      ]
+    },
+    "sourceBreakdown": {
+      "suzukiOem": 10,
+      "carproParts": 0
+    },
+    "stockBreakdown": {
+      "disponible": 4,
+      "indisponible": 6
+    }
+  }
+}
+===== New Celerio (12) =====
+Prompt: prix du capot New Celerio
+Expected: ref=57300M81R00 | price=1036.88 | avail=Disponible
+Actual : ref=57300M81R00 | price=1036.88 | avail=Disponible
+Passed: true
+Response text: Pièces disponibles pour votre SUZUKI NEW CELERIO :
+
+• CAPOT — 1036.880 TND
+
+💡 Contactez CarPro au ☎️ 70 603 500 pour réserver.
+Structured payload:
+{
+  "response": "Pièces disponibles pour votre SUZUKI NEW CELERIO :\n\n• CAPOT — 1036.880 TND\n\n💡 Contactez CarPro au ☎️ 70 603 500 pour réserver.",
+  "sessionId": "7f56d820-ca4c-4d63-9a12-98bd7c490a08",
+  "products": [
+    {
+      "id": 4545,
+      "designation": "CAPOT",
+      "designationOem": "PANELCOMP,FRONTHOOD",
+      "designation2": "CAPOT",
+      "searchDescription": "CAPOT",
+      "reference": "57300M81R00",
+      "prixHt": "871.328",
+      "prixTtc": "1036.88",
+      "unite": "PCS",
+      "categorie": "CARROSSERIE",
+      "fabricant": "SUZUKI",
+      "fournisseurCode": "CAR PRO PARTS",
+      "source": "01_PROD",
+      "sourceLabel": "Suzuki OEM",
+      "stock": {
+        "statut": "Disponible",
+        "totalQuantity": 1,
+        "stockDisponible": 0,
+        "stockConsolide": 8
+      },
+      "fitments": [
+        {
+          "modelName": "AXM310",
+          "typeCode": "AXM310-TYPE1"
+        },
+        {
+          "modelName": "AXM310",
+          "typeCode": "AXM310-TYPE2"
+        }
+      ],
+      "itemReferences": [],
+      "identificationSource": {
+        "vin": "MA3TFC62S00270261",
+        "vehicleNo": "VN0169176",
+        "model": "CELERIO",
+        "modelDescription": "CELERIO POP GL MT",
+        "typeCodes": [
+          "ARL415-TYPE1",
+          "ARL415-TYPE2",
+          "AXM310-TYPE1",
+          "AXM310-TYPE2"
+        ],
+        "articleNumber": "57300M81R00"
+      },
+      "score": 0
+    }
+  ],
+  "confidence": "MEDIUM",
+  "confidenceScore": 62.5,
+  "suggestions": [],
+  "intent": "PARTS_SEARCH",
+  "metadata": {
+    "productsFound": 2,
+    "conversationLength": 1,
+    "queryClarity": 20,
+    "duration": 1318,
+    "userMessageId": "ae97e91e-8289-450a-9aca-bb3442296cf9"
+  },
+  "productsDetail": [
+    {
+      "id": 4545,
+      "displayName": "CAPOT",
+      "designation": "PANELCOMP,FRONTHOOD",
+      "designation2": "CAPOT",
+      "searchDescription": "CAPOT",
+      "reference": "57300M81R00",
+      "prixHt": "871.328",
+      "prixTtc": "1036.88",
+      "unite": "PCS",
+      "categorie": "CARROSSERIE",
+      "fabricant": "SUZUKI",
+      "fournisseurCode": "CAR PRO PARTS",
+      "source": "01_PROD",
+      "sourceLabel": "Suzuki OEM",
+      "stock": {
+        "statut": "Disponible",
+        "totalQuantity": 1,
+        "stockDisponible": 0,
+        "stockConsolide": 8
+      },
+      "fitments": [
+        {
+          "modelName": "AXM310",
+          "typeCode": "AXM310-TYPE1"
+        },
+        {
+          "modelName": "AXM310",
+          "typeCode": "AXM310-TYPE2"
+        }
+      ],
+      "itemReferences": [],
+      "identificationSource": {
+        "vin": "MA3TFC62S00270261",
+        "vehicleNo": "VN0169176",
+        "model": "CELERIO",
+        "modelDescription": "CELERIO POP GL MT",
+        "typeCodes": [
+          "ARL415-TYPE1",
+          "ARL415-TYPE2",
+          "AXM310-TYPE1",
+          "AXM310-TYPE2"
+        ],
+        "articleNumber": "57300M81R00"
+      },
+      "score": 0
+    }
+  ],
+  "searchDebug": {
+    "searchType": "text",
+    "originalQuery": "prix capot New Celerio",
+    "normalizedQuery": "prix capot new celerio",
+    "hasTunisianDialect": false,
+    "rawTokens": [
+      "prix",
+      "capot",
+      "new",
+      "celerio"
+    ],
+    "expandedTerms": [
+      "prix",
+      "capot",
+      "new",
+      "celerio"
+    ],
+    "mainPartType": "capot",
+    "positionInfo": {
+      "avant": false,
+      "arriere": false,
+      "gauche": false,
+      "droite": false
+    },
+    "fieldsSearched": [
+      "designation_2",
+      "search_description",
+      "designation",
+      "reference",
+      "categorie",
+      "fabricant",
+      "fournisseur_code",
+      "item_references.reference_no"
+    ],
+    "tablesQueried": [
+      "vehicles",
+      "vehicle_model_map",
+      "vehicle_type_master",
+      "parts",
+      "stock",
+      "fitment",
+      "item_references"
+    ],
+    "dbRawCount": 15,
+    "qualifiedCount": 15,
+    "finalCount": 10,
+    "vehicleScope": {
+      "active": true,
+      "vin": "MA3TFC62S00270261",
+      "vehicleNo": "VN0169176",
+      "model": "CELERIO",
+      "modelDescription": "CELERIO POP GL MT",
+      "typeCodes": [
+        "ARL415-TYPE1",
+        "ARL415-TYPE2",
+        "AXM310-TYPE1",
+        "AXM310-TYPE2"
+      ],
+      "primaryTypeCodes": [
+        "ARL415-TYPE1",
+        "ARL415-TYPE2",
+        "AXM310-TYPE1",
+        "AXM310-TYPE2"
+      ]
+    },
+    "sourceBreakdown": {
+      "suzukiOem": 10,
+      "carproParts": 0
+    },
+    "stockBreakdown": {
+      "disponible": 4,
+      "indisponible": 6
+    }
+  }
+}
+===== New Celerio (12) =====
+Prompt: aile avant droite New Celerio
+Expected: ref=57611M81R00 | price=419.709 | avail=Disponible
+Actual : ref=57611M81R00 | price=419.709 | avail=Disponible
+Passed: true
+Response text: Pièces disponibles pour votre SUZUKI NEW CELERIO :
+
+• AILE AV D — 419.709 TND
+
+💡 Contactez CarPro au ☎️ 70 603 500 pour réserver.
+Structured payload:
+{
+  "response": "Pièces disponibles pour votre SUZUKI NEW CELERIO :\n\n• AILE AV D — 419.709 TND\n\n💡 Contactez CarPro au ☎️ 70 603 500 pour réserver.",
+  "sessionId": "93cbb257-1665-49f7-9fe7-26dd0878e27c",
+  "products": [
+    {
+      "id": 4594,
+      "designation": "AILE AV D",
+      "designationOem": "PANEL,FRONT FENDER,R",
+      "designation2": "AILE AV D",
+      "searchDescription": "AILE AV D",
+      "reference": "57611M81R00",
+      "prixHt": "352.697",
+      "prixTtc": "419.709",
+      "unite": "PCS",
+      "categorie": "CARROSSERIE",
+      "fabricant": "SUZUKI",
+      "fournisseurCode": "CAR PRO PARTS",
+      "source": "01_PROD",
+      "sourceLabel": "Suzuki OEM",
+      "stock": {
+        "statut": "Disponible",
+        "totalQuantity": 13,
+        "stockDisponible": 7,
+        "stockConsolide": 26
+      },
+      "fitments": [
+        {
+          "modelName": "AXM310",
+          "typeCode": "AXM310-TYPE1"
+        },
+        {
+          "modelName": "AXM310",
+          "typeCode": "AXM310-TYPE2"
+        }
+      ],
+      "itemReferences": [],
+      "identificationSource": {
+        "vin": "MA3TFC62S00270261",
+        "vehicleNo": "VN0169176",
+        "model": "CELERIO",
+        "modelDescription": "CELERIO POP GL MT",
+        "typeCodes": [
+          "ARL415-TYPE1",
+          "ARL415-TYPE2",
+          "AXM310-TYPE1",
+          "AXM310-TYPE2"
+        ],
+        "articleNumber": "57611M81R00"
+      },
+      "score": 252008
+    }
+  ],
+  "confidence": "HIGH",
+  "confidenceScore": 87.5,
+  "suggestions": [],
+  "intent": "PARTS_SEARCH",
+  "metadata": {
+    "productsFound": 3,
+    "conversationLength": 1,
+    "queryClarity": 20,
+    "duration": 1248,
+    "userMessageId": "90d3dd82-548e-4f88-934e-a4205df60c3f"
+  },
+  "productsDetail": [
+    {
+      "id": 4594,
+      "displayName": "AILE AV D",
+      "designation": "PANEL,FRONT FENDER,R",
+      "designation2": "AILE AV D",
+      "searchDescription": "AILE AV D",
+      "reference": "57611M81R00",
+      "prixHt": "352.697",
+      "prixTtc": "419.709",
+      "unite": "PCS",
+      "categorie": "CARROSSERIE",
+      "fabricant": "SUZUKI",
+      "fournisseurCode": "CAR PRO PARTS",
+      "source": "01_PROD",
+      "sourceLabel": "Suzuki OEM",
+      "stock": {
+        "statut": "Disponible",
+        "totalQuantity": 13,
+        "stockDisponible": 7,
+        "stockConsolide": 26
+      },
+      "fitments": [
+        {
+          "modelName": "AXM310",
+          "typeCode": "AXM310-TYPE1"
+        },
+        {
+          "modelName": "AXM310",
+          "typeCode": "AXM310-TYPE2"
+        }
+      ],
+      "itemReferences": [],
+      "identificationSource": {
+        "vin": "MA3TFC62S00270261",
+        "vehicleNo": "VN0169176",
+        "model": "CELERIO",
+        "modelDescription": "CELERIO POP GL MT",
+        "typeCodes": [
+          "ARL415-TYPE1",
+          "ARL415-TYPE2",
+          "AXM310-TYPE1",
+          "AXM310-TYPE2"
+        ],
+        "articleNumber": "57611M81R00"
+      },
+      "score": 252008
+    }
+  ],
+  "searchDebug": {
+    "searchType": "text",
+    "originalQuery": "aile avant droite New Celerio",
+    "normalizedQuery": "aile avant droite new celerio",
+    "hasTunisianDialect": false,
+    "rawTokens": [
+      "aile",
+      "avant",
+      "droite",
+      "new",
+      "celerio"
+    ],
+    "expandedTerms": [
+      "aile",
+      "avant",
+      "droite",
+      "new",
+      "celerio"
+    ],
+    "mainPartType": "aile",
+    "positionInfo": {
+      "avant": true,
+      "arriere": false,
+      "gauche": false,
+      "droite": true
+    },
+    "fieldsSearched": [
+      "designation_2",
+      "search_description",
+      "designation",
+      "reference",
+      "categorie",
+      "fabricant",
+      "fournisseur_code",
+      "item_references.reference_no"
+    ],
+    "tablesQueried": [
+      "vehicles",
+      "vehicle_model_map",
+      "vehicle_type_master",
+      "parts",
+      "stock",
+      "fitment",
+      "item_references"
+    ],
+    "dbRawCount": 19,
+    "qualifiedCount": 19,
+    "finalCount": 10,
+    "vehicleScope": {
+      "active": true,
+      "vin": "MA3TFC62S00270261",
+      "vehicleNo": "VN0169176",
+      "model": "CELERIO",
+      "modelDescription": "CELERIO POP GL MT",
+      "typeCodes": [
+        "ARL415-TYPE1",
+        "ARL415-TYPE2",
+        "AXM310-TYPE1",
+        "AXM310-TYPE2"
+      ],
+      "primaryTypeCodes": [
+        "ARL415-TYPE1",
+        "ARL415-TYPE2",
+        "AXM310-TYPE1",
+        "AXM310-TYPE2"
+      ]
+    },
+    "sourceBreakdown": {
+      "suzukiOem": 10,
+      "carproParts": 0
+    },
+    "stockBreakdown": {
+      "disponible": 1,
+      "indisponible": 9
+    }
+  }
+}
+===== New Celerio (12) =====
+Prompt: j'ai besoin d'une aile av gauche pour New Celerio
+Expected: ref=57711M81R00 | price=419.709 | avail=Disponible
+Actual : ref=57711M81R00 | price=419.709 | avail=Disponible
+Passed: true
+Response text: Pièces disponibles pour votre SUZUKI NEW CELERIO :
+
+• AILE AV G — 419.709 TND
+
+💡 Contactez CarPro au ☎️ 70 603 500 pour réserver.
+Structured payload:
+{
+  "response": "Pièces disponibles pour votre SUZUKI NEW CELERIO :\n\n• AILE AV G — 419.709 TND\n\n💡 Contactez CarPro au ☎️ 70 603 500 pour réserver.",
+  "sessionId": "fed23547-8ca2-4ba8-85b5-09e9dbe6fe60",
+  "products": [
+    {
+      "id": 4613,
+      "designation": "AILE AV G",
+      "designationOem": "PANEL,FRONT FENDER,L",
+      "designation2": "AILE AV G",
+      "searchDescription": "AILE AV G",
+      "reference": "57711M81R00",
+      "prixHt": "352.697",
+      "prixTtc": "419.709",
+      "unite": "PCS",
+      "categorie": "CARROSSERIE",
+      "fabricant": "SUZUKI",
+      "fournisseurCode": "CAR PRO PARTS",
+      "source": "01_PROD",
+      "sourceLabel": "Suzuki OEM",
+      "stock": {
+        "statut": "Disponible",
+        "totalQuantity": 9,
+        "stockDisponible": 0,
+        "stockConsolide": 12
+      },
+      "fitments": [
+        {
+          "modelName": "AXM310",
+          "typeCode": "AXM310-TYPE1"
+        },
+        {
+          "modelName": "AXM310",
+          "typeCode": "AXM310-TYPE2"
+        }
+      ],
+      "itemReferences": [],
+      "identificationSource": {
+        "vin": "MA3TFC62S00270261",
+        "vehicleNo": "VN0169176",
+        "model": "CELERIO",
+        "modelDescription": "CELERIO POP GL MT",
+        "typeCodes": [
+          "ARL415-TYPE1",
+          "ARL415-TYPE2",
+          "AXM310-TYPE1",
+          "AXM310-TYPE2"
+        ],
+        "articleNumber": "57711M81R00"
+      },
+      "score": 149008
+    }
+  ],
+  "confidence": "HIGH",
+  "confidenceScore": 87.5,
+  "suggestions": [],
+  "intent": "PARTS_SEARCH",
+  "metadata": {
+    "productsFound": 2,
+    "conversationLength": 1,
+    "queryClarity": 20,
+    "duration": 1542,
+    "userMessageId": "cda57f87-afed-4748-a84b-0b0f3ec40c8b"
+  },
+  "productsDetail": [
+    {
+      "id": 4613,
+      "displayName": "AILE AV G",
+      "designation": "PANEL,FRONT FENDER,L",
+      "designation2": "AILE AV G",
+      "searchDescription": "AILE AV G",
+      "reference": "57711M81R00",
+      "prixHt": "352.697",
+      "prixTtc": "419.709",
+      "unite": "PCS",
+      "categorie": "CARROSSERIE",
+      "fabricant": "SUZUKI",
+      "fournisseurCode": "CAR PRO PARTS",
+      "source": "01_PROD",
+      "sourceLabel": "Suzuki OEM",
+      "stock": {
+        "statut": "Disponible",
+        "totalQuantity": 9,
+        "stockDisponible": 0,
+        "stockConsolide": 12
+      },
+      "fitments": [
+        {
+          "modelName": "AXM310",
+          "typeCode": "AXM310-TYPE1"
+        },
+        {
+          "modelName": "AXM310",
+          "typeCode": "AXM310-TYPE2"
+        }
+      ],
+      "itemReferences": [],
+      "identificationSource": {
+        "vin": "MA3TFC62S00270261",
+        "vehicleNo": "VN0169176",
+        "model": "CELERIO",
+        "modelDescription": "CELERIO POP GL MT",
+        "typeCodes": [
+          "ARL415-TYPE1",
+          "ARL415-TYPE2",
+          "AXM310-TYPE1",
+          "AXM310-TYPE2"
+        ],
+        "articleNumber": "57711M81R00"
+      },
+      "score": 149008
+    }
+  ],
+  "searchDebug": {
+    "searchType": "text",
+    "originalQuery": "j'ai besoin d'une aile av gauche pour New Celerio",
+    "normalizedQuery": "j ai besoin d une aile av gauche pour new celerio",
+    "hasTunisianDialect": false,
+    "rawTokens": [
+      "besoin",
+      "une",
+      "aile",
+      "gauche",
+      "pour",
+      "new",
+      "celerio"
+    ],
+    "expandedTerms": [
+      "besoin",
+      "une",
+      "aile",
+      "gauche",
+      "pour",
+      "new",
+      "celerio"
+    ],
+    "mainPartType": "aile",
+    "positionInfo": {
+      "avant": true,
+      "arriere": false,
+      "gauche": true,
+      "droite": true
+    },
+    "fieldsSearched": [
+      "designation_2",
+      "search_description",
+      "designation",
+      "reference",
+      "categorie",
+      "fabricant",
+      "fournisseur_code",
+      "item_references.reference_no"
+    ],
+    "tablesQueried": [
+      "vehicles",
+      "vehicle_model_map",
+      "vehicle_type_master",
+      "parts",
+      "stock",
+      "fitment",
+      "item_references"
+    ],
+    "dbRawCount": 24,
+    "qualifiedCount": 24,
+    "finalCount": 10,
+    "vehicleScope": {
+      "active": true,
+      "vin": "MA3TFC62S00270261",
+      "vehicleNo": "VN0169176",
+      "model": "CELERIO",
+      "modelDescription": "CELERIO POP GL MT",
+      "typeCodes": [
+        "ARL415-TYPE1",
+        "ARL415-TYPE2",
+        "AXM310-TYPE1",
+        "AXM310-TYPE2"
+      ],
+      "primaryTypeCodes": [
+        "ARL415-TYPE1",
+        "ARL415-TYPE2",
+        "AXM310-TYPE1",
+        "AXM310-TYPE2"
+      ]
+    },
+    "sourceBreakdown": {
+      "suzukiOem": 10,
+      "carproParts": 0
+    },
+    "stockBreakdown": {
+      "disponible": 2,
+      "indisponible": 8
+    }
+  }
+}
+===== New Celerio (12) =====
+Prompt: porte avant droite New Celerio disponible?
+Expected: ref=68001M81R20 | price=1619.63 | avail=Indisponible
+Actual : ref=68001M72R01 | price=1549.085 | avail=Indisponible
+Passed: false
+Response text: Pièces trouvées pour votre SUZUKI NEW CELERIO :
+
+• PORTE AV D — Indisponible
+
+💡 Contactez CarPro au ☎️ 70 603 500 pour vérifier les délais.
+Structured payload:
+{
+  "response": "Pièces trouvées pour votre SUZUKI NEW CELERIO :\n\n• PORTE AV D — Indisponible\n\n💡 Contactez CarPro au ☎️ 70 603 500 pour vérifier les délais.",
+  "sessionId": "81e7cb67-6554-4db7-a57f-ac181dfdccaa",
+  "products": [
+    {
+      "id": 5557,
+      "designation": "PORTE AV D",
+      "designationOem": "PANEL ASSY FRONT DOORR",
+      "designation2": "PORTE AV D",
+      "searchDescription": "PANEL ASSY FRONT DOORR",
+      "reference": "68001M72R01",
+      "prixHt": "1301.752",
+      "prixTtc": "1549.085",
+      "unite": "PCS",
+      "categorie": "CARROSSERIE",
+      "fabricant": "SUZUKI",
+      "fournisseurCode": "CAR PRO PARTS",
+      "source": "01_PROD",
+      "sourceLabel": "Suzuki OEM",
+      "stock": {
+        "statut": "Indisponible",
+        "totalQuantity": 1,
+        "stockDisponible": 1,
+        "stockConsolide": 1
+      },
+      "fitments": [
+        {
+          "modelName": "ARL415-TYPE1",
+          "typeCode": "ARL415-TYPE1"
+        },
+        {
+          "modelName": "ARL415-2-TYPE2",
+          "typeCode": "ARL415-TYPE2"
+        }
+      ],
+      "itemReferences": [
+        {
+          "referenceNo": "68001M72R01",
+          "referenceType": "3.0"
+        },
+        {
+          "referenceNo": "68001M72R01-000",
+          "referenceType": "3.0"
+        }
+      ],
+      "identificationSource": {
+        "vin": "MA3TFC62S00270261",
+        "vehicleNo": "VN0169176",
+        "model": "CELERIO",
+        "modelDescription": "CELERIO POP GL MT",
+        "typeCodes": [
+          "ARL415-TYPE1",
+          "ARL415-TYPE2",
+          "AXM310-TYPE1",
+          "AXM310-TYPE2"
+        ],
+        "articleNumber": "68001M72R01"
+      },
+      "score": 250000
+    }
+  ],
+  "confidence": "HIGH",
+  "confidenceScore": 87.5,
+  "suggestions": [],
+  "intent": "PARTS_SEARCH",
+  "metadata": {
+    "productsFound": 2,
+    "conversationLength": 1,
+    "queryClarity": 20,
+    "duration": 1222,
+    "userMessageId": "370c5339-b74e-449a-b861-c6de93f876c7"
+  },
+  "productsDetail": [
+    {
+      "id": 5557,
+      "displayName": "PORTE AV D",
+      "designation": "PANEL ASSY FRONT DOORR",
+      "designation2": "PORTE AV D",
+      "searchDescription": "PANEL ASSY FRONT DOORR",
+      "reference": "68001M72R01",
+      "prixHt": "1301.752",
+      "prixTtc": "1549.085",
+      "unite": "PCS",
+      "categorie": "CARROSSERIE",
+      "fabricant": "SUZUKI",
+      "fournisseurCode": "CAR PRO PARTS",
+      "source": "01_PROD",
+      "sourceLabel": "Suzuki OEM",
+      "stock": {
+        "statut": "Indisponible",
+        "totalQuantity": 1,
+        "stockDisponible": 1,
+        "stockConsolide": 1
+      },
+      "fitments": [
+        {
+          "modelName": "ARL415-TYPE1",
+          "typeCode": "ARL415-TYPE1"
+        },
+        {
+          "modelName": "ARL415-2-TYPE2",
+          "typeCode": "ARL415-TYPE2"
+        }
+      ],
+      "itemReferences": [
+        {
+          "referenceNo": "68001M72R01",
+          "referenceType": "3.0"
+        },
+        {
+          "referenceNo": "68001M72R01-000",
+          "referenceType": "3.0"
+        }
+      ],
+      "identificationSource": {
+        "vin": "MA3TFC62S00270261",
+        "vehicleNo": "VN0169176",
+        "model": "CELERIO",
+        "modelDescription": "CELERIO POP GL MT",
+        "typeCodes": [
+          "ARL415-TYPE1",
+          "ARL415-TYPE2",
+          "AXM310-TYPE1",
+          "AXM310-TYPE2"
+        ],
+        "articleNumber": "68001M72R01"
+      },
+      "score": 250000
+    }
+  ],
+  "searchDebug": {
+    "searchType": "text",
+    "originalQuery": "porte avant droite New Celerio disponible?",
+    "normalizedQuery": "porte avant droite new celerio disponible",
+    "hasTunisianDialect": false,
+    "rawTokens": [
+      "porte",
+      "avant",
+      "droite",
+      "new",
+      "celerio"
+    ],
+    "expandedTerms": [
+      "porte",
+      "avant",
+      "droite",
+      "new",
+      "celerio"
+    ],
+    "mainPartType": "porte",
+    "positionInfo": {
+      "avant": true,
+      "arriere": false,
+      "gauche": false,
+      "droite": true
+    },
+    "fieldsSearched": [
+      "designation_2",
+      "search_description",
+      "designation",
+      "reference",
+      "categorie",
+      "fabricant",
+      "fournisseur_code",
+      "item_references.reference_no"
+    ],
+    "tablesQueried": [
+      "vehicles",
+      "vehicle_model_map",
+      "vehicle_type_master",
+      "parts",
+      "stock",
+      "fitment",
+      "item_references"
+    ],
+    "dbRawCount": 67,
+    "qualifiedCount": 67,
+    "finalCount": 10,
+    "vehicleScope": {
+      "active": true,
+      "vin": "MA3TFC62S00270261",
+      "vehicleNo": "VN0169176",
+      "model": "CELERIO",
+      "modelDescription": "CELERIO POP GL MT",
+      "typeCodes": [
+        "ARL415-TYPE1",
+        "ARL415-TYPE2",
+        "AXM310-TYPE1",
+        "AXM310-TYPE2"
+      ],
+      "primaryTypeCodes": [
+        "ARL415-TYPE1",
+        "ARL415-TYPE2",
+        "AXM310-TYPE1",
+        "AXM310-TYPE2"
+      ]
+    },
+    "sourceBreakdown": {
+      "suzukiOem": 10,
+      "carproParts": 0
+    },
+    "stockBreakdown": {
+      "disponible": 2,
+      "indisponible": 8
+    }
+  }
+}
+===== New Celerio (12) =====
+Prompt: porte av gauche New Celerio
+Expected: ref=68002M81R20 | price=1619.63 | avail=Disponible
+Actual : ref=68002M81R20 | price=1619.63 | avail=Disponible
+Passed: true
+Response text: Pièces disponibles pour votre SUZUKI NEW CELERIO :
+
+• PORTE AV G — 1619.630 TND
+
+💡 Contactez CarPro au ☎️ 70 603 500 pour réserver.
+Structured payload:
+{
+  "response": "Pièces disponibles pour votre SUZUKI NEW CELERIO :\n\n• PORTE AV G — 1619.630 TND\n\n💡 Contactez CarPro au ☎️ 70 603 500 pour réserver.",
+  "sessionId": "a804c8a4-ea20-46c7-a2b9-d5ffddf05ad2",
+  "products": [
+    {
+      "id": 5596,
+      "designation": "PORTE AV G",
+      "designationOem": "PANEL ASSY,FRONT DOOR,L",
+      "designation2": "PORTE AV G",
+      "searchDescription": "PORTE AV G",
+      "reference": "68002M81R20",
+      "prixHt": "1361.034",
+      "prixTtc": "1619.63",
+      "unite": "PCS",
+      "categorie": "CARROSSERIE",
+      "fabricant": "SUZUKI",
+      "fournisseurCode": "CAR PRO PARTS",
+      "source": "01_PROD",
+      "sourceLabel": "Suzuki OEM",
+      "stock": {
+        "statut": "Disponible",
+        "totalQuantity": 0,
+        "stockDisponible": 0,
+        "stockConsolide": 5
+      },
+      "fitments": [
+        {
+          "modelName": "AXM310",
+          "typeCode": "AXM310-TYPE1"
+        },
+        {
+          "modelName": "AXM310",
+          "typeCode": "AXM310-TYPE2"
+        }
+      ],
+      "itemReferences": [],
+      "identificationSource": {
+        "vin": "MA3TFC62S00270261",
+        "vehicleNo": "VN0169176",
+        "model": "CELERIO",
+        "modelDescription": "CELERIO POP GL MT",
+        "typeCodes": [
+          "ARL415-TYPE1",
+          "ARL415-TYPE2",
+          "AXM310-TYPE1",
+          "AXM310-TYPE2"
+        ],
+        "articleNumber": "68002M81R20"
+      },
+      "score": 250008
+    }
+  ],
+  "confidence": "HIGH",
+  "confidenceScore": 87.5,
+  "suggestions": [],
+  "intent": "PARTS_SEARCH",
+  "metadata": {
+    "productsFound": 2,
+    "conversationLength": 1,
+    "queryClarity": 20,
+    "duration": 1148,
+    "userMessageId": "d2b5f749-ac93-4a1e-b256-1bc45ed3c57a"
+  },
+  "productsDetail": [
+    {
+      "id": 5596,
+      "displayName": "PORTE AV G",
+      "designation": "PANEL ASSY,FRONT DOOR,L",
+      "designation2": "PORTE AV G",
+      "searchDescription": "PORTE AV G",
+      "reference": "68002M81R20",
+      "prixHt": "1361.034",
+      "prixTtc": "1619.63",
+      "unite": "PCS",
+      "categorie": "CARROSSERIE",
+      "fabricant": "SUZUKI",
+      "fournisseurCode": "CAR PRO PARTS",
+      "source": "01_PROD",
+      "sourceLabel": "Suzuki OEM",
+      "stock": {
+        "statut": "Disponible",
+        "totalQuantity": 0,
+        "stockDisponible": 0,
+        "stockConsolide": 5
+      },
+      "fitments": [
+        {
+          "modelName": "AXM310",
+          "typeCode": "AXM310-TYPE1"
+        },
+        {
+          "modelName": "AXM310",
+          "typeCode": "AXM310-TYPE2"
+        }
+      ],
+      "itemReferences": [],
+      "identificationSource": {
+        "vin": "MA3TFC62S00270261",
+        "vehicleNo": "VN0169176",
+        "model": "CELERIO",
+        "modelDescription": "CELERIO POP GL MT",
+        "typeCodes": [
+          "ARL415-TYPE1",
+          "ARL415-TYPE2",
+          "AXM310-TYPE1",
+          "AXM310-TYPE2"
+        ],
+        "articleNumber": "68002M81R20"
+      },
+      "score": 250008
+    }
+  ],
+  "searchDebug": {
+    "searchType": "text",
+    "originalQuery": "porte avant gauche New Celerio",
+    "normalizedQuery": "porte avant gauche new celerio",
+    "hasTunisianDialect": false,
+    "rawTokens": [
+      "porte",
+      "avant",
+      "gauche",
+      "new",
+      "celerio"
+    ],
+    "expandedTerms": [
+      "porte",
+      "avant",
+      "gauche",
+      "new",
+      "celerio"
+    ],
+    "mainPartType": "porte",
+    "positionInfo": {
+      "avant": true,
+      "arriere": false,
+      "gauche": true,
+      "droite": false
+    },
+    "fieldsSearched": [
+      "designation_2",
+      "search_description",
+      "designation",
+      "reference",
+      "categorie",
+      "fabricant",
+      "fournisseur_code",
+      "item_references.reference_no"
+    ],
+    "tablesQueried": [
+      "vehicles",
+      "vehicle_model_map",
+      "vehicle_type_master",
+      "parts",
+      "stock",
+      "fitment",
+      "item_references"
+    ],
+    "dbRawCount": 67,
+    "qualifiedCount": 67,
+    "finalCount": 10,
+    "vehicleScope": {
+      "active": true,
+      "vin": "MA3TFC62S00270261",
+      "vehicleNo": "VN0169176",
+      "model": "CELERIO",
+      "modelDescription": "CELERIO POP GL MT",
+      "typeCodes": [
+        "ARL415-TYPE1",
+        "ARL415-TYPE2",
+        "AXM310-TYPE1",
+        "AXM310-TYPE2"
+      ],
+      "primaryTypeCodes": [
+        "ARL415-TYPE1",
+        "ARL415-TYPE2",
+        "AXM310-TYPE1",
+        "AXM310-TYPE2"
+      ]
+    },
+    "sourceBreakdown": {
+      "suzukiOem": 10,
+      "carproParts": 0
+    },
+    "stockBreakdown": {
+      "disponible": 4,
+      "indisponible": 6
+    }
+  }
+}
+===== New Celerio (12) =====
+Prompt: porte arrière droite New Celerio
+Expected: ref=68003M81R00 | price=1694.091 | avail=Disponible
+Actual : ref=68003M81R00 | price=1694.091 | avail=Disponible
+Passed: true
+Response text: Pièces disponibles pour votre SUZUKI NEW CELERIO :
+
+• PORTE AR D — 1694.091 TND
+
+💡 Contactez CarPro au ☎️ 70 603 500 pour réserver.
+Structured payload:
+{
+  "response": "Pièces disponibles pour votre SUZUKI NEW CELERIO :\n\n• PORTE AR D — 1694.091 TND\n\n💡 Contactez CarPro au ☎️ 70 603 500 pour réserver.",
+  "sessionId": "43ee5d02-3d51-4b5e-9aa8-e9ab459241c6",
+  "products": [
+    {
+      "id": 5620,
+      "designation": "PORTE AR D",
+      "designationOem": "PANEL ASSY,REAR DOOR,R",
+      "designation2": "PORTE AR D",
+      "searchDescription": "PORTE AR D",
+      "reference": "68003M81R00",
+      "prixHt": "1423.606",
+      "prixTtc": "1694.091",
+      "unite": "PCS",
+      "categorie": "CARROSSERIE",
+      "fabricant": "SUZUKI",
+      "fournisseurCode": "CAR PRO PARTS",
+      "source": "01_PROD",
+      "sourceLabel": "Suzuki OEM",
+      "stock": {
+        "statut": "Disponible",
+        "totalQuantity": 5,
+        "stockDisponible": 2,
+        "stockConsolide": 3
+      },
+      "fitments": [
+        {
+          "modelName": "AXM310",
+          "typeCode": "AXM310-TYPE1"
+        },
+        {
+          "modelName": "AXM310",
+          "typeCode": "AXM310-TYPE2"
+        }
+      ],
+      "itemReferences": [],
+      "identificationSource": {
+        "vin": "MA3TFC62S00270261",
+        "vehicleNo": "VN0169176",
+        "model": "CELERIO",
+        "modelDescription": "CELERIO POP GL MT",
+        "typeCodes": [
+          "ARL415-TYPE1",
+          "ARL415-TYPE2",
+          "AXM310-TYPE1",
+          "AXM310-TYPE2"
+        ],
+        "articleNumber": "68003M81R00"
+      },
+      "score": 250008
+    }
+  ],
+  "confidence": "HIGH",
+  "confidenceScore": 87.5,
+  "suggestions": [],
+  "intent": "PARTS_SEARCH",
+  "metadata": {
+    "productsFound": 2,
+    "conversationLength": 1,
+    "queryClarity": 20,
+    "duration": 1362,
+    "userMessageId": "4de6e6dc-1845-48c0-ba61-dcd92974d763"
+  },
+  "productsDetail": [
+    {
+      "id": 5620,
+      "displayName": "PORTE AR D",
+      "designation": "PANEL ASSY,REAR DOOR,R",
+      "designation2": "PORTE AR D",
+      "searchDescription": "PORTE AR D",
+      "reference": "68003M81R00",
+      "prixHt": "1423.606",
+      "prixTtc": "1694.091",
+      "unite": "PCS",
+      "categorie": "CARROSSERIE",
+      "fabricant": "SUZUKI",
+      "fournisseurCode": "CAR PRO PARTS",
+      "source": "01_PROD",
+      "sourceLabel": "Suzuki OEM",
+      "stock": {
+        "statut": "Disponible",
+        "totalQuantity": 5,
+        "stockDisponible": 2,
+        "stockConsolide": 3
+      },
+      "fitments": [
+        {
+          "modelName": "AXM310",
+          "typeCode": "AXM310-TYPE1"
+        },
+        {
+          "modelName": "AXM310",
+          "typeCode": "AXM310-TYPE2"
+        }
+      ],
+      "itemReferences": [],
+      "identificationSource": {
+        "vin": "MA3TFC62S00270261",
+        "vehicleNo": "VN0169176",
+        "model": "CELERIO",
+        "modelDescription": "CELERIO POP GL MT",
+        "typeCodes": [
+          "ARL415-TYPE1",
+          "ARL415-TYPE2",
+          "AXM310-TYPE1",
+          "AXM310-TYPE2"
+        ],
+        "articleNumber": "68003M81R00"
+      },
+      "score": 250008
+    }
+  ],
+  "searchDebug": {
+    "searchType": "text",
+    "originalQuery": "porte arriere droite New Celerio",
+    "normalizedQuery": "porte arriere droite new celerio",
+    "hasTunisianDialect": false,
+    "rawTokens": [
+      "porte",
+      "arriere",
+      "droite",
+      "new",
+      "celerio"
+    ],
+    "expandedTerms": [
+      "porte",
+      "arriere",
+      "droite",
+      "new",
+      "celerio"
+    ],
+    "mainPartType": "porte",
+    "positionInfo": {
+      "avant": false,
+      "arriere": true,
+      "gauche": false,
+      "droite": true
+    },
+    "fieldsSearched": [
+      "designation_2",
+      "search_description",
+      "designation",
+      "reference",
+      "categorie",
+      "fabricant",
+      "fournisseur_code",
+      "item_references.reference_no"
+    ],
+    "tablesQueried": [
+      "vehicles",
+      "vehicle_model_map",
+      "vehicle_type_master",
+      "parts",
+      "stock",
+      "fitment",
+      "item_references"
+    ],
+    "dbRawCount": 67,
+    "qualifiedCount": 67,
+    "finalCount": 10,
+    "vehicleScope": {
+      "active": true,
+      "vin": "MA3TFC62S00270261",
+      "vehicleNo": "VN0169176",
+      "model": "CELERIO",
+      "modelDescription": "CELERIO POP GL MT",
+      "typeCodes": [
+        "ARL415-TYPE1",
+        "ARL415-TYPE2",
+        "AXM310-TYPE1",
+        "AXM310-TYPE2"
+      ],
+      "primaryTypeCodes": [
+        "ARL415-TYPE1",
+        "ARL415-TYPE2",
+        "AXM310-TYPE1",
+        "AXM310-TYPE2"
+      ]
+    },
+    "sourceBreakdown": {
+      "suzukiOem": 10,
+      "carproParts": 0
+    },
+    "stockBreakdown": {
+      "disponible": 3,
+      "indisponible": 7
+    }
+  }
+}
+===== New Celerio (12) =====
+Prompt: porte ar gauche New Celerio
+Expected: ref=68004M81R00 | price=1694.091 | avail=Disponible
+Actual : ref=68004M81R00 | price=1694.091 | avail=Disponible
+Passed: true
+Response text: Pièces disponibles pour votre SUZUKI NEW CELERIO :
+
+• PORTE AR G — 1694.091 TND
+
+💡 Contactez CarPro au ☎️ 70 603 500 pour réserver.
+Structured payload:
+{
+  "response": "Pièces disponibles pour votre SUZUKI NEW CELERIO :\n\n• PORTE AR G — 1694.091 TND\n\n💡 Contactez CarPro au ☎️ 70 603 500 pour réserver.",
+  "sessionId": "f28bca93-a18d-4be8-b8b0-268be4b07564",
+  "products": [
+    {
+      "id": 5644,
+      "designation": "PORTE AR G",
+      "designationOem": "PANEL ASSY,REAR DOOR,L",
+      "designation2": "PORTE AR G",
+      "searchDescription": "PORTE AR G",
+      "reference": "68004M81R00",
+      "prixHt": "1423.606",
+      "prixTtc": "1694.091",
+      "unite": "PCS",
+      "categorie": "CARROSSERIE",
+      "fabricant": "SUZUKI",
+      "fournisseurCode": "CAR PRO PARTS",
+      "source": "01_PROD",
+      "sourceLabel": "Suzuki OEM",
+      "stock": {
+        "statut": "Disponible",
+        "totalQuantity": 4,
+        "stockDisponible": 4,
+        "stockConsolide": 8
+      },
+      "fitments": [
+        {
+          "modelName": "AXM310",
+          "typeCode": "AXM310-TYPE1"
+        },
+        {
+          "modelName": "AXM310",
+          "typeCode": "AXM310-TYPE2"
+        }
+      ],
+      "itemReferences": [],
+      "identificationSource": {
+        "vin": "MA3TFC62S00270261",
+        "vehicleNo": "VN0169176",
+        "model": "CELERIO",
+        "modelDescription": "CELERIO POP GL MT",
+        "typeCodes": [
+          "ARL415-TYPE1",
+          "ARL415-TYPE2",
+          "AXM310-TYPE1",
+          "AXM310-TYPE2"
+        ],
+        "articleNumber": "68004M81R00"
+      },
+      "score": 250008
+    }
+  ],
+  "confidence": "HIGH",
+  "confidenceScore": 87.5,
+  "suggestions": [],
+  "intent": "PARTS_SEARCH",
+  "metadata": {
+    "productsFound": 2,
+    "conversationLength": 1,
+    "queryClarity": 20,
+    "duration": 1314,
+    "userMessageId": "e3bb94a3-be61-452a-98e9-b49bf92e74b9"
+  },
+  "productsDetail": [
+    {
+      "id": 5644,
+      "displayName": "PORTE AR G",
+      "designation": "PANEL ASSY,REAR DOOR,L",
+      "designation2": "PORTE AR G",
+      "searchDescription": "PORTE AR G",
+      "reference": "68004M81R00",
+      "prixHt": "1423.606",
+      "prixTtc": "1694.091",
+      "unite": "PCS",
+      "categorie": "CARROSSERIE",
+      "fabricant": "SUZUKI",
+      "fournisseurCode": "CAR PRO PARTS",
+      "source": "01_PROD",
+      "sourceLabel": "Suzuki OEM",
+      "stock": {
+        "statut": "Disponible",
+        "totalQuantity": 4,
+        "stockDisponible": 4,
+        "stockConsolide": 8
+      },
+      "fitments": [
+        {
+          "modelName": "AXM310",
+          "typeCode": "AXM310-TYPE1"
+        },
+        {
+          "modelName": "AXM310",
+          "typeCode": "AXM310-TYPE2"
+        }
+      ],
+      "itemReferences": [],
+      "identificationSource": {
+        "vin": "MA3TFC62S00270261",
+        "vehicleNo": "VN0169176",
+        "model": "CELERIO",
+        "modelDescription": "CELERIO POP GL MT",
+        "typeCodes": [
+          "ARL415-TYPE1",
+          "ARL415-TYPE2",
+          "AXM310-TYPE1",
+          "AXM310-TYPE2"
+        ],
+        "articleNumber": "68004M81R00"
+      },
+      "score": 250008
+    }
+  ],
+  "searchDebug": {
+    "searchType": "text",
+    "originalQuery": "porte arriere gauche New Celerio",
+    "normalizedQuery": "porte arriere gauche new celerio",
+    "hasTunisianDialect": false,
+    "rawTokens": [
+      "porte",
+      "arriere",
+      "gauche",
+      "new",
+      "celerio"
+    ],
+    "expandedTerms": [
+      "porte",
+      "arriere",
+      "gauche",
+      "new",
+      "celerio"
+    ],
+    "mainPartType": "porte",
+    "positionInfo": {
+      "avant": false,
+      "arriere": true,
+      "gauche": true,
+      "droite": false
+    },
+    "fieldsSearched": [
+      "designation_2",
+      "search_description",
+      "designation",
+      "reference",
+      "categorie",
+      "fabricant",
+      "fournisseur_code",
+      "item_references.reference_no"
+    ],
+    "tablesQueried": [
+      "vehicles",
+      "vehicle_model_map",
+      "vehicle_type_master",
+      "parts",
+      "stock",
+      "fitment",
+      "item_references"
+    ],
+    "dbRawCount": 67,
+    "qualifiedCount": 67,
+    "finalCount": 10,
+    "vehicleScope": {
+      "active": true,
+      "vin": "MA3TFC62S00270261",
+      "vehicleNo": "VN0169176",
+      "model": "CELERIO",
+      "modelDescription": "CELERIO POP GL MT",
+      "typeCodes": [
+        "ARL415-TYPE1",
+        "ARL415-TYPE2",
+        "AXM310-TYPE1",
+        "AXM310-TYPE2"
+      ],
+      "primaryTypeCodes": [
+        "ARL415-TYPE1",
+        "ARL415-TYPE2",
+        "AXM310-TYPE1",
+        "AXM310-TYPE2"
+      ]
+    },
+    "sourceBreakdown": {
+      "suzukiOem": 10,
+      "carproParts": 0
+    },
+    "stockBreakdown": {
+      "disponible": 3,
+      "indisponible": 7
+    }
+  }
+}
+===== New Celerio (12) =====
+Prompt: pare choc avant New Celerio
+Expected: ref=71711M81R00-799 | price=1087.321 | avail=Disponible
+Actual : ref=71711M81R00-799 | price=1087.321 | avail=Disponible
+Passed: true
+Response text: Pièces disponibles pour votre SUZUKI NEW CELERIO :
+
+• PARE CHOC AV — 1087.321 TND
+
+💡 Contactez CarPro au ☎️ 70 603 500 pour réserver.
+Structured payload:
+{
+  "response": "Pièces disponibles pour votre SUZUKI NEW CELERIO :\n\n• PARE CHOC AV — 1087.321 TND\n\n💡 Contactez CarPro au ☎️ 70 603 500 pour réserver.",
+  "sessionId": "dd6a2d69-5e95-4708-a57a-b48ace1864d2",
+  "products": [
+    {
+      "id": 5804,
+      "designation": "PARE CHOC AV",
+      "designationOem": "BUMPER, FRONT",
+      "designation2": "PARE CHOC AV",
+      "searchDescription": "PARE CHOC AV",
+      "reference": "71711M81R00-799",
+      "prixHt": "913.715",
+      "prixTtc": "1087.321",
+      "unite": "PCS",
+      "categorie": "CARROSSERIE",
+      "fabricant": "SUZUKI",
+      "fournisseurCode": "CAR PRO PARTS",
+      "source": "01_PROD",
+      "sourceLabel": "Suzuki OEM",
+      "stock": {
+        "statut": "Disponible",
+        "totalQuantity": 0,
+        "stockDisponible": 0,
+        "stockConsolide": 17
+      },
+      "fitments": [
+        {
+          "modelName": "AXM310",
+          "typeCode": "AXM310-TYPE1"
+        },
+        {
+          "modelName": "AXM310",
+          "typeCode": "AXM310-TYPE2"
+        }
+      ],
+      "itemReferences": [],
+      "identificationSource": {
+        "vin": "MA3TFC62S00270261",
+        "vehicleNo": "VN0169176",
+        "model": "CELERIO",
+        "modelDescription": "CELERIO POP GL MT",
+        "typeCodes": [
+          "ARL415-TYPE1",
+          "ARL415-TYPE2",
+          "AXM310-TYPE1",
+          "AXM310-TYPE2"
+        ],
+        "articleNumber": "71711M81R00-799"
+      },
+      "score": 205508
+    }
+  ],
+  "confidence": "HIGH",
+  "confidenceScore": 87.5,
+  "suggestions": [],
+  "intent": "PARTS_SEARCH",
+  "metadata": {
+    "productsFound": 5,
+    "conversationLength": 1,
+    "queryClarity": 20,
+    "duration": 1327,
+    "userMessageId": "95485ea3-364d-4777-ab89-61075a99806b"
+  },
+  "productsDetail": [
+    {
+      "id": 5804,
+      "displayName": "PARE CHOC AV",
+      "designation": "BUMPER, FRONT",
+      "designation2": "PARE CHOC AV",
+      "searchDescription": "PARE CHOC AV",
+      "reference": "71711M81R00-799",
+      "prixHt": "913.715",
+      "prixTtc": "1087.321",
+      "unite": "PCS",
+      "categorie": "CARROSSERIE",
+      "fabricant": "SUZUKI",
+      "fournisseurCode": "CAR PRO PARTS",
+      "source": "01_PROD",
+      "sourceLabel": "Suzuki OEM",
+      "stock": {
+        "statut": "Disponible",
+        "totalQuantity": 0,
+        "stockDisponible": 0,
+        "stockConsolide": 17
+      },
+      "fitments": [
+        {
+          "modelName": "AXM310",
+          "typeCode": "AXM310-TYPE1"
+        },
+        {
+          "modelName": "AXM310",
+          "typeCode": "AXM310-TYPE2"
+        }
+      ],
+      "itemReferences": [],
+      "identificationSource": {
+        "vin": "MA3TFC62S00270261",
+        "vehicleNo": "VN0169176",
+        "model": "CELERIO",
+        "modelDescription": "CELERIO POP GL MT",
+        "typeCodes": [
+          "ARL415-TYPE1",
+          "ARL415-TYPE2",
+          "AXM310-TYPE1",
+          "AXM310-TYPE2"
+        ],
+        "articleNumber": "71711M81R00-799"
+      },
+      "score": 205508
+    }
+  ],
+  "searchDebug": {
+    "searchType": "text",
+    "originalQuery": "pare choc avant New Celerio",
+    "normalizedQuery": "pare choc avant new celerio",
+    "hasTunisianDialect": false,
+    "rawTokens": [
+      "pare",
+      "choc",
+      "avant",
+      "new",
+      "celerio"
+    ],
+    "expandedTerms": [
+      "pare",
+      "choc",
+      "avant",
+      "new",
+      "celerio"
+    ],
+    "mainPartType": "pare",
+    "positionInfo": {
+      "avant": true,
+      "arriere": false,
+      "gauche": false,
+      "droite": false
+    },
+    "fieldsSearched": [
+      "designation_2",
+      "search_description",
+      "designation",
+      "reference",
+      "categorie",
+      "fabricant",
+      "fournisseur_code",
+      "item_references.reference_no"
+    ],
+    "tablesQueried": [
+      "vehicles",
+      "vehicle_model_map",
+      "vehicle_type_master",
+      "parts",
+      "stock",
+      "fitment",
+      "item_references"
+    ],
+    "dbRawCount": 50,
+    "qualifiedCount": 50,
+    "finalCount": 10,
+    "vehicleScope": {
+      "active": true,
+      "vin": "MA3TFC62S00270261",
+      "vehicleNo": "VN0169176",
+      "model": "CELERIO",
+      "modelDescription": "CELERIO POP GL MT",
+      "typeCodes": [
+        "ARL415-TYPE1",
+        "ARL415-TYPE2",
+        "AXM310-TYPE1",
+        "AXM310-TYPE2"
+      ],
+      "primaryTypeCodes": [
+        "ARL415-TYPE1",
+        "ARL415-TYPE2",
+        "AXM310-TYPE1",
+        "AXM310-TYPE2"
+      ]
+    },
+    "sourceBreakdown": {
+      "suzukiOem": 10,
+      "carproParts": 0
+    },
+    "stockBreakdown": {
+      "disponible": 4,
+      "indisponible": 6
+    }
+  }
+}
+===== New Celerio (12) =====
+Prompt: pare choc arrière New Celerio
+Expected: ref=71811M81R10-799 | price=1014.063 | avail=Disponible
+Actual : ref=71811M81R10-799 | price=1014.063 | avail=Disponible
+Passed: true
+Response text: Pièces disponibles pour votre SUZUKI NEW CELERIO :
+
+• PARE CHOC AR — 1014.063 TND
+
+💡 Contactez CarPro au ☎️ 70 603 500 pour réserver.
+Structured payload:
+{
+  "response": "Pièces disponibles pour votre SUZUKI NEW CELERIO :\n\n• PARE CHOC AR — 1014.063 TND\n\n💡 Contactez CarPro au ☎️ 70 603 500 pour réserver.",
+  "sessionId": "335ca06d-9d68-494f-b459-d900cf2dd700",
+  "products": [
+    {
+      "id": 6130,
+      "designation": "PARE CHOC AR",
+      "designationOem": "BUMPER,REAR",
+      "designation2": "PARE CHOC AR",
+      "searchDescription": "PARE CHOC AR",
+      "reference": "71811M81R10-799",
+      "prixHt": "852.154",
+      "prixTtc": "1014.063",
+      "unite": "PCS",
+      "categorie": "PR",
+      "fabricant": "SUZUKI",
+      "fournisseurCode": "CAR PRO PARTS",
+      "source": "01_PROD",
+      "sourceLabel": "Suzuki OEM",
+      "stock": {
+        "statut": "Disponible",
+        "totalQuantity": 50,
+        "stockDisponible": 0,
+        "stockConsolide": 50
+      },
+      "fitments": [
+        {
+          "modelName": "AXM310",
+          "typeCode": "AXM310-TYPE2"
+        }
+      ],
+      "itemReferences": [],
+      "identificationSource": {
+        "vin": "MA3TFC62S00270261",
+        "vehicleNo": "VN0169176",
+        "model": "CELERIO",
+        "modelDescription": "CELERIO POP GL MT",
+        "typeCodes": [
+          "ARL415-TYPE1",
+          "ARL415-TYPE2",
+          "AXM310-TYPE1",
+          "AXM310-TYPE2"
+        ],
+        "articleNumber": "71811M81R10-799"
+      },
+      "score": 205508
+    }
+  ],
+  "confidence": "HIGH",
+  "confidenceScore": 87.5,
+  "suggestions": [],
+  "intent": "PARTS_SEARCH",
+  "metadata": {
+    "productsFound": 4,
+    "conversationLength": 1,
+    "queryClarity": 20,
+    "duration": 1657,
+    "userMessageId": "c5a31ecf-6982-46de-bf6a-56d36bbb42be"
+  },
+  "productsDetail": [
+    {
+      "id": 6130,
+      "displayName": "PARE CHOC AR",
+      "designation": "BUMPER,REAR",
+      "designation2": "PARE CHOC AR",
+      "searchDescription": "PARE CHOC AR",
+      "reference": "71811M81R10-799",
+      "prixHt": "852.154",
+      "prixTtc": "1014.063",
+      "unite": "PCS",
+      "categorie": "PR",
+      "fabricant": "SUZUKI",
+      "fournisseurCode": "CAR PRO PARTS",
+      "source": "01_PROD",
+      "sourceLabel": "Suzuki OEM",
+      "stock": {
+        "statut": "Disponible",
+        "totalQuantity": 50,
+        "stockDisponible": 0,
+        "stockConsolide": 50
+      },
+      "fitments": [
+        {
+          "modelName": "AXM310",
+          "typeCode": "AXM310-TYPE2"
+        }
+      ],
+      "itemReferences": [],
+      "identificationSource": {
+        "vin": "MA3TFC62S00270261",
+        "vehicleNo": "VN0169176",
+        "model": "CELERIO",
+        "modelDescription": "CELERIO POP GL MT",
+        "typeCodes": [
+          "ARL415-TYPE1",
+          "ARL415-TYPE2",
+          "AXM310-TYPE1",
+          "AXM310-TYPE2"
+        ],
+        "articleNumber": "71811M81R10-799"
+      },
+      "score": 205508
+    }
+  ],
+  "searchDebug": {
+    "searchType": "text",
+    "originalQuery": "pare choc arriere New Celerio",
+    "normalizedQuery": "pare choc arriere new celerio",
+    "hasTunisianDialect": false,
+    "rawTokens": [
+      "pare",
+      "choc",
+      "arriere",
+      "new",
+      "celerio"
+    ],
+    "expandedTerms": [
+      "pare",
+      "choc",
+      "arriere",
+      "new",
+      "celerio"
+    ],
+    "mainPartType": "pare",
+    "positionInfo": {
+      "avant": false,
+      "arriere": true,
+      "gauche": false,
+      "droite": false
+    },
+    "fieldsSearched": [
+      "designation_2",
+      "search_description",
+      "designation",
+      "reference",
+      "categorie",
+      "fabricant",
+      "fournisseur_code",
+      "item_references.reference_no"
+    ],
+    "tablesQueried": [
+      "vehicles",
+      "vehicle_model_map",
+      "vehicle_type_master",
+      "parts",
+      "stock",
+      "fitment",
+      "item_references"
+    ],
+    "dbRawCount": 50,
+    "qualifiedCount": 50,
+    "finalCount": 10,
+    "vehicleScope": {
+      "active": true,
+      "vin": "MA3TFC62S00270261",
+      "vehicleNo": "VN0169176",
+      "model": "CELERIO",
+      "modelDescription": "CELERIO POP GL MT",
+      "typeCodes": [
+        "ARL415-TYPE1",
+        "ARL415-TYPE2",
+        "AXM310-TYPE1",
+        "AXM310-TYPE2"
+      ],
+      "primaryTypeCodes": [
+        "ARL415-TYPE1",
+        "ARL415-TYPE2",
+        "AXM310-TYPE1",
+        "AXM310-TYPE2"
+      ]
+    },
+    "sourceBreakdown": {
+      "suzukiOem": 10,
+      "carproParts": 0
+    },
+    "stockBreakdown": {
+      "disponible": 7,
+      "indisponible": 3
+    }
+  }
+}
+===== All New Swift (5) =====
+Prompt: radiateur All New Swift
+Expected: ref=17700M68P00 | price=798.146 | avail=Disponible
+Actual : ref=17700M68P00 | price=798.146 | avail=Disponible
+Passed: true
+Response text: Pièces disponibles pour votre SUZUKI SWIFT :
+
+• RADIATEUR — 798.146 TND
+
+💡 Contactez CarPro au ☎️ 70 603 500 pour réserver.
+Structured payload:
+{
+  "response": "Pièces disponibles pour votre SUZUKI SWIFT :\n\n• RADIATEUR — 798.146 TND\n\n💡 Contactez CarPro au ☎️ 70 603 500 pour réserver.",
+  "sessionId": "f749ddf4-e156-4b6c-b112-183c5252ca70",
+  "products": [
+    {
+      "id": 1293,
+      "designation": "RADIATEUR",
+      "designationOem": "RADIATOR ASSY",
+      "designation2": "RADIATEUR",
+      "searchDescription": "RADIATEUR",
+      "reference": "17700M68P00",
+      "prixHt": "670.711",
+      "prixTtc": "798.146",
+      "unite": "PCS",
+      "categorie": "MÉCANIQUE",
+      "fabricant": "AUTRES",
+      "fournisseurCode": "CAR PRO PARTS",
+      "source": "01_PROD",
+      "sourceLabel": "Suzuki OEM",
+      "stock": {
+        "statut": "Disponible",
+        "totalQuantity": 18,
+        "stockDisponible": 13,
+        "stockConsolide": 53
+      },
+      "fitments": [
+        {
+          "modelName": "AON312",
+          "typeCode": "AON312-TYPE1"
+        },
+        {
+          "modelName": "AVH310",
+          "typeCode": "AVH310-TYPE1"
+        },
+        {
+          "modelName": "AVH310",
+          "typeCode": "AVH310-TYPE2"
+        }
+      ],
+      "itemReferences": [
+        {
+          "referenceNo": "17700M68P00",
+          "referenceType": "3.0"
+        },
+        {
+          "referenceNo": "17700M68P00-000",
+          "referenceType": "3.0"
+        }
+      ],
+      "identificationSource": {
+        "vin": null,
+        "vehicleNo": null,
+        "model": "SWIFT",
+        "modelDescription": null,
+        "typeCodes": [
+          "AVH310-TYPE1",
+          "AVH310-TYPE2"
+        ],
+        "articleNumber": "17700M68P00"
+      },
+      "score": 255675
+    }
+  ],
+  "confidence": "HIGH",
+  "confidenceScore": 87.5,
+  "suggestions": [],
+  "intent": "PARTS_SEARCH",
+  "metadata": {
+    "productsFound": 2,
+    "conversationLength": 1,
+    "queryClarity": 20,
+    "duration": 1449,
+    "userMessageId": "8068af7f-0c54-4b09-a1a7-46ba305b1be6"
+  },
+  "productsDetail": [
+    {
+      "id": 1293,
+      "displayName": "RADIATEUR",
+      "designation": "RADIATOR ASSY",
+      "designation2": "RADIATEUR",
+      "searchDescription": "RADIATEUR",
+      "reference": "17700M68P00",
+      "prixHt": "670.711",
+      "prixTtc": "798.146",
+      "unite": "PCS",
+      "categorie": "MÉCANIQUE",
+      "fabricant": "AUTRES",
+      "fournisseurCode": "CAR PRO PARTS",
+      "source": "01_PROD",
+      "sourceLabel": "Suzuki OEM",
+      "stock": {
+        "statut": "Disponible",
+        "totalQuantity": 18,
+        "stockDisponible": 13,
+        "stockConsolide": 53
+      },
+      "fitments": [
+        {
+          "modelName": "AON312",
+          "typeCode": "AON312-TYPE1"
+        },
+        {
+          "modelName": "AVH310",
+          "typeCode": "AVH310-TYPE1"
+        },
+        {
+          "modelName": "AVH310",
+          "typeCode": "AVH310-TYPE2"
+        }
+      ],
+      "itemReferences": [
+        {
+          "referenceNo": "17700M68P00",
+          "referenceType": "3.0"
+        },
+        {
+          "referenceNo": "17700M68P00-000",
+          "referenceType": "3.0"
+        }
+      ],
+      "identificationSource": {
+        "vin": null,
+        "vehicleNo": null,
+        "model": "SWIFT",
+        "modelDescription": null,
+        "typeCodes": [
+          "AVH310-TYPE1",
+          "AVH310-TYPE2"
+        ],
+        "articleNumber": "17700M68P00"
+      },
+      "score": 255675
+    }
+  ],
+  "searchDebug": {
+    "searchType": "text",
+    "originalQuery": "radiateur All New Swift",
+    "normalizedQuery": "radiateur all new swift",
+    "hasTunisianDialect": false,
+    "rawTokens": [
+      "radiateur",
+      "all",
+      "new",
+      "swift"
+    ],
+    "expandedTerms": [
+      "radiateur",
+      "all",
+      "new",
+      "swift"
+    ],
+    "mainPartType": "radiateur",
+    "positionInfo": {
+      "avant": false,
+      "arriere": false,
+      "gauche": false,
+      "droite": false
+    },
+    "fieldsSearched": [
+      "designation_2",
+      "search_description",
+      "designation",
+      "reference",
+      "categorie",
+      "fabricant",
+      "fournisseur_code",
+      "item_references.reference_no"
+    ],
+    "tablesQueried": [
+      "vehicles",
+      "vehicle_model_map",
+      "vehicle_type_master",
+      "parts",
+      "stock",
+      "fitment",
+      "item_references"
+    ],
+    "dbRawCount": 46,
+    "qualifiedCount": 46,
+    "finalCount": 10,
+    "vehicleScope": {
+      "active": true,
+      "vin": null,
+      "vehicleNo": null,
+      "model": "SWIFT",
+      "modelDescription": null,
+      "typeCodes": [
+        "AVH310-TYPE1",
+        "AVH310-TYPE2"
+      ],
+      "primaryTypeCodes": [
+        "AVH310-TYPE1",
+        "AVH310-TYPE2"
+      ]
+    },
+    "sourceBreakdown": {
+      "suzukiOem": 10,
+      "carproParts": 0
+    },
+    "stockBreakdown": {
+      "disponible": 2,
+      "indisponible": 8
+    }
+  }
+}
+===== All New Swift (5) =====
+Prompt: capot All New Swift
+Expected: ref=57300M75T00 | price=940.309 | avail=Disponible
+Actual : ref=57300M75T00 | price=940.309 | avail=Disponible
+Passed: true
+Response text: Pièces disponibles pour votre SUZUKI SWIFT :
+
+• CAPOT — 940.309 TND
+
+💡 Contactez CarPro au ☎️ 70 603 500 pour réserver.
+Structured payload:
+{
+  "response": "Pièces disponibles pour votre SUZUKI SWIFT :\n\n• CAPOT — 940.309 TND\n\n💡 Contactez CarPro au ☎️ 70 603 500 pour réserver.",
+  "sessionId": "7c7770c2-fbb0-40ca-884c-60b930182663",
+  "products": [
+    {
+      "id": 4541,
+      "designation": "CAPOT",
+      "designationOem": "PANEL COMP,FRONT HOOD",
+      "designation2": "CAPOT",
+      "searchDescription": "CAPOT",
+      "reference": "57300M75T00",
+      "prixHt": "790.176",
+      "prixTtc": "940.309",
+      "unite": "PCS",
+      "categorie": "CARROSSERIE",
+      "fabricant": "AUTRES",
+      "fournisseurCode": "CAR PRO PARTS",
+      "source": "01_PROD",
+      "sourceLabel": "Suzuki OEM",
+      "stock": {
+        "statut": "Disponible",
+        "totalQuantity": 0,
+        "stockDisponible": 0,
+        "stockConsolide": 29
+      },
+      "fitments": [
+        {
+          "modelName": "AON312",
+          "typeCode": "AON312-TYPE1"
+        },
+        {
+          "modelName": "AVH310",
+          "typeCode": "AVH310-TYPE1"
+        },
+        {
+          "modelName": "AVH310",
+          "typeCode": "AVH310-TYPE2"
+        }
+      ],
+      "itemReferences": [],
+      "identificationSource": {
+        "vin": null,
+        "vehicleNo": null,
+        "model": "SWIFT",
+        "modelDescription": null,
+        "typeCodes": [
+          "AVH310-TYPE1",
+          "AVH310-TYPE2"
+        ],
+        "articleNumber": "57300M75T00"
+      },
+      "score": 251675
+    }
+  ],
+  "confidence": "HIGH",
+  "confidenceScore": 87.5,
+  "suggestions": [],
+  "intent": "PARTS_SEARCH",
+  "metadata": {
+    "productsFound": 2,
+    "conversationLength": 1,
+    "queryClarity": 20,
+    "duration": 1268,
+    "userMessageId": "82c7ae2b-d87f-41ea-a59a-260f4da499e6"
+  },
+  "productsDetail": [
+    {
+      "id": 4541,
+      "displayName": "CAPOT",
+      "designation": "PANEL COMP,FRONT HOOD",
+      "designation2": "CAPOT",
+      "searchDescription": "CAPOT",
+      "reference": "57300M75T00",
+      "prixHt": "790.176",
+      "prixTtc": "940.309",
+      "unite": "PCS",
+      "categorie": "CARROSSERIE",
+      "fabricant": "AUTRES",
+      "fournisseurCode": "CAR PRO PARTS",
+      "source": "01_PROD",
+      "sourceLabel": "Suzuki OEM",
+      "stock": {
+        "statut": "Disponible",
+        "totalQuantity": 0,
+        "stockDisponible": 0,
+        "stockConsolide": 29
+      },
+      "fitments": [
+        {
+          "modelName": "AON312",
+          "typeCode": "AON312-TYPE1"
+        },
+        {
+          "modelName": "AVH310",
+          "typeCode": "AVH310-TYPE1"
+        },
+        {
+          "modelName": "AVH310",
+          "typeCode": "AVH310-TYPE2"
+        }
+      ],
+      "itemReferences": [],
+      "identificationSource": {
+        "vin": null,
+        "vehicleNo": null,
+        "model": "SWIFT",
+        "modelDescription": null,
+        "typeCodes": [
+          "AVH310-TYPE1",
+          "AVH310-TYPE2"
+        ],
+        "articleNumber": "57300M75T00"
+      },
+      "score": 251675
+    }
+  ],
+  "searchDebug": {
+    "searchType": "text",
+    "originalQuery": "capot All New Swift",
+    "normalizedQuery": "capot all new swift",
+    "hasTunisianDialect": false,
+    "rawTokens": [
+      "capot",
+      "all",
+      "new",
+      "swift"
+    ],
+    "expandedTerms": [
+      "capot",
+      "all",
+      "new",
+      "swift"
+    ],
+    "mainPartType": "capot",
+    "positionInfo": {
+      "avant": false,
+      "arriere": false,
+      "gauche": false,
+      "droite": false
+    },
+    "fieldsSearched": [
+      "designation_2",
+      "search_description",
+      "designation",
+      "reference",
+      "categorie",
+      "fabricant",
+      "fournisseur_code",
+      "item_references.reference_no"
+    ],
+    "tablesQueried": [
+      "vehicles",
+      "vehicle_model_map",
+      "vehicle_type_master",
+      "parts",
+      "stock",
+      "fitment",
+      "item_references"
+    ],
+    "dbRawCount": 31,
+    "qualifiedCount": 31,
+    "finalCount": 10,
+    "vehicleScope": {
+      "active": true,
+      "vin": null,
+      "vehicleNo": null,
+      "model": "SWIFT",
+      "modelDescription": null,
+      "typeCodes": [
+        "AVH310-TYPE1",
+        "AVH310-TYPE2"
+      ],
+      "primaryTypeCodes": [
+        "AVH310-TYPE1",
+        "AVH310-TYPE2"
+      ]
+    },
+    "sourceBreakdown": {
+      "suzukiOem": 10,
+      "carproParts": 0
+    },
+    "stockBreakdown": {
+      "disponible": 4,
+      "indisponible": 6
+    }
+  }
+}
+===== All New Swift (5) =====
+Prompt: pare choc avant All New Swift
+Expected: ref=71711M75T00-799 | price=1034.987 | avail=Disponible
+Actual : ref=71711M55R00-799 | price=1079.117 | avail=Disponible
+Passed: false
+Response text: Pièces disponibles pour votre SUZUKI SWIFT :
+
+• PARE CHOC AV — 1079.117 TND
+
+💡 Contactez CarPro au ☎️ 70 603 500 pour réserver.
+Structured payload:
+{
+  "response": "Pièces disponibles pour votre SUZUKI SWIFT :\n\n• PARE CHOC AV — 1079.117 TND\n\n💡 Contactez CarPro au ☎️ 70 603 500 pour réserver.",
+  "sessionId": "fe180397-2ff1-449b-9818-cf543d63ad7e",
+  "products": [
+    {
+      "id": 5784,
+      "designation": "PARE CHOC AV",
+      "designationOem": "BUMPER, FR (PRIMARY)",
+      "designation2": "PARE CHOC AV",
+      "searchDescription": "PARE CHOC AV",
+      "reference": "71711M55R00-799",
+      "prixHt": "906.821",
+      "prixTtc": "1079.117",
+      "unite": "PCS",
+      "categorie": "CARROSSERIE",
+      "fabricant": "SUZUKI",
+      "fournisseurCode": "CAR PRO PARTS",
+      "source": "01_PROD",
+      "sourceLabel": "Suzuki OEM",
+      "stock": {
+        "statut": "Disponible",
+        "totalQuantity": 8,
+        "stockDisponible": 0,
+        "stockConsolide": 19
+      },
+      "fitments": [
+        {
+          "modelName": "AVH310",
+          "typeCode": "AVH310-TYPE1"
+        },
+        {
+          "modelName": "AVH310",
+          "typeCode": "AVH310-TYPE2"
+        }
+      ],
+      "itemReferences": [
+        {
+          "referenceNo": "71711M55R00-799",
+          "referenceType": "3.0"
+        }
+      ],
+      "identificationSource": {
+        "vin": null,
+        "vehicleNo": null,
+        "model": "SWIFT",
+        "modelDescription": null,
+        "typeCodes": [
+          "AVH310-TYPE1",
+          "AVH310-TYPE2"
+        ],
+        "articleNumber": "71711M55R00-799"
+      },
+      "score": 203508
+    }
+  ],
+  "confidence": "HIGH",
+  "confidenceScore": 87.5,
+  "suggestions": [],
+  "intent": "PARTS_SEARCH",
+  "metadata": {
+    "productsFound": 4,
+    "conversationLength": 1,
+    "queryClarity": 20,
+    "duration": 1436,
+    "userMessageId": "b0eb01a0-5941-4017-bde1-83ed09a5eb35"
+  },
+  "productsDetail": [
+    {
+      "id": 5784,
+      "displayName": "PARE CHOC AV",
+      "designation": "BUMPER, FR (PRIMARY)",
+      "designation2": "PARE CHOC AV",
+      "searchDescription": "PARE CHOC AV",
+      "reference": "71711M55R00-799",
+      "prixHt": "906.821",
+      "prixTtc": "1079.117",
+      "unite": "PCS",
+      "categorie": "CARROSSERIE",
+      "fabricant": "SUZUKI",
+      "fournisseurCode": "CAR PRO PARTS",
+      "source": "01_PROD",
+      "sourceLabel": "Suzuki OEM",
+      "stock": {
+        "statut": "Disponible",
+        "totalQuantity": 8,
+        "stockDisponible": 0,
+        "stockConsolide": 19
+      },
+      "fitments": [
+        {
+          "modelName": "AVH310",
+          "typeCode": "AVH310-TYPE1"
+        },
+        {
+          "modelName": "AVH310",
+          "typeCode": "AVH310-TYPE2"
+        }
+      ],
+      "itemReferences": [
+        {
+          "referenceNo": "71711M55R00-799",
+          "referenceType": "3.0"
+        }
+      ],
+      "identificationSource": {
+        "vin": null,
+        "vehicleNo": null,
+        "model": "SWIFT",
+        "modelDescription": null,
+        "typeCodes": [
+          "AVH310-TYPE1",
+          "AVH310-TYPE2"
+        ],
+        "articleNumber": "71711M55R00-799"
+      },
+      "score": 203508
+    }
+  ],
+  "searchDebug": {
+    "searchType": "text",
+    "originalQuery": "pare choc avant All New Swift",
+    "normalizedQuery": "pare choc avant all new swift",
+    "hasTunisianDialect": false,
+    "rawTokens": [
+      "pare",
+      "choc",
+      "avant",
+      "all",
+      "new",
+      "swift"
+    ],
+    "expandedTerms": [
+      "pare",
+      "choc",
+      "avant",
+      "all",
+      "new",
+      "swift"
+    ],
+    "mainPartType": "pare",
+    "positionInfo": {
+      "avant": true,
+      "arriere": false,
+      "gauche": false,
+      "droite": false
+    },
+    "fieldsSearched": [
+      "designation_2",
+      "search_description",
+      "designation",
+      "reference",
+      "categorie",
+      "fabricant",
+      "fournisseur_code",
+      "item_references.reference_no"
+    ],
+    "tablesQueried": [
+      "vehicles",
+      "vehicle_model_map",
+      "vehicle_type_master",
+      "parts",
+      "stock",
+      "fitment",
+      "item_references"
+    ],
+    "dbRawCount": 56,
+    "qualifiedCount": 56,
+    "finalCount": 10,
+    "vehicleScope": {
+      "active": true,
+      "vin": null,
+      "vehicleNo": null,
+      "model": "SWIFT",
+      "modelDescription": null,
+      "typeCodes": [
+        "AVH310-TYPE1",
+        "AVH310-TYPE2"
+      ],
+      "primaryTypeCodes": [
+        "AVH310-TYPE1",
+        "AVH310-TYPE2"
+      ]
+    },
+    "sourceBreakdown": {
+      "suzukiOem": 10,
+      "carproParts": 0
+    },
+    "stockBreakdown": {
+      "disponible": 5,
+      "indisponible": 5
+    }
+  }
+}
+===== All New Swift (5) =====
+Prompt: calandre All New Swift
+Expected: ref=71741M75T10-W9K | price=831.464 | avail=Disponible
+Actual : ref=71740M55R00-C48 | price=410.308 | avail=Disponible
+Passed: false
+Response text: Pièces disponibles pour votre SUZUKI SWIFT :
+
+• CALANDRE — 410.308 TND
+
+💡 Contactez CarPro au ☎️ 70 603 500 pour réserver.
+Structured payload:
+{
+  "response": "Pièces disponibles pour votre SUZUKI SWIFT :\n\n• CALANDRE — 410.308 TND\n\n💡 Contactez CarPro au ☎️ 70 603 500 pour réserver.",
+  "sessionId": "fdea7b59-ef4c-4fb0-b2af-63ac7b21875f",
+  "products": [
+    {
+      "id": 5941,
+      "designation": "CALANDRE",
+      "designationOem": "GRILLE",
+      "designation2": "CALANDRE",
+      "searchDescription": "CALANDRE",
+      "reference": "71740M55R00-C48",
+      "prixHt": "344.797",
+      "prixTtc": "410.308",
+      "unite": "PCS",
+      "categorie": "CARROSSERIE",
+      "fabricant": "SUZUKI",
+      "fournisseurCode": "CAR PRO PARTS",
+      "source": "01_PROD",
+      "sourceLabel": "Suzuki OEM",
+      "stock": {
+        "statut": "Disponible",
+        "totalQuantity": 11,
+        "stockDisponible": 10,
+        "stockConsolide": 27
+      },
+      "fitments": [
+        {
+          "modelName": "AVH310",
+          "typeCode": "AVH310-TYPE1"
+        },
+        {
+          "modelName": "AVH310",
+          "typeCode": "AVH310-TYPE2"
+        }
+      ],
+      "itemReferences": [
+        {
+          "referenceNo": "71740M55R00-C48",
+          "referenceType": "3.0"
+        }
+      ],
+      "identificationSource": {
+        "vin": null,
+        "vehicleNo": null,
+        "model": "SWIFT",
+        "modelDescription": null,
+        "typeCodes": [
+          "AVH310-TYPE1",
+          "AVH310-TYPE2"
+        ],
+        "articleNumber": "71740M55R00-C48"
+      },
+      "score": 211008
+    }
+  ],
+  "confidence": "HIGH",
+  "confidenceScore": 87.5,
+  "suggestions": [],
+  "intent": "PARTS_SEARCH",
+  "metadata": {
+    "productsFound": 3,
+    "conversationLength": 1,
+    "queryClarity": 20,
+    "duration": 1432,
+    "userMessageId": "43703968-c576-4fb3-aa91-d987a51099fd"
+  },
+  "productsDetail": [
+    {
+      "id": 5941,
+      "displayName": "CALANDRE",
+      "designation": "GRILLE",
+      "designation2": "CALANDRE",
+      "searchDescription": "CALANDRE",
+      "reference": "71740M55R00-C48",
+      "prixHt": "344.797",
+      "prixTtc": "410.308",
+      "unite": "PCS",
+      "categorie": "CARROSSERIE",
+      "fabricant": "SUZUKI",
+      "fournisseurCode": "CAR PRO PARTS",
+      "source": "01_PROD",
+      "sourceLabel": "Suzuki OEM",
+      "stock": {
+        "statut": "Disponible",
+        "totalQuantity": 11,
+        "stockDisponible": 10,
+        "stockConsolide": 27
+      },
+      "fitments": [
+        {
+          "modelName": "AVH310",
+          "typeCode": "AVH310-TYPE1"
+        },
+        {
+          "modelName": "AVH310",
+          "typeCode": "AVH310-TYPE2"
+        }
+      ],
+      "itemReferences": [
+        {
+          "referenceNo": "71740M55R00-C48",
+          "referenceType": "3.0"
+        }
+      ],
+      "identificationSource": {
+        "vin": null,
+        "vehicleNo": null,
+        "model": "SWIFT",
+        "modelDescription": null,
+        "typeCodes": [
+          "AVH310-TYPE1",
+          "AVH310-TYPE2"
+        ],
+        "articleNumber": "71740M55R00-C48"
+      },
+      "score": 211008
+    }
+  ],
+  "searchDebug": {
+    "searchType": "text",
+    "originalQuery": "calandre All New Swift",
+    "normalizedQuery": "calandre all new swift",
+    "hasTunisianDialect": false,
+    "rawTokens": [
+      "calandre",
+      "all",
+      "new",
+      "swift"
+    ],
+    "expandedTerms": [
+      "calandre",
+      "all",
+      "new",
+      "swift"
+    ],
+    "mainPartType": "calandre",
+    "positionInfo": {
+      "avant": false,
+      "arriere": false,
+      "gauche": false,
+      "droite": false
+    },
+    "fieldsSearched": [
+      "designation_2",
+      "search_description",
+      "designation",
+      "reference",
+      "categorie",
+      "fabricant",
+      "fournisseur_code",
+      "item_references.reference_no"
+    ],
+    "tablesQueried": [
+      "vehicles",
+      "vehicle_model_map",
+      "vehicle_type_master",
+      "parts",
+      "stock",
+      "fitment",
+      "item_references"
+    ],
+    "dbRawCount": 31,
+    "qualifiedCount": 31,
+    "finalCount": 10,
+    "vehicleScope": {
+      "active": true,
+      "vin": null,
+      "vehicleNo": null,
+      "model": "SWIFT",
+      "modelDescription": null,
+      "typeCodes": [
+        "AVH310-TYPE1",
+        "AVH310-TYPE2"
+      ],
+      "primaryTypeCodes": [
+        "AVH310-TYPE1",
+        "AVH310-TYPE2"
+      ]
+    },
+    "sourceBreakdown": {
+      "suzukiOem": 10,
+      "carproParts": 0
+    },
+    "stockBreakdown": {
+      "disponible": 8,
+      "indisponible": 2
+    }
+  }
+}
+===== All New Swift (5) =====
+Prompt: pare choc arrière All New Swift
+Expected: ref=71811M75T00-799 | price=849.157 | avail=Disponible
+Actual : ref=71811M75T00-799 | price=849.157 | avail=Disponible
+Passed: true
+Response text: Pièces disponibles pour votre SUZUKI SWIFT :
+
+• PARE CHOC AR — 849.157 TND
+
+💡 Contactez CarPro au ☎️ 70 603 500 pour réserver.
+Structured payload:
+{
+  "response": "Pièces disponibles pour votre SUZUKI SWIFT :\n\n• PARE CHOC AR — 849.157 TND\n\n💡 Contactez CarPro au ☎️ 70 603 500 pour réserver.",
+  "sessionId": "79b94503-caf0-44b5-833b-de9b122a8bf3",
+  "products": [
+    {
+      "id": 6121,
+      "designation": "PARE CHOC AR",
+      "designationOem": "BUMPER,REAR",
+      "designation2": "PARE CHOC AR",
+      "searchDescription": "PARE CHOC AR",
+      "reference": "71811M75T00-799",
+      "prixHt": "713.577",
+      "prixTtc": "849.157",
+      "unite": "PCS",
+      "categorie": "CARROSSERIE",
+      "fabricant": "AUTRES",
+      "fournisseurCode": "CAR PRO PARTS",
+      "source": "01_PROD",
+      "sourceLabel": "Suzuki OEM",
+      "stock": {
+        "statut": "Disponible",
+        "totalQuantity": 1,
+        "stockDisponible": 0,
+        "stockConsolide": 7
+      },
+      "fitments": [
+        {
+          "modelName": "AON312",
+          "typeCode": "AON312-TYPE1"
+        },
+        {
+          "modelName": "AVH310",
+          "typeCode": "AVH310-TYPE1"
+        },
+        {
+          "modelName": "AVH310",
+          "typeCode": "AVH310-TYPE2"
+        }
+      ],
+      "itemReferences": [],
+      "identificationSource": {
+        "vin": null,
+        "vehicleNo": null,
+        "model": "SWIFT",
+        "modelDescription": null,
+        "typeCodes": [
+          "AVH310-TYPE1",
+          "AVH310-TYPE2"
+        ],
+        "articleNumber": "71811M75T00-799"
+      },
+      "score": 202175
+    }
+  ],
+  "confidence": "HIGH",
+  "confidenceScore": 87.5,
+  "suggestions": [],
+  "intent": "PARTS_SEARCH",
+  "metadata": {
+    "productsFound": 2,
+    "conversationLength": 1,
+    "queryClarity": 20,
+    "duration": 1668,
+    "userMessageId": "f8ec03cc-0991-48df-8dbf-b5d34ed24028"
+  },
+  "productsDetail": [
+    {
+      "id": 6121,
+      "displayName": "PARE CHOC AR",
+      "designation": "BUMPER,REAR",
+      "designation2": "PARE CHOC AR",
+      "searchDescription": "PARE CHOC AR",
+      "reference": "71811M75T00-799",
+      "prixHt": "713.577",
+      "prixTtc": "849.157",
+      "unite": "PCS",
+      "categorie": "CARROSSERIE",
+      "fabricant": "AUTRES",
+      "fournisseurCode": "CAR PRO PARTS",
+      "source": "01_PROD",
+      "sourceLabel": "Suzuki OEM",
+      "stock": {
+        "statut": "Disponible",
+        "totalQuantity": 1,
+        "stockDisponible": 0,
+        "stockConsolide": 7
+      },
+      "fitments": [
+        {
+          "modelName": "AON312",
+          "typeCode": "AON312-TYPE1"
+        },
+        {
+          "modelName": "AVH310",
+          "typeCode": "AVH310-TYPE1"
+        },
+        {
+          "modelName": "AVH310",
+          "typeCode": "AVH310-TYPE2"
+        }
+      ],
+      "itemReferences": [],
+      "identificationSource": {
+        "vin": null,
+        "vehicleNo": null,
+        "model": "SWIFT",
+        "modelDescription": null,
+        "typeCodes": [
+          "AVH310-TYPE1",
+          "AVH310-TYPE2"
+        ],
+        "articleNumber": "71811M75T00-799"
+      },
+      "score": 202175
+    }
+  ],
+  "searchDebug": {
+    "searchType": "text",
+    "originalQuery": "pare choc arriere All New Swift",
+    "normalizedQuery": "pare choc arriere all new swift",
+    "hasTunisianDialect": false,
+    "rawTokens": [
+      "pare",
+      "choc",
+      "arriere",
+      "all",
+      "new",
+      "swift"
+    ],
+    "expandedTerms": [
+      "pare",
+      "choc",
+      "arriere",
+      "all",
+      "new",
+      "swift"
+    ],
+    "mainPartType": "pare",
+    "positionInfo": {
+      "avant": false,
+      "arriere": true,
+      "gauche": false,
+      "droite": false
+    },
+    "fieldsSearched": [
+      "designation_2",
+      "search_description",
+      "designation",
+      "reference",
+      "categorie",
+      "fabricant",
+      "fournisseur_code",
+      "item_references.reference_no"
+    ],
+    "tablesQueried": [
+      "vehicles",
+      "vehicle_model_map",
+      "vehicle_type_master",
+      "parts",
+      "stock",
+      "fitment",
+      "item_references"
+    ],
+    "dbRawCount": 56,
+    "qualifiedCount": 56,
+    "finalCount": 10,
+    "vehicleScope": {
+      "active": true,
+      "vin": null,
+      "vehicleNo": null,
+      "model": "SWIFT",
+      "modelDescription": null,
+      "typeCodes": [
+        "AVH310-TYPE1",
+        "AVH310-TYPE2"
+      ],
+      "primaryTypeCodes": [
+        "AVH310-TYPE1",
+        "AVH310-TYPE2"
+      ]
+    },
+    "sourceBreakdown": {
+      "suzukiOem": 10,
+      "carproParts": 0
+    },
+    "stockBreakdown": {
+      "disponible": 5,
+      "indisponible": 5
+    }
+  }
+}
+===== New Swift (10) =====
+Prompt: aile avant droite New Swift
+Expected: ref=57611M55R10 | price=501.61 | avail=Disponible
+Actual : ref=57611M55R10 | price=501.61 | avail=Disponible
+Passed: true
+Response text: Pièces disponibles pour votre SUZUKI NEW SWIFT :
+
+• AILE AV D — 501.610 TND
+
+💡 Contactez CarPro au ☎️ 70 603 500 pour réserver.
+Structured payload:
+{
+  "response": "Pièces disponibles pour votre SUZUKI NEW SWIFT :\n\n• AILE AV D — 501.610 TND\n\n💡 Contactez CarPro au ☎️ 70 603 500 pour réserver.",
+  "sessionId": "c5d9d307-27da-404d-8728-3ea44a5c80d7",
+  "products": [
+    {
+      "id": 4580,
+      "designation": "AILE AV D",
+      "designationOem": "PANEL,FRONT FENDER,R",
+      "designation2": "AILE AV D",
+      "searchDescription": "PANEL,FRONT FENDER,R",
+      "reference": "57611M55R10",
+      "prixHt": "421.521",
+      "prixTtc": "501.61",
+      "unite": "PCS",
+      "categorie": "CARROSSERIE",
+      "fabricant": "SUZUKI",
+      "fournisseurCode": "CAR PRO PARTS",
+      "source": "01_PROD",
+      "sourceLabel": "Suzuki OEM",
+      "stock": {
+        "statut": "Disponible",
+        "totalQuantity": 2,
+        "stockDisponible": 0,
+        "stockConsolide": 60
+      },
+      "fitments": [
+        {
+          "modelName": "AVH310",
+          "typeCode": "AVH310-TYPE1"
+        },
+        {
+          "modelName": "AVH310",
+          "typeCode": "AVH310-TYPE2"
+        }
+      ],
+      "itemReferences": [
+        {
+          "referenceNo": "57611M55R10",
+          "referenceType": "3.0"
+        },
+        {
+          "referenceNo": "57611M55R10-000",
+          "referenceType": "3.0"
+        }
+      ],
+      "identificationSource": {
+        "vin": "MBHCZC63S00B12517",
+        "vehicleNo": "VN0131588",
+        "model": "SWIFT",
+        "modelDescription": "N SW GL MT",
+        "typeCodes": [
+          "AVH310-TYPE1",
+          "AVH310-TYPE2"
+        ],
+        "articleNumber": "57611M55R10"
+      },
+      "score": 250008
+    }
+  ],
+  "confidence": "HIGH",
+  "confidenceScore": 87.5,
+  "suggestions": [],
+  "intent": "PARTS_SEARCH",
+  "metadata": {
+    "productsFound": 2,
+    "conversationLength": 1,
+    "queryClarity": 20,
+    "duration": 1931,
+    "userMessageId": "a4c510be-a6c7-4c59-b702-d1d511911422"
+  },
+  "productsDetail": [
+    {
+      "id": 4580,
+      "displayName": "AILE AV D",
+      "designation": "PANEL,FRONT FENDER,R",
+      "designation2": "AILE AV D",
+      "searchDescription": "PANEL,FRONT FENDER,R",
+      "reference": "57611M55R10",
+      "prixHt": "421.521",
+      "prixTtc": "501.61",
+      "unite": "PCS",
+      "categorie": "CARROSSERIE",
+      "fabricant": "SUZUKI",
+      "fournisseurCode": "CAR PRO PARTS",
+      "source": "01_PROD",
+      "sourceLabel": "Suzuki OEM",
+      "stock": {
+        "statut": "Disponible",
+        "totalQuantity": 2,
+        "stockDisponible": 0,
+        "stockConsolide": 60
+      },
+      "fitments": [
+        {
+          "modelName": "AVH310",
+          "typeCode": "AVH310-TYPE1"
+        },
+        {
+          "modelName": "AVH310",
+          "typeCode": "AVH310-TYPE2"
+        }
+      ],
+      "itemReferences": [
+        {
+          "referenceNo": "57611M55R10",
+          "referenceType": "3.0"
+        },
+        {
+          "referenceNo": "57611M55R10-000",
+          "referenceType": "3.0"
+        }
+      ],
+      "identificationSource": {
+        "vin": "MBHCZC63S00B12517",
+        "vehicleNo": "VN0131588",
+        "model": "SWIFT",
+        "modelDescription": "N SW GL MT",
+        "typeCodes": [
+          "AVH310-TYPE1",
+          "AVH310-TYPE2"
+        ],
+        "articleNumber": "57611M55R10"
+      },
+      "score": 250008
+    }
+  ],
+  "searchDebug": {
+    "searchType": "text",
+    "originalQuery": "aile avant droite New Swift",
+    "normalizedQuery": "aile avant droite new swift",
+    "hasTunisianDialect": false,
+    "rawTokens": [
+      "aile",
+      "avant",
+      "droite",
+      "new",
+      "swift"
+    ],
+    "expandedTerms": [
+      "aile",
+      "avant",
+      "droite",
+      "new",
+      "swift"
+    ],
+    "mainPartType": "aile",
+    "positionInfo": {
+      "avant": true,
+      "arriere": false,
+      "gauche": false,
+      "droite": true
+    },
+    "fieldsSearched": [
+      "designation_2",
+      "search_description",
+      "designation",
+      "reference",
+      "categorie",
+      "fabricant",
+      "fournisseur_code",
+      "item_references.reference_no"
+    ],
+    "tablesQueried": [
+      "vehicles",
+      "vehicle_model_map",
+      "vehicle_type_master",
+      "parts",
+      "stock",
+      "fitment",
+      "item_references"
+    ],
+    "dbRawCount": 8,
+    "qualifiedCount": 8,
+    "finalCount": 8,
+    "vehicleScope": {
+      "active": true,
+      "vin": "MBHCZC63S00B12517",
+      "vehicleNo": "VN0131588",
+      "model": "SWIFT",
+      "modelDescription": "N SW GL MT",
+      "typeCodes": [
+        "AVH310-TYPE1",
+        "AVH310-TYPE2"
+      ],
+      "primaryTypeCodes": [
+        "AVH310-TYPE1",
+        "AVH310-TYPE2"
+      ]
+    },
+    "sourceBreakdown": {
+      "suzukiOem": 8,
+      "carproParts": 0
+    },
+    "stockBreakdown": {
+      "disponible": 4,
+      "indisponible": 4
+    }
+  }
+}
+===== New Swift (10) =====
+Prompt: aile av gauche New Swift
+Expected: ref=57711M55R10 | price=501.612 | avail=Disponible
+Actual : ref=57711M55R10 | price=501.612 | avail=Disponible
+Passed: true
+Response text: Pièces disponibles pour votre SUZUKI NEW SWIFT :
+
+• AILE AV G — 501.612 TND
+
+💡 Contactez CarPro au ☎️ 70 603 500 pour réserver.
+Structured payload:
+{
+  "response": "Pièces disponibles pour votre SUZUKI NEW SWIFT :\n\n• AILE AV G — 501.612 TND\n\n💡 Contactez CarPro au ☎️ 70 603 500 pour réserver.",
+  "sessionId": "1f25f8cb-6604-41d4-9b7e-2f2910580147",
+  "products": [
+    {
+      "id": 4599,
+      "designation": "AILE AV G",
+      "designationOem": "AILE AV G",
+      "designation2": "AILE AV G",
+      "searchDescription": "AILE AV G",
+      "reference": "57711M55R10",
+      "prixHt": "421.523",
+      "prixTtc": "501.612",
+      "unite": "PCS",
+      "categorie": "CARROSSERIE",
+      "fabricant": "SUZUKI",
+      "fournisseurCode": "CAR PRO PARTS",
+      "source": "01_PROD",
+      "sourceLabel": "Suzuki OEM",
+      "stock": {
+        "statut": "Disponible",
+        "totalQuantity": 1,
+        "stockDisponible": 0,
+        "stockConsolide": 17
+      },
+      "fitments": [
+        {
+          "modelName": "AVH310",
+          "typeCode": "AVH310-TYPE1"
+        },
+        {
+          "modelName": "AVH310",
+          "typeCode": "AVH310-TYPE2"
+        }
+      ],
+      "itemReferences": [
+        {
+          "referenceNo": "57711M55R10",
+          "referenceType": "3.0"
+        },
+        {
+          "referenceNo": "57711M55R10-000",
+          "referenceType": "3.0"
+        }
+      ],
+      "identificationSource": {
+        "vin": "MBHCZC63S00B12517",
+        "vehicleNo": "VN0131588",
+        "model": "SWIFT",
+        "modelDescription": "N SW GL MT",
+        "typeCodes": [
+          "AVH310-TYPE1",
+          "AVH310-TYPE2"
+        ],
+        "articleNumber": "57711M55R10"
+      },
+      "score": 254008
+    }
+  ],
+  "confidence": "HIGH",
+  "confidenceScore": 87.5,
+  "suggestions": [],
+  "intent": "PARTS_SEARCH",
+  "metadata": {
+    "productsFound": 2,
+    "conversationLength": 1,
+    "queryClarity": 20,
+    "duration": 1322,
+    "userMessageId": "50fa7cff-9f90-440d-a870-b258a63f1747"
+  },
+  "productsDetail": [
+    {
+      "id": 4599,
+      "displayName": "AILE AV G",
+      "designation": "AILE AV G",
+      "designation2": "AILE AV G",
+      "searchDescription": "AILE AV G",
+      "reference": "57711M55R10",
+      "prixHt": "421.523",
+      "prixTtc": "501.612",
+      "unite": "PCS",
+      "categorie": "CARROSSERIE",
+      "fabricant": "SUZUKI",
+      "fournisseurCode": "CAR PRO PARTS",
+      "source": "01_PROD",
+      "sourceLabel": "Suzuki OEM",
+      "stock": {
+        "statut": "Disponible",
+        "totalQuantity": 1,
+        "stockDisponible": 0,
+        "stockConsolide": 17
+      },
+      "fitments": [
+        {
+          "modelName": "AVH310",
+          "typeCode": "AVH310-TYPE1"
+        },
+        {
+          "modelName": "AVH310",
+          "typeCode": "AVH310-TYPE2"
+        }
+      ],
+      "itemReferences": [
+        {
+          "referenceNo": "57711M55R10",
+          "referenceType": "3.0"
+        },
+        {
+          "referenceNo": "57711M55R10-000",
+          "referenceType": "3.0"
+        }
+      ],
+      "identificationSource": {
+        "vin": "MBHCZC63S00B12517",
+        "vehicleNo": "VN0131588",
+        "model": "SWIFT",
+        "modelDescription": "N SW GL MT",
+        "typeCodes": [
+          "AVH310-TYPE1",
+          "AVH310-TYPE2"
+        ],
+        "articleNumber": "57711M55R10"
+      },
+      "score": 254008
+    }
+  ],
+  "searchDebug": {
+    "searchType": "text",
+    "originalQuery": "aile avant gauche New Swift",
+    "normalizedQuery": "aile avant gauche new swift",
+    "hasTunisianDialect": false,
+    "rawTokens": [
+      "aile",
+      "avant",
+      "gauche",
+      "new",
+      "swift"
+    ],
+    "expandedTerms": [
+      "aile",
+      "avant",
+      "gauche",
+      "new",
+      "swift"
+    ],
+    "mainPartType": "aile",
+    "positionInfo": {
+      "avant": true,
+      "arriere": false,
+      "gauche": true,
+      "droite": false
+    },
+    "fieldsSearched": [
+      "designation_2",
+      "search_description",
+      "designation",
+      "reference",
+      "categorie",
+      "fabricant",
+      "fournisseur_code",
+      "item_references.reference_no"
+    ],
+    "tablesQueried": [
+      "vehicles",
+      "vehicle_model_map",
+      "vehicle_type_master",
+      "parts",
+      "stock",
+      "fitment",
+      "item_references"
+    ],
+    "dbRawCount": 8,
+    "qualifiedCount": 8,
+    "finalCount": 8,
+    "vehicleScope": {
+      "active": true,
+      "vin": "MBHCZC63S00B12517",
+      "vehicleNo": "VN0131588",
+      "model": "SWIFT",
+      "modelDescription": "N SW GL MT",
+      "typeCodes": [
+        "AVH310-TYPE1",
+        "AVH310-TYPE2"
+      ],
+      "primaryTypeCodes": [
+        "AVH310-TYPE1",
+        "AVH310-TYPE2"
+      ]
+    },
+    "sourceBreakdown": {
+      "suzukiOem": 8,
+      "carproParts": 0
+    },
+    "stockBreakdown": {
+      "disponible": 4,
+      "indisponible": 4
+    }
+  }
+}
+===== New Swift (10) =====
+Prompt: porte avant droite New Swift, elle est disponible?
+Expected: ref=68001M55R00 | price=1639.726 | avail=Indisponible
+Actual : ref=68001M55R02 | price=2049.423 | avail=Disponible
+Passed: false
+Response text: Pièces disponibles pour votre SUZUKI NEW SWIFT :
+
+• PORTE AV D — 2049.423 TND
+
+💡 Contactez CarPro au ☎️ 70 603 500 pour réserver.
+Structured payload:
+{
+  "response": "Pièces disponibles pour votre SUZUKI NEW SWIFT :\n\n• PORTE AV D — 2049.423 TND\n\n💡 Contactez CarPro au ☎️ 70 603 500 pour réserver.",
+  "sessionId": "5716cd90-12de-410d-b645-6403d1ea2bf2",
+  "products": [
+    {
+      "id": 5546,
+      "designation": "PORTE AV D",
+      "designationOem": "PANEL ASSY, FRONT DOOR, R",
+      "designation2": "PORTE AV D",
+      "searchDescription": "PORTE AV D",
+      "reference": "68001M55R02",
+      "prixHt": "1722.205",
+      "prixTtc": "2049.423",
+      "unite": "PCS",
+      "categorie": "CARROSSERIE",
+      "fabricant": "SUZUKI",
+      "fournisseurCode": "CAR PRO PARTS",
+      "source": "01_PROD",
+      "sourceLabel": "Suzuki OEM",
+      "stock": {
+        "statut": "Disponible",
+        "totalQuantity": 2,
+        "stockDisponible": 0,
+        "stockConsolide": 4
+      },
+      "fitments": [
+        {
+          "modelName": "AVH310",
+          "typeCode": "AVH310-TYPE1"
+        },
+        {
+          "modelName": "AVH310",
+          "typeCode": "AVH310-TYPE2"
+        }
+      ],
+      "itemReferences": [],
+      "identificationSource": {
+        "vin": "MBHCZC63S00B12517",
+        "vehicleNo": "VN0131588",
+        "model": "SWIFT",
+        "modelDescription": "N SW GL MT",
+        "typeCodes": [
+          "AVH310-TYPE1",
+          "AVH310-TYPE2"
+        ],
+        "articleNumber": "68001M55R02"
+      },
+      "score": 250008
+    }
+  ],
+  "confidence": "HIGH",
+  "confidenceScore": 87.5,
+  "suggestions": [],
+  "intent": "PARTS_SEARCH",
+  "metadata": {
+    "productsFound": 5,
+    "conversationLength": 1,
+    "queryClarity": 20,
+    "duration": 1465,
+    "userMessageId": "c961cfd6-d6fc-44e0-9885-0dacaf0fc683"
+  },
+  "productsDetail": [
+    {
+      "id": 5546,
+      "displayName": "PORTE AV D",
+      "designation": "PANEL ASSY, FRONT DOOR, R",
+      "designation2": "PORTE AV D",
+      "searchDescription": "PORTE AV D",
+      "reference": "68001M55R02",
+      "prixHt": "1722.205",
+      "prixTtc": "2049.423",
+      "unite": "PCS",
+      "categorie": "CARROSSERIE",
+      "fabricant": "SUZUKI",
+      "fournisseurCode": "CAR PRO PARTS",
+      "source": "01_PROD",
+      "sourceLabel": "Suzuki OEM",
+      "stock": {
+        "statut": "Disponible",
+        "totalQuantity": 2,
+        "stockDisponible": 0,
+        "stockConsolide": 4
+      },
+      "fitments": [
+        {
+          "modelName": "AVH310",
+          "typeCode": "AVH310-TYPE1"
+        },
+        {
+          "modelName": "AVH310",
+          "typeCode": "AVH310-TYPE2"
+        }
+      ],
+      "itemReferences": [],
+      "identificationSource": {
+        "vin": "MBHCZC63S00B12517",
+        "vehicleNo": "VN0131588",
+        "model": "SWIFT",
+        "modelDescription": "N SW GL MT",
+        "typeCodes": [
+          "AVH310-TYPE1",
+          "AVH310-TYPE2"
+        ],
+        "articleNumber": "68001M55R02"
+      },
+      "score": 250008
+    }
+  ],
+  "searchDebug": {
+    "searchType": "text",
+    "originalQuery": "porte avant droite New Swift, elle est disponible?",
+    "normalizedQuery": "porte avant droite new swift elle est disponible",
+    "hasTunisianDialect": false,
+    "rawTokens": [
+      "porte",
+      "avant",
+      "droite",
+      "new",
+      "swift",
+      "elle",
+      "est"
+    ],
+    "expandedTerms": [
+      "porte",
+      "avant",
+      "droite",
+      "new",
+      "swift",
+      "elle",
+      "est"
+    ],
+    "mainPartType": "porte",
+    "positionInfo": {
+      "avant": true,
+      "arriere": false,
+      "gauche": false,
+      "droite": true
+    },
+    "fieldsSearched": [
+      "designation_2",
+      "search_description",
+      "designation",
+      "reference",
+      "categorie",
+      "fabricant",
+      "fournisseur_code",
+      "item_references.reference_no"
+    ],
+    "tablesQueried": [
+      "vehicles",
+      "vehicle_model_map",
+      "vehicle_type_master",
+      "parts",
+      "stock",
+      "fitment",
+      "item_references"
+    ],
+    "dbRawCount": 38,
+    "qualifiedCount": 38,
+    "finalCount": 10,
+    "vehicleScope": {
+      "active": true,
+      "vin": "MBHCZC63S00B12517",
+      "vehicleNo": "VN0131588",
+      "model": "SWIFT",
+      "modelDescription": "N SW GL MT",
+      "typeCodes": [
+        "AVH310-TYPE1",
+        "AVH310-TYPE2"
+      ],
+      "primaryTypeCodes": [
+        "AVH310-TYPE1",
+        "AVH310-TYPE2"
+      ]
+    },
+    "sourceBreakdown": {
+      "suzukiOem": 10,
+      "carproParts": 0
+    },
+    "stockBreakdown": {
+      "disponible": 4,
+      "indisponible": 6
+    }
+  }
+}
+===== New Swift (10) =====
+Prompt: porte av droite New Swift
+Expected: ref=68001M55R01 | price=1639.725 | avail=Indisponible
+Actual : ref=68001M55R02 | price=2049.423 | avail=Disponible
+Passed: false
+Response text: Pièces disponibles pour votre SUZUKI NEW SWIFT :
+
+• PORTE AV D — 2049.423 TND
+
+💡 Contactez CarPro au ☎️ 70 603 500 pour réserver.
+Structured payload:
+{
+  "response": "Pièces disponibles pour votre SUZUKI NEW SWIFT :\n\n• PORTE AV D — 2049.423 TND\n\n💡 Contactez CarPro au ☎️ 70 603 500 pour réserver.",
+  "sessionId": "82d02f81-ff96-4055-9ca2-3c86c3b9998a",
+  "products": [
+    {
+      "id": 5546,
+      "designation": "PORTE AV D",
+      "designationOem": "PANEL ASSY, FRONT DOOR, R",
+      "designation2": "PORTE AV D",
+      "searchDescription": "PORTE AV D",
+      "reference": "68001M55R02",
+      "prixHt": "1722.205",
+      "prixTtc": "2049.423",
+      "unite": "PCS",
+      "categorie": "CARROSSERIE",
+      "fabricant": "SUZUKI",
+      "fournisseurCode": "CAR PRO PARTS",
+      "source": "01_PROD",
+      "sourceLabel": "Suzuki OEM",
+      "stock": {
+        "statut": "Disponible",
+        "totalQuantity": 2,
+        "stockDisponible": 0,
+        "stockConsolide": 4
+      },
+      "fitments": [
+        {
+          "modelName": "AVH310",
+          "typeCode": "AVH310-TYPE1"
+        },
+        {
+          "modelName": "AVH310",
+          "typeCode": "AVH310-TYPE2"
+        }
+      ],
+      "itemReferences": [],
+      "identificationSource": {
+        "vin": "MBHCZC63S00B12517",
+        "vehicleNo": "VN0131588",
+        "model": "SWIFT",
+        "modelDescription": "N SW GL MT",
+        "typeCodes": [
+          "AVH310-TYPE1",
+          "AVH310-TYPE2"
+        ],
+        "articleNumber": "68001M55R02"
+      },
+      "score": 250008
+    }
+  ],
+  "confidence": "HIGH",
+  "confidenceScore": 87.5,
+  "suggestions": [],
+  "intent": "PARTS_SEARCH",
+  "metadata": {
+    "productsFound": 5,
+    "conversationLength": 1,
+    "queryClarity": 20,
+    "duration": 1478,
+    "userMessageId": "58944014-cf1d-4cd2-97d7-05c9d9e1b8de"
+  },
+  "productsDetail": [
+    {
+      "id": 5546,
+      "displayName": "PORTE AV D",
+      "designation": "PANEL ASSY, FRONT DOOR, R",
+      "designation2": "PORTE AV D",
+      "searchDescription": "PORTE AV D",
+      "reference": "68001M55R02",
+      "prixHt": "1722.205",
+      "prixTtc": "2049.423",
+      "unite": "PCS",
+      "categorie": "CARROSSERIE",
+      "fabricant": "SUZUKI",
+      "fournisseurCode": "CAR PRO PARTS",
+      "source": "01_PROD",
+      "sourceLabel": "Suzuki OEM",
+      "stock": {
+        "statut": "Disponible",
+        "totalQuantity": 2,
+        "stockDisponible": 0,
+        "stockConsolide": 4
+      },
+      "fitments": [
+        {
+          "modelName": "AVH310",
+          "typeCode": "AVH310-TYPE1"
+        },
+        {
+          "modelName": "AVH310",
+          "typeCode": "AVH310-TYPE2"
+        }
+      ],
+      "itemReferences": [],
+      "identificationSource": {
+        "vin": "MBHCZC63S00B12517",
+        "vehicleNo": "VN0131588",
+        "model": "SWIFT",
+        "modelDescription": "N SW GL MT",
+        "typeCodes": [
+          "AVH310-TYPE1",
+          "AVH310-TYPE2"
+        ],
+        "articleNumber": "68001M55R02"
+      },
+      "score": 250008
+    }
+  ],
+  "searchDebug": {
+    "searchType": "text",
+    "originalQuery": "porte avant droite New Swift",
+    "normalizedQuery": "porte avant droite new swift",
+    "hasTunisianDialect": false,
+    "rawTokens": [
+      "porte",
+      "avant",
+      "droite",
+      "new",
+      "swift"
+    ],
+    "expandedTerms": [
+      "porte",
+      "avant",
+      "droite",
+      "new",
+      "swift"
+    ],
+    "mainPartType": "porte",
+    "positionInfo": {
+      "avant": true,
+      "arriere": false,
+      "gauche": false,
+      "droite": true
+    },
+    "fieldsSearched": [
+      "designation_2",
+      "search_description",
+      "designation",
+      "reference",
+      "categorie",
+      "fabricant",
+      "fournisseur_code",
+      "item_references.reference_no"
+    ],
+    "tablesQueried": [
+      "vehicles",
+      "vehicle_model_map",
+      "vehicle_type_master",
+      "parts",
+      "stock",
+      "fitment",
+      "item_references"
+    ],
+    "dbRawCount": 34,
+    "qualifiedCount": 34,
+    "finalCount": 10,
+    "vehicleScope": {
+      "active": true,
+      "vin": "MBHCZC63S00B12517",
+      "vehicleNo": "VN0131588",
+      "model": "SWIFT",
+      "modelDescription": "N SW GL MT",
+      "typeCodes": [
+        "AVH310-TYPE1",
+        "AVH310-TYPE2"
+      ],
+      "primaryTypeCodes": [
+        "AVH310-TYPE1",
+        "AVH310-TYPE2"
+      ]
+    },
+    "sourceBreakdown": {
+      "suzukiOem": 10,
+      "carproParts": 0
+    },
+    "stockBreakdown": {
+      "disponible": 4,
+      "indisponible": 6
+    }
+  }
+}
+===== New Swift (10) =====
+Prompt: porte avant droite New Swift dispo
+Expected: ref=68001M55R02 | price=2049.423 | avail=Disponible
+Actual : ref=68001M55R02 | price=2049.423 | avail=Disponible
+Passed: true
+Response text: Pièces disponibles pour votre SUZUKI NEW SWIFT :
+
+• PORTE AV D — 2049.423 TND
+
+💡 Contactez CarPro au ☎️ 70 603 500 pour réserver.
+Structured payload:
+{
+  "response": "Pièces disponibles pour votre SUZUKI NEW SWIFT :\n\n• PORTE AV D — 2049.423 TND\n\n💡 Contactez CarPro au ☎️ 70 603 500 pour réserver.",
+  "sessionId": "617aaffb-0192-4ce4-943b-661a8dbd0758",
+  "products": [
+    {
+      "id": 5546,
+      "designation": "PORTE AV D",
+      "designationOem": "PANEL ASSY, FRONT DOOR, R",
+      "designation2": "PORTE AV D",
+      "searchDescription": "PORTE AV D",
+      "reference": "68001M55R02",
+      "prixHt": "1722.205",
+      "prixTtc": "2049.423",
+      "unite": "PCS",
+      "categorie": "CARROSSERIE",
+      "fabricant": "SUZUKI",
+      "fournisseurCode": "CAR PRO PARTS",
+      "source": "01_PROD",
+      "sourceLabel": "Suzuki OEM",
+      "stock": {
+        "statut": "Disponible",
+        "totalQuantity": 2,
+        "stockDisponible": 0,
+        "stockConsolide": 4
+      },
+      "fitments": [
+        {
+          "modelName": "AVH310",
+          "typeCode": "AVH310-TYPE1"
+        },
+        {
+          "modelName": "AVH310",
+          "typeCode": "AVH310-TYPE2"
+        }
+      ],
+      "itemReferences": [],
+      "identificationSource": {
+        "vin": "MBHCZC63S00B12517",
+        "vehicleNo": "VN0131588",
+        "model": "SWIFT",
+        "modelDescription": "N SW GL MT",
+        "typeCodes": [
+          "AVH310-TYPE1",
+          "AVH310-TYPE2"
+        ],
+        "articleNumber": "68001M55R02"
+      },
+      "score": 250008
+    }
+  ],
+  "confidence": "HIGH",
+  "confidenceScore": 87.5,
+  "suggestions": [],
+  "intent": "PARTS_SEARCH",
+  "metadata": {
+    "productsFound": 5,
+    "conversationLength": 1,
+    "queryClarity": 20,
+    "duration": 1244,
+    "userMessageId": "5bdf5929-abe7-469a-99de-adeee9649c14"
+  },
+  "productsDetail": [
+    {
+      "id": 5546,
+      "displayName": "PORTE AV D",
+      "designation": "PANEL ASSY, FRONT DOOR, R",
+      "designation2": "PORTE AV D",
+      "searchDescription": "PORTE AV D",
+      "reference": "68001M55R02",
+      "prixHt": "1722.205",
+      "prixTtc": "2049.423",
+      "unite": "PCS",
+      "categorie": "CARROSSERIE",
+      "fabricant": "SUZUKI",
+      "fournisseurCode": "CAR PRO PARTS",
+      "source": "01_PROD",
+      "sourceLabel": "Suzuki OEM",
+      "stock": {
+        "statut": "Disponible",
+        "totalQuantity": 2,
+        "stockDisponible": 0,
+        "stockConsolide": 4
+      },
+      "fitments": [
+        {
+          "modelName": "AVH310",
+          "typeCode": "AVH310-TYPE1"
+        },
+        {
+          "modelName": "AVH310",
+          "typeCode": "AVH310-TYPE2"
+        }
+      ],
+      "itemReferences": [],
+      "identificationSource": {
+        "vin": "MBHCZC63S00B12517",
+        "vehicleNo": "VN0131588",
+        "model": "SWIFT",
+        "modelDescription": "N SW GL MT",
+        "typeCodes": [
+          "AVH310-TYPE1",
+          "AVH310-TYPE2"
+        ],
+        "articleNumber": "68001M55R02"
+      },
+      "score": 250008
+    }
+  ],
+  "searchDebug": {
+    "searchType": "text",
+    "originalQuery": "porte avant droite New Swift dispo",
+    "normalizedQuery": "porte avant droite new swift dispo",
+    "hasTunisianDialect": false,
+    "rawTokens": [
+      "porte",
+      "avant",
+      "droite",
+      "new",
+      "swift",
+      "dispo"
+    ],
+    "expandedTerms": [
+      "porte",
+      "avant",
+      "droite",
+      "new",
+      "swift",
+      "dispo"
+    ],
+    "mainPartType": "porte",
+    "positionInfo": {
+      "avant": true,
+      "arriere": false,
+      "gauche": false,
+      "droite": true
+    },
+    "fieldsSearched": [
+      "designation_2",
+      "search_description",
+      "designation",
+      "reference",
+      "categorie",
+      "fabricant",
+      "fournisseur_code",
+      "item_references.reference_no"
+    ],
+    "tablesQueried": [
+      "vehicles",
+      "vehicle_model_map",
+      "vehicle_type_master",
+      "parts",
+      "stock",
+      "fitment",
+      "item_references"
+    ],
+    "dbRawCount": 34,
+    "qualifiedCount": 34,
+    "finalCount": 10,
+    "vehicleScope": {
+      "active": true,
+      "vin": "MBHCZC63S00B12517",
+      "vehicleNo": "VN0131588",
+      "model": "SWIFT",
+      "modelDescription": "N SW GL MT",
+      "typeCodes": [
+        "AVH310-TYPE1",
+        "AVH310-TYPE2"
+      ],
+      "primaryTypeCodes": [
+        "AVH310-TYPE1",
+        "AVH310-TYPE2"
+      ]
+    },
+    "sourceBreakdown": {
+      "suzukiOem": 10,
+      "carproParts": 0
+    },
+    "stockBreakdown": {
+      "disponible": 4,
+      "indisponible": 6
+    }
+  }
+}
+===== New Swift (10) =====
+Prompt: pare choc avant New Swift
+Expected: ref=71711M55R00-799 | price=1079.117 | avail=Disponible
+Actual : ref=71711M55R00-799 | price=1079.117 | avail=Disponible
+Passed: true
+Response text: Pièces disponibles pour votre SUZUKI NEW SWIFT :
+
+• PARE CHOC AV — 1079.117 TND
+
+💡 Contactez CarPro au ☎️ 70 603 500 pour réserver.
+Structured payload:
+{
+  "response": "Pièces disponibles pour votre SUZUKI NEW SWIFT :\n\n• PARE CHOC AV — 1079.117 TND\n\n💡 Contactez CarPro au ☎️ 70 603 500 pour réserver.",
+  "sessionId": "f1ae4f2f-d7b1-450a-8a11-ac4243f1c3a8",
+  "products": [
+    {
+      "id": 5784,
+      "designation": "PARE CHOC AV",
+      "designationOem": "BUMPER, FR (PRIMARY)",
+      "designation2": "PARE CHOC AV",
+      "searchDescription": "PARE CHOC AV",
+      "reference": "71711M55R00-799",
+      "prixHt": "906.821",
+      "prixTtc": "1079.117",
+      "unite": "PCS",
+      "categorie": "CARROSSERIE",
+      "fabricant": "SUZUKI",
+      "fournisseurCode": "CAR PRO PARTS",
+      "source": "01_PROD",
+      "sourceLabel": "Suzuki OEM",
+      "stock": {
+        "statut": "Disponible",
+        "totalQuantity": 8,
+        "stockDisponible": 0,
+        "stockConsolide": 19
+      },
+      "fitments": [
+        {
+          "modelName": "AVH310",
+          "typeCode": "AVH310-TYPE1"
+        },
+        {
+          "modelName": "AVH310",
+          "typeCode": "AVH310-TYPE2"
+        }
+      ],
+      "itemReferences": [
+        {
+          "referenceNo": "71711M55R00-799",
+          "referenceType": "3.0"
+        }
+      ],
+      "identificationSource": {
+        "vin": "MBHCZC63S00B12517",
+        "vehicleNo": "VN0131588",
+        "model": "SWIFT",
+        "modelDescription": "N SW GL MT",
+        "typeCodes": [
+          "AVH310-TYPE1",
+          "AVH310-TYPE2"
+        ],
+        "articleNumber": "71711M55R00-799"
+      },
+      "score": 203508
+    }
+  ],
+  "confidence": "HIGH",
+  "confidenceScore": 87.5,
+  "suggestions": [],
+  "intent": "PARTS_SEARCH",
+  "metadata": {
+    "productsFound": 4,
+    "conversationLength": 1,
+    "queryClarity": 20,
+    "duration": 1310,
+    "userMessageId": "eba3fcc7-f417-475b-b988-c48d8378c0c5"
+  },
+  "productsDetail": [
+    {
+      "id": 5784,
+      "displayName": "PARE CHOC AV",
+      "designation": "BUMPER, FR (PRIMARY)",
+      "designation2": "PARE CHOC AV",
+      "searchDescription": "PARE CHOC AV",
+      "reference": "71711M55R00-799",
+      "prixHt": "906.821",
+      "prixTtc": "1079.117",
+      "unite": "PCS",
+      "categorie": "CARROSSERIE",
+      "fabricant": "SUZUKI",
+      "fournisseurCode": "CAR PRO PARTS",
+      "source": "01_PROD",
+      "sourceLabel": "Suzuki OEM",
+      "stock": {
+        "statut": "Disponible",
+        "totalQuantity": 8,
+        "stockDisponible": 0,
+        "stockConsolide": 19
+      },
+      "fitments": [
+        {
+          "modelName": "AVH310",
+          "typeCode": "AVH310-TYPE1"
+        },
+        {
+          "modelName": "AVH310",
+          "typeCode": "AVH310-TYPE2"
+        }
+      ],
+      "itemReferences": [
+        {
+          "referenceNo": "71711M55R00-799",
+          "referenceType": "3.0"
+        }
+      ],
+      "identificationSource": {
+        "vin": "MBHCZC63S00B12517",
+        "vehicleNo": "VN0131588",
+        "model": "SWIFT",
+        "modelDescription": "N SW GL MT",
+        "typeCodes": [
+          "AVH310-TYPE1",
+          "AVH310-TYPE2"
+        ],
+        "articleNumber": "71711M55R00-799"
+      },
+      "score": 203508
+    }
+  ],
+  "searchDebug": {
+    "searchType": "text",
+    "originalQuery": "pare choc avant New Swift",
+    "normalizedQuery": "pare choc avant new swift",
+    "hasTunisianDialect": false,
+    "rawTokens": [
+      "pare",
+      "choc",
+      "avant",
+      "new",
+      "swift"
+    ],
+    "expandedTerms": [
+      "pare",
+      "choc",
+      "avant",
+      "new",
+      "swift"
+    ],
+    "mainPartType": "pare",
+    "positionInfo": {
+      "avant": true,
+      "arriere": false,
+      "gauche": false,
+      "droite": false
+    },
+    "fieldsSearched": [
+      "designation_2",
+      "search_description",
+      "designation",
+      "reference",
+      "categorie",
+      "fabricant",
+      "fournisseur_code",
+      "item_references.reference_no"
+    ],
+    "tablesQueried": [
+      "vehicles",
+      "vehicle_model_map",
+      "vehicle_type_master",
+      "parts",
+      "stock",
+      "fitment",
+      "item_references"
+    ],
+    "dbRawCount": 34,
+    "qualifiedCount": 34,
+    "finalCount": 10,
+    "vehicleScope": {
+      "active": true,
+      "vin": "MBHCZC63S00B12517",
+      "vehicleNo": "VN0131588",
+      "model": "SWIFT",
+      "modelDescription": "N SW GL MT",
+      "typeCodes": [
+        "AVH310-TYPE1",
+        "AVH310-TYPE2"
+      ],
+      "primaryTypeCodes": [
+        "AVH310-TYPE1",
+        "AVH310-TYPE2"
+      ]
+    },
+    "sourceBreakdown": {
+      "suzukiOem": 10,
+      "carproParts": 0
+    },
+    "stockBreakdown": {
+      "disponible": 5,
+      "indisponible": 5
+    }
+  }
+}
+===== New Swift (10) =====
+Prompt: calandre New Swift
+Expected: ref=71740M55R00-C48 | price=410.308 | avail=Disponible
+Actual : ref=71740M55R00-C48 | price=410.308 | avail=Disponible
+Passed: true
+Response text: Pièces disponibles pour votre SUZUKI NEW SWIFT :
+
+• CALANDRE — 410.308 TND
+
+💡 Contactez CarPro au ☎️ 70 603 500 pour réserver.
+Structured payload:
+{
+  "response": "Pièces disponibles pour votre SUZUKI NEW SWIFT :\n\n• CALANDRE — 410.308 TND\n\n💡 Contactez CarPro au ☎️ 70 603 500 pour réserver.",
+  "sessionId": "b40259bd-80da-4907-b304-35b24ca6f167",
+  "products": [
+    {
+      "id": 5941,
+      "designation": "CALANDRE",
+      "designationOem": "GRILLE",
+      "designation2": "CALANDRE",
+      "searchDescription": "CALANDRE",
+      "reference": "71740M55R00-C48",
+      "prixHt": "344.797",
+      "prixTtc": "410.308",
+      "unite": "PCS",
+      "categorie": "CARROSSERIE",
+      "fabricant": "SUZUKI",
+      "fournisseurCode": "CAR PRO PARTS",
+      "source": "01_PROD",
+      "sourceLabel": "Suzuki OEM",
+      "stock": {
+        "statut": "Disponible",
+        "totalQuantity": 11,
+        "stockDisponible": 10,
+        "stockConsolide": 27
+      },
+      "fitments": [
+        {
+          "modelName": "AVH310",
+          "typeCode": "AVH310-TYPE1"
+        },
+        {
+          "modelName": "AVH310",
+          "typeCode": "AVH310-TYPE2"
+        }
+      ],
+      "itemReferences": [
+        {
+          "referenceNo": "71740M55R00-C48",
+          "referenceType": "3.0"
+        }
+      ],
+      "identificationSource": {
+        "vin": "MBHCZC63S00B12517",
+        "vehicleNo": "VN0131588",
+        "model": "SWIFT",
+        "modelDescription": "N SW GL MT",
+        "typeCodes": [
+          "AVH310-TYPE1",
+          "AVH310-TYPE2"
+        ],
+        "articleNumber": "71740M55R00-C48"
+      },
+      "score": 211008
+    }
+  ],
+  "confidence": "HIGH",
+  "confidenceScore": 87.5,
+  "suggestions": [],
+  "intent": "PARTS_SEARCH",
+  "metadata": {
+    "productsFound": 3,
+    "conversationLength": 1,
+    "queryClarity": 20,
+    "duration": 1332,
+    "userMessageId": "e475b15e-f33d-400d-b583-342de6c55772"
+  },
+  "productsDetail": [
+    {
+      "id": 5941,
+      "displayName": "CALANDRE",
+      "designation": "GRILLE",
+      "designation2": "CALANDRE",
+      "searchDescription": "CALANDRE",
+      "reference": "71740M55R00-C48",
+      "prixHt": "344.797",
+      "prixTtc": "410.308",
+      "unite": "PCS",
+      "categorie": "CARROSSERIE",
+      "fabricant": "SUZUKI",
+      "fournisseurCode": "CAR PRO PARTS",
+      "source": "01_PROD",
+      "sourceLabel": "Suzuki OEM",
+      "stock": {
+        "statut": "Disponible",
+        "totalQuantity": 11,
+        "stockDisponible": 10,
+        "stockConsolide": 27
+      },
+      "fitments": [
+        {
+          "modelName": "AVH310",
+          "typeCode": "AVH310-TYPE1"
+        },
+        {
+          "modelName": "AVH310",
+          "typeCode": "AVH310-TYPE2"
+        }
+      ],
+      "itemReferences": [
+        {
+          "referenceNo": "71740M55R00-C48",
+          "referenceType": "3.0"
+        }
+      ],
+      "identificationSource": {
+        "vin": "MBHCZC63S00B12517",
+        "vehicleNo": "VN0131588",
+        "model": "SWIFT",
+        "modelDescription": "N SW GL MT",
+        "typeCodes": [
+          "AVH310-TYPE1",
+          "AVH310-TYPE2"
+        ],
+        "articleNumber": "71740M55R00-C48"
+      },
+      "score": 211008
+    }
+  ],
+  "searchDebug": {
+    "searchType": "text",
+    "originalQuery": "calandre New Swift",
+    "normalizedQuery": "calandre new swift",
+    "hasTunisianDialect": false,
+    "rawTokens": [
+      "calandre",
+      "new",
+      "swift"
+    ],
+    "expandedTerms": [
+      "calandre",
+      "new",
+      "swift"
+    ],
+    "mainPartType": "calandre",
+    "positionInfo": {
+      "avant": false,
+      "arriere": false,
+      "gauche": false,
+      "droite": false
+    },
+    "fieldsSearched": [
+      "designation_2",
+      "search_description",
+      "designation",
+      "reference",
+      "categorie",
+      "fabricant",
+      "fournisseur_code",
+      "item_references.reference_no"
+    ],
+    "tablesQueried": [
+      "vehicles",
+      "vehicle_model_map",
+      "vehicle_type_master",
+      "parts",
+      "stock",
+      "fitment",
+      "item_references"
+    ],
+    "dbRawCount": 9,
+    "qualifiedCount": 9,
+    "finalCount": 9,
+    "vehicleScope": {
+      "active": true,
+      "vin": "MBHCZC63S00B12517",
+      "vehicleNo": "VN0131588",
+      "model": "SWIFT",
+      "modelDescription": "N SW GL MT",
+      "typeCodes": [
+        "AVH310-TYPE1",
+        "AVH310-TYPE2"
+      ],
+      "primaryTypeCodes": [
+        "AVH310-TYPE1",
+        "AVH310-TYPE2"
+      ]
+    },
+    "sourceBreakdown": {
+      "suzukiOem": 9,
+      "carproParts": 0
+    },
+    "stockBreakdown": {
+      "disponible": 7,
+      "indisponible": 2
+    }
+  }
+}
+===== New Swift (10) =====
+Prompt: vitre avant droite New Swift
+Expected: ref=84501M55R00 | price=359.437 | avail=Disponible
+Actual : ref=84501M55R00 | price=359.437 | avail=Disponible
+Passed: true
+Response text: Pièces disponibles pour votre SUZUKI NEW SWIFT :
+
+• VITRE AV D — 359.437 TND
+
+💡 Contactez CarPro au ☎️ 70 603 500 pour réserver.
+Structured payload:
+{
+  "response": "Pièces disponibles pour votre SUZUKI NEW SWIFT :\n\n• VITRE AV D — 359.437 TND\n\n💡 Contactez CarPro au ☎️ 70 603 500 pour réserver.",
+  "sessionId": "c512c0a9-c32b-4c9a-bec8-9de1bed43e0b",
+  "products": [
+    {
+      "id": 8251,
+      "designation": "VITRE AV D",
+      "designationOem": "GLASS, FRONT DOOR WINDOW RH",
+      "designation2": "VITRE AV D",
+      "searchDescription": "VITRE AV D",
+      "reference": "84501M55R00",
+      "prixHt": "302.048",
+      "prixTtc": "359.437",
+      "unite": "PCS",
+      "categorie": "CARROSSERIE",
+      "fabricant": "SUZUKI",
+      "fournisseurCode": "CAR PRO PARTS",
+      "source": "01_PROD",
+      "sourceLabel": "Suzuki OEM",
+      "stock": {
+        "statut": "Disponible",
+        "totalQuantity": 10,
+        "stockDisponible": 10,
+        "stockConsolide": 10
+      },
+      "fitments": [
+        {
+          "modelName": "AVH310",
+          "typeCode": "AVH310-TYPE1"
+        },
+        {
+          "modelName": "AVH310",
+          "typeCode": "AVH310-TYPE2"
+        }
+      ],
+      "itemReferences": [
+        {
+          "referenceNo": "84501M55R00",
+          "referenceType": "3.0"
+        }
+      ],
+      "identificationSource": {
+        "vin": "MBHCZC63S00B12517",
+        "vehicleNo": "VN0131588",
+        "model": "SWIFT",
+        "modelDescription": "N SW GL MT",
+        "typeCodes": [
+          "AVH310-TYPE1",
+          "AVH310-TYPE2"
+        ],
+        "articleNumber": "84501M55R00"
+      },
+      "score": 200008
+    }
+  ],
+  "confidence": "HIGH",
+  "confidenceScore": 87.5,
+  "suggestions": [],
+  "intent": "PARTS_SEARCH",
+  "metadata": {
+    "productsFound": 7,
+    "conversationLength": 1,
+    "queryClarity": 20,
+    "duration": 1145,
+    "userMessageId": "1b8ee92e-30df-4ddf-a90c-4f9a5a4e9075"
+  },
+  "productsDetail": [
+    {
+      "id": 8251,
+      "displayName": "VITRE AV D",
+      "designation": "GLASS, FRONT DOOR WINDOW RH",
+      "designation2": "VITRE AV D",
+      "searchDescription": "VITRE AV D",
+      "reference": "84501M55R00",
+      "prixHt": "302.048",
+      "prixTtc": "359.437",
+      "unite": "PCS",
+      "categorie": "CARROSSERIE",
+      "fabricant": "SUZUKI",
+      "fournisseurCode": "CAR PRO PARTS",
+      "source": "01_PROD",
+      "sourceLabel": "Suzuki OEM",
+      "stock": {
+        "statut": "Disponible",
+        "totalQuantity": 10,
+        "stockDisponible": 10,
+        "stockConsolide": 10
+      },
+      "fitments": [
+        {
+          "modelName": "AVH310",
+          "typeCode": "AVH310-TYPE1"
+        },
+        {
+          "modelName": "AVH310",
+          "typeCode": "AVH310-TYPE2"
+        }
+      ],
+      "itemReferences": [
+        {
+          "referenceNo": "84501M55R00",
+          "referenceType": "3.0"
+        }
+      ],
+      "identificationSource": {
+        "vin": "MBHCZC63S00B12517",
+        "vehicleNo": "VN0131588",
+        "model": "SWIFT",
+        "modelDescription": "N SW GL MT",
+        "typeCodes": [
+          "AVH310-TYPE1",
+          "AVH310-TYPE2"
+        ],
+        "articleNumber": "84501M55R00"
+      },
+      "score": 200008
+    }
+  ],
+  "searchDebug": {
+    "searchType": "text",
+    "originalQuery": "vitre avant droite New Swift",
+    "normalizedQuery": "vitre avant droite new swift",
+    "hasTunisianDialect": false,
+    "rawTokens": [
+      "vitre",
+      "avant",
+      "droite",
+      "new",
+      "swift"
+    ],
+    "expandedTerms": [
+      "vitre",
+      "avant",
+      "droite",
+      "new",
+      "swift"
+    ],
+    "mainPartType": "vitre",
+    "positionInfo": {
+      "avant": true,
+      "arriere": false,
+      "gauche": false,
+      "droite": true
+    },
+    "fieldsSearched": [
+      "designation_2",
+      "search_description",
+      "designation",
+      "reference",
+      "categorie",
+      "fabricant",
+      "fournisseur_code",
+      "item_references.reference_no"
+    ],
+    "tablesQueried": [
+      "vehicles",
+      "vehicle_model_map",
+      "vehicle_type_master",
+      "parts",
+      "stock",
+      "fitment",
+      "item_references"
+    ],
+    "dbRawCount": 25,
+    "qualifiedCount": 25,
+    "finalCount": 10,
+    "vehicleScope": {
+      "active": true,
+      "vin": "MBHCZC63S00B12517",
+      "vehicleNo": "VN0131588",
+      "model": "SWIFT",
+      "modelDescription": "N SW GL MT",
+      "typeCodes": [
+        "AVH310-TYPE1",
+        "AVH310-TYPE2"
+      ],
+      "primaryTypeCodes": [
+        "AVH310-TYPE1",
+        "AVH310-TYPE2"
+      ]
+    },
+    "sourceBreakdown": {
+      "suzukiOem": 10,
+      "carproParts": 0
+    },
+    "stockBreakdown": {
+      "disponible": 6,
+      "indisponible": 4
+    }
+  }
+}
+===== New Swift (10) =====
+Prompt: lunette arrière New Swift
+Expected: ref=84570M55R10 | price=890.323 | avail=Disponible
+Actual : ref=84570M55R10 | price=890.323 | avail=Disponible
+Passed: true
+Response text: Pièces disponibles pour votre SUZUKI NEW SWIFT :
+
+• LUNETTE AR — 890.323 TND
+
+💡 Contactez CarPro au ☎️ 70 603 500 pour réserver.
+Structured payload:
+{
+  "response": "Pièces disponibles pour votre SUZUKI NEW SWIFT :\n\n• LUNETTE AR — 890.323 TND\n\n💡 Contactez CarPro au ☎️ 70 603 500 pour réserver.",
+  "sessionId": "42691d21-92d5-4665-8bd0-f4260574e393",
+  "products": [
+    {
+      "id": 8378,
+      "designation": "LUNETTE AR",
+      "designationOem": "GLASS, BACK WINDOW",
+      "designation2": "LUNETTE AR",
+      "searchDescription": "LUNETTE AR",
+      "reference": "84570M55R10",
+      "prixHt": "748.171",
+      "prixTtc": "890.323",
+      "unite": "PCS",
+      "categorie": "CARROSSERIE",
+      "fabricant": "SUZUKI",
+      "fournisseurCode": "CAR PRO PARTS",
+      "source": "01_PROD",
+      "sourceLabel": "Suzuki OEM",
+      "stock": {
+        "statut": "Disponible",
+        "totalQuantity": 6,
+        "stockDisponible": 0,
+        "stockConsolide": 6
+      },
+      "fitments": [
+        {
+          "modelName": "AVH310",
+          "typeCode": "AVH310-TYPE1"
+        },
+        {
+          "modelName": "AVH310",
+          "typeCode": "AVH310-TYPE2"
+        }
+      ],
+      "itemReferences": [
+        {
+          "referenceNo": "84570M55R10",
+          "referenceType": "3.0"
+        }
+      ],
+      "identificationSource": {
+        "vin": "MBHCZC63S00B12517",
+        "vehicleNo": "VN0131588",
+        "model": "SWIFT",
+        "modelDescription": "N SW GL MT",
+        "typeCodes": [
+          "AVH310-TYPE1",
+          "AVH310-TYPE2"
+        ],
+        "articleNumber": "84570M55R10"
+      },
+      "score": 0
+    }
+  ],
+  "confidence": "MEDIUM",
+  "confidenceScore": 62.5,
+  "suggestions": [],
+  "intent": "PARTS_SEARCH",
+  "metadata": {
+    "productsFound": 2,
+    "conversationLength": 1,
+    "queryClarity": 20,
+    "duration": 1358,
+    "userMessageId": "85c48c1a-9be2-4396-901a-8e6b35a11abc"
+  },
+  "productsDetail": [
+    {
+      "id": 8378,
+      "displayName": "LUNETTE AR",
+      "designation": "GLASS, BACK WINDOW",
+      "designation2": "LUNETTE AR",
+      "searchDescription": "LUNETTE AR",
+      "reference": "84570M55R10",
+      "prixHt": "748.171",
+      "prixTtc": "890.323",
+      "unite": "PCS",
+      "categorie": "CARROSSERIE",
+      "fabricant": "SUZUKI",
+      "fournisseurCode": "CAR PRO PARTS",
+      "source": "01_PROD",
+      "sourceLabel": "Suzuki OEM",
+      "stock": {
+        "statut": "Disponible",
+        "totalQuantity": 6,
+        "stockDisponible": 0,
+        "stockConsolide": 6
+      },
+      "fitments": [
+        {
+          "modelName": "AVH310",
+          "typeCode": "AVH310-TYPE1"
+        },
+        {
+          "modelName": "AVH310",
+          "typeCode": "AVH310-TYPE2"
+        }
+      ],
+      "itemReferences": [
+        {
+          "referenceNo": "84570M55R10",
+          "referenceType": "3.0"
+        }
+      ],
+      "identificationSource": {
+        "vin": "MBHCZC63S00B12517",
+        "vehicleNo": "VN0131588",
+        "model": "SWIFT",
+        "modelDescription": "N SW GL MT",
+        "typeCodes": [
+          "AVH310-TYPE1",
+          "AVH310-TYPE2"
+        ],
+        "articleNumber": "84570M55R10"
+      },
+      "score": 0
+    }
+  ],
+  "searchDebug": {
+    "searchType": "text",
+    "originalQuery": "lunette arriere New Swift",
+    "normalizedQuery": "lunette arriere new swift",
+    "hasTunisianDialect": false,
+    "rawTokens": [
+      "lunette",
+      "arriere",
+      "new",
+      "swift"
+    ],
+    "expandedTerms": [
+      "lunette",
+      "arriere",
+      "new",
+      "swift"
+    ],
+    "mainPartType": "lunette",
+    "positionInfo": {
+      "avant": false,
+      "arriere": true,
+      "gauche": false,
+      "droite": false
+    },
+    "fieldsSearched": [
+      "designation_2",
+      "search_description",
+      "designation",
+      "reference",
+      "categorie",
+      "fabricant",
+      "fournisseur_code",
+      "item_references.reference_no"
+    ],
+    "tablesQueried": [
+      "vehicles",
+      "vehicle_model_map",
+      "vehicle_type_master",
+      "parts",
+      "stock",
+      "fitment",
+      "item_references"
+    ],
+    "dbRawCount": 2,
+    "qualifiedCount": 2,
+    "finalCount": 2,
+    "vehicleScope": {
+      "active": true,
+      "vin": "MBHCZC63S00B12517",
+      "vehicleNo": "VN0131588",
+      "model": "SWIFT",
+      "modelDescription": "N SW GL MT",
+      "typeCodes": [
+        "AVH310-TYPE1",
+        "AVH310-TYPE2"
+      ],
+      "primaryTypeCodes": [
+        "AVH310-TYPE1",
+        "AVH310-TYPE2"
+      ]
+    },
+    "sourceBreakdown": {
+      "suzukiOem": 2,
+      "carproParts": 0
+    },
+    "stockBreakdown": {
+      "disponible": 1,
+      "indisponible": 1
+    }
+  }
+}
+===== New Swift (10) =====
+Prompt: rétroviseur droit New Swift
+Expected: ref=84701M55R50-ZHJ | price=629.171 | avail=Disponible
+Actual : ref=84701M55R50-ZHJ | price=629.171 | avail=Disponible
+Passed: true
+Response text: Pièces disponibles pour votre SUZUKI NEW SWIFT :
+
+• RETROVISEUR D — 629.171 TND
+
+💡 Contactez CarPro au ☎️ 70 603 500 pour réserver.
+Structured payload:
+{
+  "response": "Pièces disponibles pour votre SUZUKI NEW SWIFT :\n\n• RETROVISEUR D — 629.171 TND\n\n💡 Contactez CarPro au ☎️ 70 603 500 pour réserver.",
+  "sessionId": "423723be-ba98-4e02-a5b9-45d1f5d063b6",
+  "products": [
+    {
+      "id": 8539,
+      "designation": "RETROVISEUR D",
+      "designationOem": "MIRROR ASSY, OUT REAR VIEW",
+      "designation2": "RETROVISEUR D",
+      "searchDescription": "RETROVISEUR D",
+      "reference": "84701M55R50-ZHJ",
+      "prixHt": "528.715",
+      "prixTtc": "629.171",
+      "unite": "PCS",
+      "categorie": "CARROSSERIE",
+      "fabricant": "SUZUKI",
+      "fournisseurCode": "CAR PRO PARTS",
+      "source": "01_PROD",
+      "sourceLabel": "Suzuki OEM",
+      "stock": {
+        "statut": "Disponible",
+        "totalQuantity": 6,
+        "stockDisponible": 0,
+        "stockConsolide": 6
+      },
+      "fitments": [
+        {
+          "modelName": "AVH310",
+          "typeCode": "AVH310-TYPE1"
+        },
+        {
+          "modelName": "AVH310",
+          "typeCode": "AVH310-TYPE2"
+        }
+      ],
+      "itemReferences": [
+        {
+          "referenceNo": "84701M55R50-ZHJ",
+          "referenceType": "3.0"
+        }
+      ],
+      "identificationSource": {
+        "vin": "MBHCZC63S00B12517",
+        "vehicleNo": "VN0131588",
+        "model": "SWIFT",
+        "modelDescription": "N SW GL MT",
+        "typeCodes": [
+          "AVH310-TYPE1",
+          "AVH310-TYPE2"
+        ],
+        "articleNumber": "84701M55R50-ZHJ"
+      },
+      "score": 0
+    }
+  ],
+  "confidence": "MEDIUM",
+  "confidenceScore": 62.5,
+  "suggestions": [],
+  "intent": "PARTS_SEARCH",
+  "metadata": {
+    "productsFound": 3,
+    "conversationLength": 1,
+    "queryClarity": 20,
+    "duration": 1372,
+    "userMessageId": "7f2c1f15-e2cc-47bf-9237-2ecc6019e4f6"
+  },
+  "productsDetail": [
+    {
+      "id": 8539,
+      "displayName": "RETROVISEUR D",
+      "designation": "MIRROR ASSY, OUT REAR VIEW",
+      "designation2": "RETROVISEUR D",
+      "searchDescription": "RETROVISEUR D",
+      "reference": "84701M55R50-ZHJ",
+      "prixHt": "528.715",
+      "prixTtc": "629.171",
+      "unite": "PCS",
+      "categorie": "CARROSSERIE",
+      "fabricant": "SUZUKI",
+      "fournisseurCode": "CAR PRO PARTS",
+      "source": "01_PROD",
+      "sourceLabel": "Suzuki OEM",
+      "stock": {
+        "statut": "Disponible",
+        "totalQuantity": 6,
+        "stockDisponible": 0,
+        "stockConsolide": 6
+      },
+      "fitments": [
+        {
+          "modelName": "AVH310",
+          "typeCode": "AVH310-TYPE1"
+        },
+        {
+          "modelName": "AVH310",
+          "typeCode": "AVH310-TYPE2"
+        }
+      ],
+      "itemReferences": [
+        {
+          "referenceNo": "84701M55R50-ZHJ",
+          "referenceType": "3.0"
+        }
+      ],
+      "identificationSource": {
+        "vin": "MBHCZC63S00B12517",
+        "vehicleNo": "VN0131588",
+        "model": "SWIFT",
+        "modelDescription": "N SW GL MT",
+        "typeCodes": [
+          "AVH310-TYPE1",
+          "AVH310-TYPE2"
+        ],
+        "articleNumber": "84701M55R50-ZHJ"
+      },
+      "score": 0
+    }
+  ],
+  "searchDebug": {
+    "searchType": "text",
+    "originalQuery": "rétroviseur droit New Swift",
+    "normalizedQuery": "retroviseur droit new swift",
+    "hasTunisianDialect": false,
+    "rawTokens": [
+      "retroviseur",
+      "droit",
+      "new",
+      "swift"
+    ],
+    "expandedTerms": [
+      "retroviseur",
+      "droit",
+      "new",
+      "swift"
+    ],
+    "mainPartType": "retroviseur",
+    "positionInfo": {
+      "avant": false,
+      "arriere": false,
+      "gauche": false,
+      "droite": true
+    },
+    "fieldsSearched": [
+      "designation_2",
+      "search_description",
+      "designation",
+      "reference",
+      "categorie",
+      "fabricant",
+      "fournisseur_code",
+      "item_references.reference_no"
+    ],
+    "tablesQueried": [
+      "vehicles",
+      "vehicle_model_map",
+      "vehicle_type_master",
+      "parts",
+      "stock",
+      "fitment",
+      "item_references"
+    ],
+    "dbRawCount": 5,
+    "qualifiedCount": 5,
+    "finalCount": 5,
+    "vehicleScope": {
+      "active": true,
+      "vin": "MBHCZC63S00B12517",
+      "vehicleNo": "VN0131588",
+      "model": "SWIFT",
+      "modelDescription": "N SW GL MT",
+      "typeCodes": [
+        "AVH310-TYPE1",
+        "AVH310-TYPE2"
+      ],
+      "primaryTypeCodes": [
+        "AVH310-TYPE1",
+        "AVH310-TYPE2"
+      ]
+    },
+    "sourceBreakdown": {
+      "suzukiOem": 5,
+      "carproParts": 0
+    },
+    "stockBreakdown": {
+      "disponible": 1,
+      "indisponible": 4
+    }
+  }
+}
+
+====================================================================================================
+FINAL SCORE: 22/27 passed
+FAILED: 5
+Report saved to: D:\house_md\Suzuki\suzuki-backend\scripts\final-exam-report.txt

@@ -162,7 +162,23 @@ export class GeminiService {
           return /^[A-HJ-NPR-Z0-9]{17}$/.test(raw) ? raw : null;
         })(),
       };
-    } catch (error) {
+    } catch (error: any) {
+      const apiError = error?.response?.data?.error;
+      if (apiError) {
+        this.logger.error(
+          `❌ Gemini OCR API error: HTTP ${error.response.status} ${apiError.status || ''} - ${apiError.message || 'Unknown error'}`,
+        );
+
+        if (error.response.status === 401 || error.response.status === 403) {
+          throw new Error('GEMINI_AUTH_FAILED');
+        }
+        if (error.response.status === 429) {
+          throw new Error('GEMINI_QUOTA_EXCEEDED');
+        }
+      } else {
+        this.logger.error(`❌ Gemini OCR request failed: ${error?.message || 'Unknown error'}`);
+      }
+
       throw error;
     }
   }

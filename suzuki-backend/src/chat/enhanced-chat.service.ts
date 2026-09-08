@@ -1,24 +1,3 @@
-// src/chat/enhanced-chat.service.ts
-// ═══════════════════════════════════════════════════════════════════
-// FIXES APPLIED (2026-06-25) aligned with advanced-search.service.ts:
-//
-// FIX-1: Removed erroneous `import { AnyMxRecord } from 'dns'` —
-//         this import was unused and caused a compile warning.
-//
-// FIX-2: processMessage() response now passes products through the
-//         orchestrator which already applies mapProductForResponse(),
-//         so displayName (French first) is preserved in the API
-//         response payload returned to the frontend.
-//
-// FIX-3: Error response shape aligned — products array stays empty
-//         on error so no raw Prisma rows leak to the frontend.
-//
-// NOTE: This service is a thin facade over ChatOrchestratorService.
-//       All French-first product mapping happens in the orchestrator's
-//       mapProductForResponse() helper. This file needs no further
-//       product-field changes beyond removing the bad import.
-// ═══════════════════════════════════════════════════════════════════
-
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ChatOrchestratorService } from '../services/chat-orchestrator.service';
@@ -85,13 +64,6 @@ export class EnhancedChatService {
     private prisma:          PrismaService,
     private intelligence:    IntelligenceService,
   ) {}
-
-  // ─────────────────────────────────────────────────────────────────
-  // FIX-2: processMessage delegates entirely to the orchestrator.
-  // The orchestrator's mapProductForResponse() already ensures every
-  // product in the response has displayName = French name first.
-  // No additional mapping needed here.
-  // ─────────────────────────────────────────────────────────────────
   async processMessage(
     message:   string,
     vehicle?:  any,

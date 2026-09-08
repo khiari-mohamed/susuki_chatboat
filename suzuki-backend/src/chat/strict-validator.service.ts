@@ -1,53 +1,8 @@
-// src/chat/strict-validator.service.ts
-// ═══════════════════════════════════════════════════════════════════
-// FIXES APPLIED (2026-06-25) aligned with advanced-search.service.ts:
-//
-// FIX-1: All text checks now run against BOTH designation_2 (French)
-//         AND designation (English OEM), in that priority order.
-//         Previously only designation (English) was checked, causing
-//         valid French-named parts to be wrongly rejected.
-//
-// FIX-2: hasPartType() extended with French→English mappings so parts
-//         whose OEM name is English (e.g. "MIRROR ASSY,OUT REAR VIEW,L")
-//         are still correctly matched when user types "retroviseur".
-//
-// FIX-3: getEffectiveText() helper centralises the field-priority
-//         logic (designation_2 ?? designation) used everywhere.
-//
-// FIX-4: Position and side conflict checks now scan both fields.
-//
-// FIX-5: Log output uses French name when available.
-//
-// FIX-6 (2026-07-08): PERMANENT FIX for false position/side rejections
-//         (RULE 2 / RULE 3 below). These rules previously scanned a
-//         MERGED French+English token list (getCombinedText) for
-//         position/side conflicts. Because English OEM text commonly
-//         carries standard "LH"/"RH" abbreviations that don't always
-//         agree with the French side label — a documented data-quality
-//         gap (schema.prisma: "33% NULL designation_2", inconsistent
-//         backfills) — a part correctly labelled e.g. "OPTIQUE D"
-//         (droite) in French could get falsely rejected here because a
-//         stray "lh" token from its English designation looked like a
-//         gauche/droite conflict. Root-caused and reproduced via
-//         AdvancedSearchService.calculatePositionMatches — same class
-//         of bug, same fix applied here for defense-in-depth: RULE 2
-//         and RULE 3 now use computePositionFlags(), which resolves
-//         each axis (avant/arrière, gauche/droite) from designation_2
-//         FIRST, and only consults designation (English) when French
-//         has no signal at all for that axis.
-// ═══════════════════════════════════════════════════════════════════
 
 import { Injectable, Logger } from '@nestjs/common';
-
 @Injectable()
 export class StrictValidatorService {
   private readonly logger = new Logger(StrictValidatorService.name);
-
-  // ─────────────────────────────────────────────────────────────────
-  // FIX-3: Single source of truth for "display text" of a part.
-  // Returns designation_2 (French) if non-empty, else designation (English).
-  // All validation logic calls this instead of reading part.designation directly.
-  // ─────────────────────────────────────────────────────────────────
   private getEffectiveText(part: any): string {
     const french  = (part.designation2 ?? part.designation_2 ?? '').trim();
     const english = (part.designation ?? '').trim();
@@ -62,12 +17,6 @@ export class StrictValidatorService {
     if (french.toLowerCase() === english.toLowerCase()) return french;
     return `${french} ${english}`.trim();
   }
-
-  // ─────────────────────────────────────────────────────────────────
-  // FIX-6 (2026-07-08): French-priority position/side token sets and
-  // resolver. Mirrors AdvancedSearchService.calculatePositionMatches —
-  // see the header comment above for the full rationale.
-  // ─────────────────────────────────────────────────────────────────
   private static readonly AVANT_TOKENS   = ['avant', 'av', 'front', 'fr', 'avd', 'avg'];
   private static readonly ARRIERE_TOKENS = ['arriere', 'ar', 'rear', 'rr', 'ard', 'arg'];
   private static readonly GAUCHE_TOKENS  = ['gauche', 'gh', 'left', 'lh', 'g', 'avg', 'arg'];
@@ -231,9 +180,6 @@ export class StrictValidatorService {
       amortiseurs:   'amortisseur',
       feux:          'feu',
       optiques:      'optique',
-      // BUGFIX: 'optics' wasn't canonicalized, and enjoliveur/hayon
-      // plurals weren't handled either, matching the new vocabulary
-      // added to extractMainPartType and hasPartType above.
       optics:        'optic',
       enjoliveurs:   'enjoliveur',
       hayons:        'hayon',
@@ -247,19 +193,6 @@ export class StrictValidatorService {
     };
     return canonical[token] || token;
   }
-
-  // ─────────────────────────────────────────────────────────────────
-  // Extract main part type from query tokens
-  // BUGFIX: 'optic' was missing from this list. The catalog's
-  // designation_2 field uses the short form "OPTIC" (not "optique")
-  // for headlamp parts (confirmed in production data: "OPTIC D",
-  // "OPTIC G"). Without 'optic' here, extractMainPartType() returned
-  // null for queries like "optic", so RULE 1 (main type must be
-  // present) silently did nothing — meaning strict validation gave
-  // ZERO protection for this query, letting any junk result through
-  // unfiltered. Same root-cause class as the capot/cache bug: a term
-  // the catalog actually uses wasn't in our recognized vocabulary.
-  // ─────────────────────────────────────────────────────────────────
   private extractMainPartType(tokens: string[]): string | null {
     const partTypes = [
       'amortisseur', 'plaquette', 'disque', 'filtre', 'phare', 'batterie', 'courroie', 'bougie',
@@ -346,10 +279,6 @@ export class StrictValidatorService {
       charniere:      ['hinge', 'stay', 'hood hinge'],
       baguette:       ['molding', 'moulding', 'trim'],
       garniture:      ['trim', 'lining', 'garnish'],
-      // BUGFIX: these were added to extractMainPartType's partTypes list
-      // but had no corresponding hasPartType mapping, so RULE 1 would
-      // extract them as the main type but then have only weak exact/
-      // substring fallback matching against designation tokens.
       enjoliveur:     ['wheel cover', 'hub cap', 'cover wheel', 'enjoliveur'],
       moulure:        ['molding', 'moulding', 'trim', 'side molding'],
       seuil:          ['sill', 'door sill', 'rocker', 'seuil'],
@@ -436,9 +365,6 @@ export class StrictValidatorService {
         const synWords = syn.split(' ');
         return synWords.every((sw) => designationTokens.some((dt) => dt.includes(sw)));
       }
-      // BUGFIX: removed `syn.includes(t)` reverse-substring check — it was too
-      // permissive (e.g. 'headlamp'.includes('head') matched 'BULB HEAD LAMP'
-      // as an optique). Only check token-contains-synonym, not the reverse.
       return designationTokens.some((t) => t === syn || t.includes(syn));
     });
   }

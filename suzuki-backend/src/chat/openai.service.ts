@@ -1,51 +1,7 @@
-// src/chat/openai.service.ts
-// ═══════════════════════════════════════════════════════════════════
-// FIXES APPLIED (2026-06-25) aligned with advanced-search.service.ts:
-//
-// FIX-1: chat() system prompt now includes a French-first instruction
-//         block that tells the AI to use displayName / designation_2
-//         (French) when naming parts in humanReadable responses, and
-//         to never output raw English OEM codes like "MIRROR ASSY,OUT".
-//
-// FIX-2: chat() conversation history mapping now strips the `metadata`
-//         field added by session.service.ts (FIX-2 there) before
-//         sending to OpenAI — OpenAI only accepts role+content.
-//
-// FIX-3: extractVehicleInfo() suzukiModels map extended to match the
-//         MODEL_ALIASES map in vehicle-models.service.ts:
-//         Added FRONX, DZIRE variants, NEW CELERIO, NEW SWIFT, etc.
-//         Also normalises "S-PRESSO" → canonical form consistently.
-//
-// FIX-4: All console.log / console.error calls replaced with the
-//         NestJS Logger so OCR output appears in structured logs
-//         alongside the rest of the application.
-//
-// FIX-5: Cache key generation now includes a hash of the last
-//         bot message's intent metadata so cached responses are
-//         not incorrectly reused across different conversation states
-//         (e.g. a CLARIFICATION_NEEDED state vs a PARTS_SEARCH state
-//         with the same user message text).
-//
-// BUSINESS LOGIC UNCHANGED:
-//   ✅ gpt-4o-mini model
-//   ✅ Rate limiting (500 ms between calls)
-//   ✅ 5-minute response cache
-//   ✅ 2-retry callWithRetry
-//   ✅ temperature 0.3, max_tokens 1024
-//   ✅ Vision API for OCR (gpt-4o-mini with image_url)
-//   ✅ SUZUKI brand validation
-//   ✅ Graceful fallback on error
-// ═══════════════════════════════════════════════════════════════════
-
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import { GEMINI_CHAT_PROMPT, GEMINI_OCR_PROMPT } from './prompt-templates';
-
-// ─────────────────────────────────────────────────────────────────
-// FIX-3: Canonical Suzuki model map — kept in sync with
-//         vehicle-models.service.ts MODEL_ALIASES
-// ─────────────────────────────────────────────────────────────────
 const SUZUKI_MODELS_CANONICAL: Record<string, string> = {
   // Core models
   'CELERIO':       'CELERIO',
@@ -103,12 +59,6 @@ export class OpenAIService {
     }
     this.logger.log('✅ OpenAIService initialized with gpt-4o-mini');
   }
-
-  // ─────────────────────────────────────────────────────────────────
-  // chat() — main NLP entry point
-  // FIX-1: French-first instruction injected into system prompt
-  // FIX-2: metadata stripped from conversation history
-  // ─────────────────────────────────────────────────────────────────
   async chat(
     message:             string,
     conversationHistory: Array<{ role: string; content: string; metadata?: any }>,

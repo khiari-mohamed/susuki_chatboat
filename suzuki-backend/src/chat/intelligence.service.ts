@@ -1,29 +1,3 @@
-// src/chat/intelligence.service.ts
-// ═══════════════════════════════════════════════════════════════════
-// FIXES APPLIED (2026-06-25) aligned with advanced-search.service.ts:
-//
-// FIX-1: carPartNames list (used in detectIntent) extended with the
-//         full French designation_2 vocabulary — body panels, lighting,
-//         interior, wipers, and all other French terms now searchable.
-//         Previously French-named parts caused misclassification as
-//         GREETING or SERVICE_QUESTION.
-//
-// FIX-2: analyzeQueryClarity() partKeywords list extended to match
-//         the full French vocabulary so clarity scores are correct
-//         when users type French part names from designation_2.
-//
-// FIX-3: extractTopic() extended with French body/lighting/interior/
-//         cooling/exhaust topics that were missing. Topic tracking
-//         now works for all designation_2 vocabulary.
-//
-// FIX-4: detectIntent() hasSpecificPart regex extended to cover all
-//         French part names so intent is correctly classified as
-//         SEARCH when a user types "retroviseur" or "calandre".
-//
-// FIX-5: normalizeTunisian() deduplication applied (same fix as
-//         ai-query-normalizer.service.ts) to prevent double tokens.
-// ═══════════════════════════════════════════════════════════════════
-
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { SynonymsService } from '../synonyms/synonyms.service';

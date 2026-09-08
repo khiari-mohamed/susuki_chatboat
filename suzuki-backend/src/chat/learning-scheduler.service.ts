@@ -1,30 +1,3 @@
-// src/chat/learning-scheduler.service.ts
-// ═══════════════════════════════════════════════════════════════════
-// FIXES APPLIED (2026-06-25):
-//
-// FIX-1: Weekly learning cycle now also calls
-//         synonymsService.seedFrenchDesignation2Synonyms() so that
-//         any new parts added to the catalog since the last cycle
-//         automatically get their French designation_2 names indexed
-//         as NLP synonyms. Without this, new parts are unsearchable
-//         until a manual seed is triggered.
-//
-// FIX-2: Daily learning cycle now also calls synonymsService.reload()
-//         to pick up any manual synonym additions made via the admin
-//         API without requiring a server restart.
-//
-// FIX-3: Monthly cycle added (first day of each month at 3 AM) to
-//         run a full re-seed — catches any designation_2 values that
-//         were updated or corrected since the last full seed.
-//
-// FIX-4: All scheduler methods now return a structured result so
-//         the admin can inspect what happened via trigger-learning
-//         endpoint, instead of only seeing log output.
-//
-// FIX-5: onModuleInit() now logs the current synonym index size
-//         so startup logs confirm the index is healthy.
-// ═══════════════════════════════════════════════════════════════════
-
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { EnhancedChatService } from './enhanced-chat.service';

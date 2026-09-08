@@ -262,8 +262,6 @@ export class ContextService {
     const hasPosition =
       /\b(avant|arrière|arriere|gauche|droite|av|ar|g|d)\b/i.test(message);
 
-    const subtypeOnly = this.extractSubtypeOnly(message);
-
     // Message has both part and position — use directly
     if (hasSpecificPart && hasPosition) return message;
 
@@ -277,23 +275,6 @@ export class ContextService {
         `[CONTEXT] Position-only clarification: "${message}" + lastPart: "${context.lastPart}"`,
       );
       return `${context.lastPart} ${message}`;
-    }
-
-    // FIX-7: added `!hasSpecificPart` guard — a message that already
-    // names a complete part on its own must NEVER be merged with the
-    // previous topic. subtypeOnly is for bare qualifiers ONLY (words
-    // with no independent part identity, e.g. "tige" answering a
-    // "which capot?" clarification), never for a fresh standalone
-    // part query that happens to be short.
-    if (subtypeOnly && context.lastPart && !hasSpecificPart) {
-      const posMatch = message.match(
-        /\b(avant|arrière|arriere|gauche|droite|av|ar|g|d)\b/gi,
-      );
-      const positionSuffix = posMatch ? ` ${posMatch.join(' ')}` : '';
-      console.log(
-        `[CONTEXT] Subtype-only clarification: "${message}" + lastPart: "${context.lastPart}"`,
-      );
-      return `${subtypeOnly} ${context.lastPart}${positionSuffix}`;
     }
 
     // Part-less message with position — append to lastPart

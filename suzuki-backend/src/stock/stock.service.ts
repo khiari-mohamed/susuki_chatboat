@@ -157,9 +157,9 @@ export class StockService {
     for (const s of stocks) {
       map.set(s.reference, {
         statut:        this.resolveAvailabilityStatus(s),
-        totalQuantity: s.totalQuantity ?? 0,
-        stockDisponible: s.stockDisponible ?? 0,
-        stockConsolide:  s.stockConsolide ?? s.totalQuantity ?? 0,
+        totalQuantity: Number(s.totalQuantity ?? 0),
+        stockDisponible: Number(s.stockDisponible ?? 0),
+        stockConsolide:  Number(s.stockConsolide ?? s.totalQuantity ?? 0),
         displayName:   this.resolveDisplayName(s.part),
       });
     }
@@ -222,9 +222,9 @@ export class StockService {
     return {
       reference:     stock.reference,
       statut:        this.resolveAvailabilityStatus(stock),
-      totalQuantity: stock.totalQuantity ?? 0,
-      stockDisponible: stock.stockDisponible ?? 0,
-      stockConsolide:  stock.stockConsolide ?? stock.totalQuantity ?? 0,
+      totalQuantity: Number(stock.totalQuantity ?? 0),
+      stockDisponible: Number(stock.stockDisponible ?? 0),
+      stockConsolide:  Number(stock.stockConsolide ?? stock.totalQuantity ?? 0),
       displayName,
       designation:   part?.designation   ?? null,
       designation2:  part?.designation2  ?? null,

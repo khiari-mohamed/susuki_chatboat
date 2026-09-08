@@ -1,4 +1,4 @@
-import { Controller, Post, UseInterceptors, UploadedFile, BadRequestException, Req } from '@nestjs/common';
+import { Controller, Post, UseInterceptors, UploadedFile, BadRequestException, Req, Body } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { VerificationService } from './verification.service';
 import type { Request } from 'express';
@@ -54,5 +54,11 @@ export class VerificationController {
       console.error('Verification error:', error);
       throw new BadRequestException('Erreur lors de la vérification du document');
     }
+  }
+
+  @Post('vin')
+  async verifyVin(@Body() body: { vin?: string }) {
+    const vin = typeof body?.vin === 'string' ? body.vin : '';
+    return this.verificationService.verifyVin(vin);
   }
 }

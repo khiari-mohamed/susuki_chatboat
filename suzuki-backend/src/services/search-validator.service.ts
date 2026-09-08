@@ -288,22 +288,24 @@ export class SearchValidatorService {
 
     const vin = this.pickVehicleValue(vehicle, ['vin', 'VIN', 'numeroChassis', 'numChassis', 'chassis']);
     const vehicleNo = this.pickVehicleValue(vehicle, ['vehicleNo', 'vehicle_no', 'numeroVehicule']);
-    const explicitTypeCode = this.pickVehicleValue(vehicle, ['typeCode', 'type_code', 'type']);
+    let explicitTypeCode = this.pickVehicleValue(vehicle, ['typeCode', 'type_code', 'type']);
     const queryModel = query ? this.vehicleModels.detectModelInText(query) : null;
 
     let dbVehicle: any = null;
     if (vin) {
       dbVehicle = await this.prisma.vehicle.findFirst({
         where: { vin: { equals: vin, mode: 'insensitive' } },
-        select: { vin: true, vehicleNo: true, modele: true, modeleDescription: true },
+        select: { vin: true, vehicleNo: true, modele: true, modeleDescription: true, typeCode: true },
       });
     }
     if (!dbVehicle && vehicleNo) {
       dbVehicle = await this.prisma.vehicle.findFirst({
         where: { vehicleNo: { equals: vehicleNo, mode: 'insensitive' } },
-        select: { vin: true, vehicleNo: true, modele: true, modeleDescription: true },
+        select: { vin: true, vehicleNo: true, modele: true, modeleDescription: true, typeCode: true },
       });
     }
+
+    explicitTypeCode = explicitTypeCode || dbVehicle?.typeCode || null;
 
     const modelCandidates = [
       queryModel,
@@ -331,7 +333,7 @@ export class SearchValidatorService {
       typeCodes.add(this.normalizeTypeCode(explicitTypeCode));
     }
 
-    if (modelValues.length > 0) {
+    if (!explicitTypeCode && modelValues.length > 0) {
       const modelMapRows = await this.prisma.vehicleModelMap.findMany({
         where: { OR: modelValues.map((modele) => ({ modele: { equals: modele, mode: 'insensitive' } })) },
         select: { typeCode: true },
@@ -345,10 +347,12 @@ export class SearchValidatorService {
       typeRows.forEach((row) => typeCodes.add(row.typeCode));
     }
 
-    await this.addTypeCodesFromPrefixes(
-      typeCodes,
-      this.getFallbackPrefixes(normalizedModel, query, vehicle),
-    );
+    if (!explicitTypeCode) {
+      await this.addTypeCodesFromPrefixes(
+        typeCodes,
+        this.getFallbackPrefixes(normalizedModel, query, vehicle),
+      );
+    }
 
     return {
       vin: dbVehicle?.vin ?? vin ?? null,

@@ -427,24 +427,8 @@ export class ChatOrchestratorService {
       let products: any[];
 
       if (pendingClarification.dimension === 'type') {
-        this.logger.log(`TYPE clarification — filtering ${pendingClarification.products.length} pending products`);
-        const answerLower = processedMessage.toLowerCase().trim();
-        const mainTypes   = ['air', 'huile', 'gazoile', 'habitacle', 'carburant', 'essence', 'climatiseur'];
-        const matchedType = mainTypes.find((t) => answerLower.includes(t));
-
-        products = pendingClarification.products.filter((p) => {
-          // FIX-2: check combined text for type filtering
-          const combined = this.getCombinedText(p).toLowerCase();
-          if (matchedType) return combined.includes(matchedType);
-          const words = combined.split(/\s+/);
-          return words.some(
-            (word) =>
-              word.includes(answerLower) ||
-              answerLower.includes(word) ||
-              this.levenshteinDistance(word, answerLower) <= 2,
-          );
-        });
-        this.logger.log(`After type filtering: ${products.length} products (matched: ${matchedType || 'general'})`);
+        this.logger.log(`TYPE clarification — re-searching clarified request: "${enrichedQuery}"`);
+        products = await this.searchService.search(enrichedQuery, vehicle);
       } else {
         products = await this.searchService.search(enrichedQuery, vehicle);
       }
@@ -454,6 +438,30 @@ export class ChatOrchestratorService {
 
       products = this.strictValidator.validateResults(products, enrichedQuery, context);
       products = this.filterByVehicleModel(products, vehicle);
+
+      // A type clarification is a hard constraint on the selected variant.
+      // Match the answer against catalog words so "Base" cannot fall back to
+      // the available but different "Antenne radio" product.
+      if (pendingClarification.dimension === 'type') {
+        const answerTokens = processedMessage
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .split(/[^a-z0-9]+/)
+          .filter((token) => token.length > 1);
+        if (answerTokens.length > 0) {
+          const typedProducts = products.filter((product) => {
+            const catalogTokens = this.getCombinedText(product)
+              .toLowerCase()
+              .normalize('NFD')
+              .replace(/[\u0300-\u036f]/g, '')
+              .split(/[^a-z0-9]+/)
+              .filter((token) => token.length > 1);
+            return answerTokens.every((token) => catalogTokens.includes(token));
+          });
+          if (typedProducts.length > 0) products = typedProducts;
+        }
+      }
 
       // Position answer refinement
       // FIX-8: French-priority resolution instead of scanning a merged
@@ -653,7 +661,8 @@ export class ChatOrchestratorService {
 
     // 10. Clarification check
     const clarificationCheck = this.clarificationService.checkNeeded(preFilteredProducts, processedMessage);
-    if (clarificationCheck.needed) {
+    const hasExplicitFilterType = /\b(filtre|filter)\s+(?:de\s+)?(?:habitacle|climatiseur|air|huile|carburant|gazoile|essence)\b/i.test(processedMessage);
+    if (clarificationCheck.needed && !hasExplicitFilterType) {
       const clPartName = this.clarificationService.extractPartName(processedMessage);
       const response   = this.clarificationService.buildQuestion(clPartName, clarificationCheck.variants, clarificationCheck.dimension);
       this.clarificationService.setPending(session.id, searchQuery, clarificationCheck.dimension, preFilteredProducts);

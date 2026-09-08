@@ -1,72 +1,3 @@
-// src/chat/advanced-search.service.ts
-// ═══════════════════════════════════════════════════════════════════
-// FIXES APPLIED (2026-06-25) based on client feedback:
-//
-// FIX-1: DISPLAY NAME — designation_2 (French) is now the primary display
-//         field. designation (English OEM) is the fallback only.
-//
-// FIX-2: SEARCH FIELD ORDER — after VIN/model compatibility scoping,
-//         search runs against:
-//         1. designation_2       (French name)
-//         2. searchDescription   (CarPro/NLP context when filled)
-//         3. designation         (English OEM name — fallback)
-//         4. reference + catalogue context + alternate references
-//
-// FIX-3: CarPro Parts INCLUDED — source '02_CARPRO' is no longer excluded.
-//         All queries now search across both '01_PROD' and '02_CARPRO'.
-//
-// FIX-4: DISPLAY label in API response uses getDisplayName() which returns
-//         designation_2 ?? designation, so French is always shown first.
-//
-// FIX-5: API response shape is enriched — includes both designation fields,
-//         source label, stock details, price, fitments, and display name.
-//
-// FIX-6: Search scoring updated — designation_2 matches score higher
-//         than designation matches.
-//
-// FIX-8 (2026-07-07): resolveVehicleScope() vehicle_type_master fallback
-//         lookup was matching on raw, unnormalized model strings via
-//         `contains`, so "S-PRESSO" (with hyphen) silently failed to match
-//         rows where model_name is stored as "SPRESSO" or "S PRESSO".
-//         Added generateModelVariants() to strip/space-normalize model
-//         values before building the OR/contains conditions, so all
-//         hyphen/space forms of the same model resolve to the same
-//         type_code(s). This does NOT touch vehicle_model_map — once
-//         that table is seeded (see scripts/seed-vehicle-model-map.ts)
-//         it remains the primary, exact-match lookup; this fix only
-//         hardens the fallback.
-//
-// FIX-9 (2026-07-11): PERMANENT FIX for false position/side rejections
-//         in calculatePositionMatches(). This was the ROOT CAUSE file
-//         that StrictValidatorService's FIX-6 (2026-06-25) and
-//         ChatOrchestratorService's FIX-8 (2026-07-08) both explicitly
-//         pointed back at ("Root-caused and reproduced via
-//         AdvancedSearchService.calculatePositionMatches — same class
-//         of bug") but that never actually got patched here.
-//         Root cause: designation is English OEM text and commonly
-//         carries "LH"/"RH"/"FR"/"RR" abbreviations that don't always
-//         agree with the French side label in designation_2
-//         (documented data gap — historically ~33% NULL designation_2,
-//         inconsistent backfills). This method additionally joined
-//         designation_2 + designation + searchDescription into ONE
-//         blob before tokenizing, so a stray English token could
-//         falsely flip hasAvant/hasArriere/hasGauche/hasDroite even
-//         when the French field already gave the correct answer for
-//         that axis — burying valid, in-stock parts under the
-//         -100000 conflict penalty. Fixed by keeping French tokens
-//         (designation_2) and English/fallback tokens (designation +
-//         searchDescription) SEPARATE, then resolving each axis pair
-//         (avant/arrière, gauche/droite) from French first via
-//         computePositionFlags() — only consulting English when
-//         French has no signal at all for that axis pair. Mirrors
-//         StrictValidatorService.computePositionFlags() and
-//         ChatOrchestratorService.getPositionFlags() exactly.
-//
-// DATA NOTE:
-//   search_description can be empty today. When CarPro fills it, the
-//   scorer uses it as additional context without bypassing fitment scope.
-// ═══════════════════════════════════════════════════════════════════
-
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
@@ -152,13 +83,6 @@ export interface PartResult {
   // Internal score (useful for debugging)
   score: number;
 }
-
-// ─────────────────────────────────────────────────────────────────
-// FIX-7 (debug): structured trace of one search pipeline execution.
-// Mirrors exactly what is printed to the server console (the
-// "[SEARCH] ..." log lines) but structured so it can be sent to the
-// frontend debug panel and read by non-technical testers.
-// ─────────────────────────────────────────────────────────────────
 export interface SearchDebugInfo {
   searchType: 'text' | 'reference';
   originalQuery: string;
@@ -268,13 +192,9 @@ export class AdvancedSearchService implements OnModuleInit {
   private static readonly SCORE_MAIN_TYPE_PRESENT = 5_000;
   private static readonly SCORE_ALL_WORDS_MATCH = 80_000;
   private static readonly SCORE_NUMERIC_EXACT = 50_000;
-  // FIX-6: Extra bonus when match is on French field
   private static readonly SCORE_FRENCH_FIELD_BONUS = 20_000;
 
-  // ─────────────────────────────────────────────────────────────────
-  // FIX-9 (2026-07-11): French-priority position/side token sets.
-  // See the header comment block above for the full rationale.
-  // ─────────────────────────────────────────────────────────────────
+
   private static readonly AVANT_TOKENS   = ['avant', 'av', 'avg', 'avd'];
   private static readonly ARRIERE_TOKENS = ['arriere', 'ar', 'arg', 'ard'];
   private static readonly GAUCHE_TOKENS  = ['gauche', 'g', 'conducteur', 'avg', 'arg'];
@@ -291,21 +211,6 @@ export class AdvancedSearchService implements OnModuleInit {
 
   private normalizedSynonymLookup: Record<string, string> = {};
   private fuzzyMatchCache: Map<string, string[]> = new Map();
-
-  // ─────────────────────────────────────────────────────────────────
-  // FIX-7 (debug): last pipeline trace, exposed to the frontend debug
-  // panel via ChatController.
-  //
-  // NOTE ON SCOPE: this is a singleton-scoped field (one instance for
-  // the whole app), so under concurrent requests only the LAST search
-  // to finish "wins" and overwrites this value. That's an accepted
-  // tradeoff — this field is only ever read for the debug panel, never
-  // for business logic, so a race between two simultaneous testers is
-  // harmless (worst case: you see someone else's debug trace for a
-  // split second). If this ever needs to be request-safe, switch this
-  // service to REQUEST scope or thread the debug object through the
-  // return value instead of a shared field.
-  // ─────────────────────────────────────────────────────────────────
   private lastSearchDebug: SearchDebugInfo | null = null;
 
   getLastSearchDebug(): SearchDebugInfo | null {
@@ -398,14 +303,6 @@ export class AdvancedSearchService implements OnModuleInit {
     return null;
   }
 
-  // ─────────────────────────────────────────────────────────────────
-  // FIX-8 (2026-07-07): stripped model-name variants for hyphen/space-
-  //         insensitive matching against vehicle_type_master.model_name.
-  //         "S-PRESSO", "SPRESSO", and "S PRESSO" must all resolve to
-  //         the same row regardless of which form is actually stored,
-  //         since `contains` on raw unnormalized strings silently
-  //         fails to match otherwise.
-  // ─────────────────────────────────────────────────────────────────
   private generateModelVariants(value: string): string[] {
     const upper = value.toUpperCase().trim();
     const variants = new Set<string>([
@@ -433,7 +330,7 @@ export class AdvancedSearchService implements OnModuleInit {
 
     const vin = this.pickVehicleValue(vehicle, ['vin', 'VIN', 'numeroChassis', 'numChassis', 'chassis']);
     const vehicleNo = this.pickVehicleValue(vehicle, ['vehicleNo', 'vehicle_no', 'numeroVehicule']);
-    const explicitTypeCode = this.pickVehicleValue(vehicle, ['typeCode', 'type_code', 'type']);
+    let explicitTypeCode = this.pickVehicleValue(vehicle, ['typeCode', 'type_code', 'type']);
 
     let dbVehicle: any = null;
     if (vin) {
@@ -444,6 +341,7 @@ export class AdvancedSearchService implements OnModuleInit {
           vehicleNo: true,
           modele: true,
           modeleDescription: true,
+          typeCode: true,
         },
       });
     }
@@ -455,9 +353,12 @@ export class AdvancedSearchService implements OnModuleInit {
           vehicleNo: true,
           modele: true,
           modeleDescription: true,
+          typeCode: true,
         },
       });
     }
+
+    explicitTypeCode = explicitTypeCode || dbVehicle?.typeCode || null;
 
     // primaryCandidates: the most specific model identifiers — modeleDescription
     // (e.g. "ALL NEW SW GL MT", "NEW CELERIO POP 6AB") comes first because it
@@ -492,12 +393,13 @@ export class AdvancedSearchService implements OnModuleInit {
 
     const typeCodes = new Set<string>();
     const primaryTypeCodes = new Set<string>(); // codes for the exact identified model
-    if (explicitTypeCode && /TYPE/i.test(explicitTypeCode)) {
-      typeCodes.add(explicitTypeCode.toUpperCase().replace(/\s+/g, '-'));
-      primaryTypeCodes.add(explicitTypeCode.toUpperCase().replace(/\s+/g, '-'));
+    if (explicitTypeCode) {
+      const normalizedTypeCode = explicitTypeCode.toUpperCase().replace(/\s+/g, '-').replace(/-TYPE-/g, '-TYPE');
+      typeCodes.add(normalizedTypeCode);
+      primaryTypeCodes.add(normalizedTypeCode);
     }
 
-    if (modelValues.length > 0) {
+    if (!explicitTypeCode && modelValues.length > 0) {
       // Primary: exact match on modeleDescription / specific model name only
       // (e.g. "ALL NEW SW GL MT" → AON312, "NEW CELERIO" → AXM310)
       if (primaryCandidates.length > 0) {
@@ -556,6 +458,7 @@ export class AdvancedSearchService implements OnModuleInit {
     };
   }
 
+
   private buildCompatibilityWhere(scope: VehicleSearchScope): any {
     if (!scope.active || scope.typeCodes.length === 0) return {};
     return {
@@ -567,23 +470,9 @@ export class AdvancedSearchService implements OnModuleInit {
     };
   }
 
-  // FIX-5: Enriched API response shape
-  // BUGFIX-1: stock is never null — parts missing a stock row get a
-  //   safe default { statut: 'Indisponible', totalQuantity: 0 } so
-  //   the frontend always receives a stock object, never null.
-  // BUGFIX-2: designationOem preserved — when designation and
-  //   designation2 are the same (French DB), designationOem stores
-  //   the true English OEM name from the raw part object if present.
   formatPartResult(part: any, score: number, scope?: VehicleSearchScope): PartResult {
-    // BUGFIX-2: preserve the true English OEM name.
-    // In some DB rows designation IS already French (e.g. "OPTIC D")
-    // and the English OEM comes through as part.designationOem when
-    // mapProductForResponse() has already been called upstream.
-    // For raw Prisma rows the OEM name is always in part.designation.
     const frenchName  = (part.designation2 ?? '').trim();
     const englishName = (part.designation  ?? '').trim();
-    // If French == English, the DB has only one name — keep as-is.
-    // If they differ, English is the real OEM and French is in designation2.
     const designationOem = (part.designationOem ?? '').trim() || englishName;
 
     return {
@@ -703,7 +592,7 @@ export class AdvancedSearchService implements OnModuleInit {
     const whereCondition: any = whereParts.length > 0 ? { AND: whereParts } : {};
 
     // ── FIX-3: No source filter — include both 01_PROD and 02_CARPRO ──
-    const parts = await this.prisma.part.findMany({
+    let parts = await this.prisma.part.findMany({
       where: whereCondition,
       include: {
         stock: {
@@ -729,6 +618,25 @@ export class AdvancedSearchService implements OnModuleInit {
       },
       take: 500,
     });
+
+    // Compound windshield searches must match the windshield term as well as
+    // the shared "pare" token; otherwise unrelated "pare huile" parts can
+    // survive because the DB conditions are intentionally broad OR clauses.
+    if (/\bpare\s*-?\s*brise\b/i.test(normalized) || /\bparebrise\b/i.test(normalized)) {
+      parts = parts.filter((part: any) => {
+        const text = this.normalize([
+          part.designation2,
+          part.searchDescription,
+          part.designation,
+        ].filter(Boolean).join(' '));
+        const windshieldText = text.includes('brise') || text.includes('windshield') || text.includes('windscreen');
+        const accessoryText = [
+          'moustache', 'garnish', 'garniture', 'joint', 'molding', 'moulure',
+          'trim', 'wiper', 'essuie', 'motor', 'moteur',
+        ].some((term) => text.includes(term));
+        return windshieldText && !accessoryText;
+      });
+    }
     this.logger.log(`[SEARCH] Database returned ${parts.length} raw results`);
 
     // ── Conflict filter ──────────────────────────────────────────
@@ -776,7 +684,16 @@ export class AdvancedSearchService implements OnModuleInit {
       }
       return true;
     });
-
+    if (/\btraverse\b/i.test(normalized) && /\b(arriere|arrière|ar|rear|rr)\b/i.test(normalized)) {
+      parts = parts.filter((part: any) => {
+        const text = this.normalize([
+          part.designation2,
+          part.searchDescription,
+          part.designation,
+        ].filter(Boolean).join(' '));
+        return text.includes('traverse') && /\b(arriere|ar|rear|rr)\b/.test(text);
+      });
+    }
     const context: SearchContext = {
       rawTokens: allTokens,
       expandedTerms,
@@ -788,6 +705,29 @@ export class AdvancedSearchService implements OnModuleInit {
       hasTunisianDialect,
       userTypedTokens: new Set(rawTokens),
     };
+
+    // The database query intentionally uses broad OR conditions for recall,
+    // but that can fill the 500-row pool with parts matching only one word of
+    // a compound request. Prefer the narrower all-meaningful-terms set when
+    // it exists, so "buse eau essuie-glace" cannot be displaced by "pompe a
+    // eau" or another unrelated single-term match.
+    const positionTerms = new Set(['avant', 'arriere', 'arrière', 'gauche', 'droite', 'av', 'ar', 'g', 'd', 'sup', 'inf']);
+    const meaningfulSearchTerms = expandedTerms
+      .map((term) => this.normalize(term).replace(/-/g, ' ').trim())
+      .filter((term) => term.length >= 3 && !positionTerms.has(term));
+    if (meaningfulSearchTerms.length > 1) {
+      const compoundMatches = parts.filter((part: any) => {
+        const catalogText = this.normalize([
+          part.designation2,
+          part.searchDescription,
+          part.designation,
+          part.categorie,
+          part.fabricant,
+        ].filter(Boolean).join(' ')).replace(/-/g, ' ');
+        return meaningfulSearchTerms.every((term) => catalogText.includes(term));
+      });
+      if (compoundMatches.length > 0) parts = compoundMatches;
+    }
 
     // ── Score and filter ─────────────────────────────────────────
     const scored = parts.map((part) => ({
@@ -1172,18 +1112,6 @@ export class AdvancedSearchService implements OnModuleInit {
     score += 50000 - extraWords * 2000;
     return score;
   }
-
-  // ─────────────────────────────────────────────────────────────────
-  // FIX-9 (2026-07-11): French-priority per-axis resolution.
-  // See the header comment block for the full rationale — mirrors
-  // StrictValidatorService.computePositionFlags() and
-  // ChatOrchestratorService.getPositionFlags() exactly.
-  //
-  // Takes SEPARATE French and fallback (English + searchDescription)
-  // token lists — never a merged blob — so a stray English token can
-  // only ever be consulted when French has NO signal at all for that
-  // axis pair.
-  // ─────────────────────────────────────────────────────────────────
   private computePositionFlags(frenchTokens: string[], fallbackTokens: string[]): {
     hasAvant: boolean;
     hasArriere: boolean;
@@ -1297,7 +1225,6 @@ export class AdvancedSearchService implements OnModuleInit {
               { reference: { equals: cleanRef,    mode: 'insensitive' } },
             ],
           },
-          ...(vehicleScope.active ? [compatibilityWhere] : []),
         ],
       },
       include,
@@ -1314,7 +1241,6 @@ export class AdvancedSearchService implements OnModuleInit {
                 { referenceNo: { equals: cleanRef,    mode: 'insensitive' } },
               ],
             },
-            ...(vehicleScope.active ? [{ part: compatibilityWhere }] : []),
           ],
         },
         include: { part: { include } },
@@ -1481,28 +1407,6 @@ Segmented:`;
 
     return segments.length > 1 ? segments : [text];
   }
-
-  // ─── SYNONYM EXPANSION ──────────────────────────────────────────
-  // ─────────────────────────────────────────────────────────────────
-  // BUGFIX-6: expandWithSynonymsContextual
-  //
-  // ROOT CAUSE OF "capot" → "cache" BUG:
-  // The synonyms table (DB-seeded, 1780 rows) contained a bad row:
-  //   mot='capot', canonical='cache'
-  // findPrimaryCategory('capot') returned 'cache', silently REPLACING
-  // a valid, already-known part type ("capot" exists in typeWeights at
-  // weight 1.2) with the wrong category. The search then ran on "cache"
-  // instead of "capot", returning completely unrelated parts
-  // ("cache soupape", "cache ventilateur") which StrictValidatorService
-  // correctly rejected — resulting in 0 results for a part that exists
-  // in the catalog.
-  //
-  // FIX: If a token is ALREADY a recognized part type in typeWeights,
-  // it is authoritative and must NEVER be silently replaced by a DB
-  // synonym category lookup. DB synonym expansion is only valid for
-  // typo correction / dialect translation of UNKNOWN tokens — not for
-  // overriding tokens we already understand correctly.
-  // ─────────────────────────────────────────────────────────────────
   private expandWithSynonymsContextual(tokens: string[], originalQuery: string): string[] {
     const expanded = new Set<string>();
 
@@ -1530,11 +1434,14 @@ Segmented:`;
       const isPartType       = Object.keys(this.typeWeights).includes(token);
       let addedByExpansion   = false;
 
-      // BUGFIX-6: A token that is already a known, correct part type
-      // (e.g. "capot", "porte", "aile") is kept AS-IS. We do not run
-      // fuzzy-match typo correction or DB synonym category lookup on
-      // it, because both can incorrectly override a perfectly valid
-      // and unambiguous term with a wrong DB-seeded mapping.
+      // Catalog descriptions commonly store "pare choc" with a space,
+      // while customers often type the compact form "parchoc".
+      if (normalizedToken === 'parchoc' || normalizedToken === 'parechoc') {
+        expanded.add('pare');
+        expanded.add('choc');
+        expanded.add(normalizedToken);
+        return;
+      }
       if (isPartType) {
         expanded.add(token);
         return;
@@ -1557,11 +1464,6 @@ Segmented:`;
           }
         }
       }
-
-      // BUGFIX-6: DB synonym category lookup only runs for tokens that
-      // are NOT already a recognized part type (handled above via the
-      // early return). This prevents bad DB data (e.g. capot→cache)
-      // from silently corrupting a query that was already correct.
       const primaryCategory = this.findPrimaryCategory(token);
       if (primaryCategory) {
         expanded.add(primaryCategory);

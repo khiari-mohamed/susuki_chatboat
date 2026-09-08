@@ -1,44 +1,3 @@
-// src/chat/chat.controller.ts
-// ═══════════════════════════════════════════════════════════════════
-// FIXES APPLIED (2026-06-25) aligned with advanced-search.service.ts:
-//
-// FIX-1: POST /chat/message response now includes a `debug` block
-//         that exposes ALL product fields so the frontend team can
-//         inspect every field during testing:
-//           - displayName    (French first, English fallback)
-//           - designation    (raw English OEM name)
-//           - designation2   (raw French name)
-//           - reference
-//           - prixHt / prixTtc
-//           - unite
-//           - categorie
-//           - source / sourceLabel  (Suzuki OEM vs CarPro Parts)
-//           - stock.statut / stock.totalQuantity
-//           - fitments[]
-//
-// FIX-2: GET /chat/health endpoint added — returns synonym index
-//         size, model count, and DB connectivity so the team can
-//         verify the system is properly initialised after deploy.
-//
-// FIX-3: GET /chat/products/sample endpoint added — returns the
-//         first 5 results of a reference search so testers can
-//         verify the French-first field order without a full query.
-//
-// FIX-4: POST /chat/message validates body.vehicle shape and logs
-//         the vehicle model for traceability in production logs.
-//
-// FIX-5: Error responses include the full error chain so frontend
-//         can distinguish rate-limit, validation, and server errors.
-//
-// FIX-7: POST /chat/message now also returns `searchDebug` — the full
-//         search pipeline trace (tokens, expanded terms, DB row counts,
-//         source/stock breakdown, which DB tables/columns were used)
-//         captured by AdvancedSearchService during this request. This
-//         is what powers the "Pipeline de recherche" section of the
-//         frontend debug panel, so testers can see exactly what the
-//         database returned without reading server logs.
-// ═══════════════════════════════════════════════════════════════════
-
 import {
   Controller, Post, Body, Get, Query, Param,
   BadRequestException, HttpException, HttpStatus,
@@ -51,9 +10,6 @@ import { VehicleModelsService } from '../constants/vehicle-models.service';
 import { AdvancedSearchService, SearchDebugInfo } from './advanced-search.service';
 import type { Request } from 'express';
 
-// ─────────────────────────────────────────────────────────────────
-// FIX-1: Enriched response shape — all product fields exposed
-// ─────────────────────────────────────────────────────────────────
 export interface EnrichedProductField {
   // Internal DB id
   id?:              number | null;
@@ -126,13 +82,6 @@ export class ChatController {
     // FIX-7: needed to read the search pipeline trace after processMessage()
     private readonly advancedSearch: AdvancedSearchService,
   ) {}
-
-  // ─────────────────────────────────────────────────────────────────
-  // POST /chat/message
-  // FIX-1: Returns enriched productsDetail[] alongside products[]
-  // FIX-4: Validates and logs vehicle model
-  // FIX-7: Returns searchDebug — the full search pipeline trace
-  // ─────────────────────────────────────────────────────────────────
   @Post('message')
   async chat(
     @Body() body: { message: string; vehicle?: any; sessionId?: string },
@@ -164,20 +113,9 @@ export class ChatController {
         body.sessionId,
         clientIp,
       );
-
-      // FIX-1: Build enriched productsDetail from whatever the
-      // orchestrator returned in result.products (already mapped
-      // by mapProductForResponse — may be 0 or 1 items) plus any
-      // extra fields stored on the objects
       const productsDetail: EnrichedProductField[] = (result.products || []).map(
         (p: any) => this.enrichProduct(p),
       );
-
-      // FIX-7: Pull the pipeline trace AdvancedSearchService captured
-      // while handling this request (tokens, expanded terms, DB row
-      // counts, source/stock breakdown, tables/fields touched). Will
-      // be null for responses that never reached the search engine
-      // (greetings, thanks, complaints, service questions, etc).
       const searchDebug = this.advancedSearch.getLastSearchDebug();
 
       return {
@@ -310,12 +248,6 @@ export class ChatController {
       timestamp: new Date().toISOString(),
     };
   }
-
-  // ─────────────────────────────────────────────────────────────────
-  // FIX-3: GET /chat/products/sample?reference=00533069
-  // Returns enriched product detail for a known reference so
-  // testers can verify all fields without a full NLP query
-  // ─────────────────────────────────────────────────────────────────
   @Get('products/sample')
   async sampleProduct(
     @Query('reference') reference?: string,
@@ -363,13 +295,6 @@ export class ChatController {
       sample: first,
     };
   }
-
-  // ─────────────────────────────────────────────────────────────────
-  // POST /chat/synonyms/seed
-  // Triggers seedFrenchDesignation2Synonyms() from SynonymsService.
-  // Call this ONCE after deploying the migration to backfill the
-  // synonyms table with French designation_2 vocabulary.
-  // ─────────────────────────────────────────────────────────────────
   @Post('synonyms/seed')
   async seedSynonyms(): Promise<{
     success:  boolean;
@@ -420,11 +345,6 @@ export class ChatController {
       );
     }
   }
-
-  // ─────────────────────────────────────────────────────────────────
-  // POST /chat/vehicle-models/reload
-  // Reloads vehicle model list from DB.
-  // ─────────────────────────────────────────────────────────────────
   @Post('vehicle-models/reload')
   async reloadVehicleModels(): Promise<{ success: boolean; count: number; models: string[] }> {
     try {
@@ -441,18 +361,6 @@ export class ChatController {
       );
     }
   }
-
-  // ─────────────────────────────────────────────────────────────────
-  // FIX-1: enrichProduct helper — maps any product object to the
-  // full EnrichedProductField shape for the productsDetail[] array.
-  // Handles both pre-mapped (from mapProductForResponse) and raw rows.
-  //
-  // BUGFIX-2: designationOem is the true English OEM name.
-  //   After mapProductForResponse(), the orchestrator stores the OEM
-  //   name in designationOem and puts displayName (French) in designation.
-  //   For raw PartResult rows, designation IS the English OEM name.
-  // BUGFIX-1: stock is always an object, never null.
-  // ─────────────────────────────────────────────────────────────────
   private formatStock(stock: any): {
     statut: string;
     totalQuantity: number;

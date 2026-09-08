@@ -155,6 +155,12 @@ export class AIQueryNormalizerService {
       amorto:      'amortisseur',
       ovlant:      'volant',
       olant:       'volant',
+      arier:       'arriere',
+      arriére:     'arriere',
+      trversear:   'traverse arriere',
+      traversear:  'traverse arriere',
+      parbrise:    'pare-brise',
+      parebrise:   'pare-brise',
 
       // FIX-2: Additional French designation_2 typos
       retrovisuer:   'retroviseur',
@@ -221,6 +227,11 @@ export class AIQueryNormalizerService {
 
     let correctedQuery = query;
     const appliedCorrections = new Set<string>();
+
+    // In automotive French, "filtre climatiseur" means the cabin/pollen
+    // filter. Normalize the phrase directly instead of asking the user to
+    // choose between unrelated air, fuel, and oil filters.
+    correctedQuery = correctedQuery.replace(/\bfiltre\s+(?:de\s+)?climatiseur\b/gi, 'filtre habitacle');
 
     for (const [typo, correct] of sortedCorrections) {
       const lq = correctedQuery.toLowerCase();

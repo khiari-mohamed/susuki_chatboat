@@ -48,8 +48,8 @@ model Part {
   // 72.5% NULL → must be backfilled: COALESCE(designation_2, designation)
   searchDescription String?   @map("search_description") @db.VarChar(200)
 
-  prixHt            Decimal?  @map("prix_ht") @db.Decimal(10, 3)
-  prixTtc           Decimal?  @map("prix_ttc") @db.Decimal(10, 3)
+  prixHt            Decimal?  @map("prix_ht") @db.Decimal(20, 14)
+  prixTtc           Decimal?  @map("prix_ttc") @db.Decimal(20, 5)
   unite             String?   @db.VarChar(20)
   categorie         String?   @db.VarChar(50)
   fabricant         String?   @db.VarChar(100)
@@ -99,9 +99,9 @@ model Part {
 model Stock {
   id            Int      @id @default(autoincrement())
   reference     String   @unique @db.VarChar(50)
-  totalQuantity Int      @default(0) @map("total_quantity")
-  stockDisponible Int    @default(0) @map("stock_disponible")
-  stockConsolide  Int    @default(0) @map("stock_consolide")
+  totalQuantity Decimal  @default(0) @map("total_quantity") @db.Decimal(20, 5)
+  stockDisponible Decimal @default(0) @map("stock_disponible") @db.Decimal(20, 5)
+  stockConsolide  Decimal @default(0) @map("stock_consolide") @db.Decimal(20, 5)
   statut        String   @default("Indisponible") @db.VarChar(20)
   updatedAt     DateTime @updatedAt @map("updated_at")
 
@@ -196,6 +196,7 @@ model Vehicle {
   marque             String? @db.VarChar(20)
   modele             String? @db.VarChar(20)
   modeleDescription  String? @map("modele_description") @db.VarChar(100)
+  typeCode           String? @map("type_code") @db.VarChar(30)
   // WARNING: This column stores license plate numbers, NOT status values.
   // TODO: Rename column to "immatriculation" in next migration.
   immatriculation    String? @map("statut") @db.VarChar(20)
