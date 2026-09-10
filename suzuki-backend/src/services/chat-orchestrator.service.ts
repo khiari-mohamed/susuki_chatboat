@@ -1,61 +1,3 @@
-// src/services/chat-orchestrator.service.ts
-// ═══════════════════════════════════════════════════════════════════
-// FIXES APPLIED (2026-06-25) aligned with advanced-search.service.ts:
-//
-// FIX-1: All product mappings in API responses now use displayName
-//         (designation_2 French first, designation English fallback)
-//         instead of always using raw designation (English OEM).
-//
-// FIX-2: filterAccessoriesIfNeeded() now checks BOTH designation_2
-//         and designation when scanning for accessory words, so
-//         French-named accessories are correctly detected.
-//
-// FIX-3: applyFilters() checks position/side in BOTH text fields.
-//
-// FIX-4: filterByVehicleModel() uses displayName in log output.
-//
-// FIX-5: extractPartName() checks both fields when building context.
-//
-// FIX-6: processMessage() maps products consistently via
-//         mapProductForResponse() helper that always uses displayName.
-//
-// FIX-7 (2026-07-08): the chat TEXT and the products[]/card data were
-//         being selected by two DIFFERENT pieces of logic on the same
-//         array — buildProductResponse()/buildPriceResponse() split
-//         preFilteredProducts into available/unavailable internally
-//         and can describe a different product than
-//         preFilteredProducts[0]/products[0], which is what the card
-//         was built from. Symptom: chat text said "Pièces
-//         disponibles... 499.048 TND" (an available LUNETTE AR) while
-//         the expandable card showed a DIFFERENT LUNETTE AR reference
-//         (2253.495 TND, Indisponible) — because the card just took
-//         index 0 regardless of availability.
-//         Fix: added ResponseService.selectPrimaryProduct() (single
-//         source of truth for "which product are we talking about"),
-//         and both the main search/PRICE_INQUIRY return block and the
-//         clarification-answer return block now call it instead of
-//         duplicating ad-hoc slice(0, 1) selection. This guarantees
-//         the card the customer expands always matches the product
-//         named in the chat bubble.
-//
-// FIX-8 (2026-07-08): PERMANENT FIX for false position/side rejections
-//         in the clarification-answer position filter and applyFilters().
-//         Both previously scanned a MERGED French+English text blob
-//         (getCombinedText) for avant/arrière/gauche/droite. Because
-//         the English OEM text commonly carries "LH"/"RH" abbreviations
-//         that don't always agree with the French side label (a
-//         documented data-quality gap — see schema.prisma: "33% NULL
-//         designation_2", inconsistent backfills), a part correctly
-//         labelled e.g. "OPTIQUE D" (droite) in French could get
-//         filtered out here even after correctly surviving search and
-//         strict validation. Root-caused via
-//         AdvancedSearchService.calculatePositionMatches — same class
-//         of bug, same fix applied here: both call sites now use
-//         getPositionFlags(), which resolves each axis independently
-//         from designation_2 FIRST, only consulting designation
-//         (English) when French has no signal at all for that axis.
-// ═══════════════════════════════════════════════════════════════════
-
 import { Injectable, Logger } from '@nestjs/common';
 import { SessionService } from './session.service';
 import { ClarificationService } from './clarification.service';
@@ -100,11 +42,6 @@ export class ChatOrchestratorService {
     'valve', 'soupape', 'culasse', 'piston', 'segment', 'bielle', 'vilebrequin',
     'silencieux', 'clignotant',
   ];
-
-  // ─────────────────────────────────────────────────────────────────
-  // FIX-8 (2026-07-08): French-priority position/side token patterns.
-  // See header comment above for full rationale.
-  // ─────────────────────────────────────────────────────────────────
   private static readonly AVANT_RE   = /\b(avant|av|front|fr)\b/i;
   private static readonly ARRIERE_RE = /\b(arriere|arrière|ar|rear|rr)\b/i;
   private static readonly GAUCHE_RE  = /\b(gauche|g|left|lh)\b/i;
@@ -125,12 +62,6 @@ export class ChatOrchestratorService {
   ) {
     setInterval(() => this.clarificationService.cleanup(), 300000);
   }
-
-  // ─────────────────────────────────────────────────────────────────
-  // FIX-1 + FIX-6: Centralised product mapper for API responses.
-  // Always surfaces designation_2 (French) as the primary name.
-  // Also includes both raw fields so the frontend can choose.
-  // ─────────────────────────────────────────────────────────────────
   private formatStock(stock: any): {
     statut: string;
     totalQuantity: number;
@@ -152,10 +83,6 @@ export class ChatOrchestratorService {
   }
 
   private mapProductForResponse(p: any): any {
-    // displayName is already set by AdvancedSearchService.formatPartResult().
-    // Fall back gracefully if calling code passes a raw Prisma row.
-    // BUGFIX: '??' and '||' cannot be mixed without parentheses (TS5076).
-    // Wrapped the designation2/designation fallback chain explicitly.
     const frenchOrEnglish =
       (p.designation2 ?? p.designation_2 ?? '').trim() ||
       (p.designation ?? '').trim();
@@ -174,26 +101,11 @@ export class ChatOrchestratorService {
       prixTtc:      p.prixTtc != null ? String(p.prixTtc) : null,
       unite:        p.unite ?? null,
       categorie:    p.categorie ?? null,
-      // BUGFIX: these two fields are declared in chat.controller.ts's
-      // EnrichedProductField interface but were never populated here,
-      // so they always arrived as undefined in productsDetail[].
       fabricant:        p.fabricant        ?? null,
       fournisseurCode:  p.fournisseurCode  ?? null,
       source:       p.source ?? null,
-      // BUGFIX (consistency with chat.controller.ts enrichProduct / response.service.ts
-      // getSourceSuffix / stock.service.ts resolveSourceLabel): compute sourceLabel
-      // from source when not already set, instead of silently falling through to null.
       sourceLabel:  p.sourceLabel ?? (p.source === '02_CARPRO' ? 'CarPro Parts' : p.source === '01_PROD' ? 'Suzuki OEM' : null),
-      // BUGFIX-1 (consistency with AdvancedSearchService.formatPartResult):
-      // stock must never be null in the API response. If a raw Prisma row
-      // is passed in directly (fallback path) and has no stock row,
-      // default to Indisponible/0 instead of leaking null to the frontend.
       stock: this.formatStock(p.stock),
-      // BUGFIX (root cause of empty fitments[] in productsDetail): this
-      // mapper was building a brand-new object and never copying p.fitments
-      // through from AdvancedSearchService.formatPartResult(). Every product
-      // reached the controller's enrichProduct() with fitments already gone,
-      // so it always showed fitments: [] regardless of real fitment data.
       fitments: (p.fitments ?? []).map((f: any) => ({
         modelName: f.modelName ?? '',
         typeCode:  f.typeCode  ?? '',
@@ -226,16 +138,7 @@ export class ChatOrchestratorService {
     return `${french} ${english}`.trim();
   }
 
-  // ─────────────────────────────────────────────────────────────────
-  // FIX-8 (2026-07-08): French-priority position/side resolver.
-  // For EACH axis independently (avant/arrière, gauche/droite): if
-  // designation_2 (French) has any signal on that axis, trust it
-  // exclusively and ignore designation (English) for that axis.
-  // English is only consulted when French says nothing at all about
-  // that axis. This mirrors AdvancedSearchService.calculatePositionMatches
-  // and StrictValidatorService.computePositionFlags — see header
-  // comment for the full rationale.
-  // ─────────────────────────────────────────────────────────────────
+
   private getPositionFlags(p: any): {
     hasAvant: boolean;
     hasArriere: boolean;
@@ -708,17 +611,6 @@ export class ChatOrchestratorService {
       queryClarity,
     });
     const suggestions  = this.intelligenceService.generateSmartSuggestions(processedMessage, preFilteredProducts);
-
-    // FIX-7 (2026-07-08): selectPrimaryProduct() replaces the previous
-    // preFilteredProducts.slice(0, 1) selection, which could pick a
-    // DIFFERENT product than the one `response` above (buildProductResponse()
-    // / buildPriceResponse()) actually described — e.g. text said
-    // "Pièces disponibles... 499.048 TND" (an available LUNETTE AR) while
-    // the card showed a different, out-of-stock LUNETTE AR reference at
-    // 2253.495 TND. Both the text and the card now derive from the same
-    // selection logic (ResponseService.selectPrimaryProduct), covering
-    // both the normal PARTS_SEARCH path and the PRICE_INQUIRY path since
-    // they share this one return block.
     const primaryProduct = this.responseService.selectPrimaryProduct(preFilteredProducts);
 
     return {
@@ -760,8 +652,14 @@ export class ChatOrchestratorService {
       // NOTE: 'grille' removed — it is a synonym for calandre (main part), not an accessory
       'chrome', 'isolant', 'sigle', 'monogramme',
     ];
-
-    const userAskedForAccessory = accessoryWords.some((w) => queryLower.includes(w));
+    const explicitAccessoryWords = [
+      'support', 'joint', 'contacteur', 'loquet', 'serrure', 'charniere',
+      'charnière', 'agrafe', 'agraffe', 'agraphe', 'vis', 'boulon', 'ecrou',
+      'kit', 'sangle', 'cable', 'câble', 'toc', 'bushing', 'silentbloc',
+    ];
+    const userAskedForAccessory = explicitAccessoryWords.some((w) =>
+      new RegExp(`(^|\\s)${w}(\\s|$)`, 'i').test(queryLower),
+    );
     if (userAskedForAccessory) {
       this.logger.log(`[ACCESSORY-FILTER] User asked for accessory — returning all ${products.length}`);
       return products;
@@ -792,8 +690,8 @@ export class ChatOrchestratorService {
       return mainParts;
     }
 
-    this.logger.log(`[ACCESSORY-FILTER] Only accessories found (${accessories.length}) — returning all`);
-    return products;
+    this.logger.log(`[ACCESSORY-FILTER] Only accessories found (${accessories.length}) — returning none for a main-part request`);
+    return [];
   }
 
   // ─────────────────────────────────────────────────────────────────
@@ -831,34 +729,12 @@ export class ChatOrchestratorService {
       return '';
     }
   }
-
-  // ─────────────────────────────────────────────────────────────────
-  // FIX-4: filterByVehicleModel — uses displayName in log output
-  // BUGFIX-4: fitment.modelName contains type codes like "ABU310-TYPE1"
-  //   NOT friendly model names like "S-PRESSO". Normalizing a type code
-  //   against vehicleModels returns null → every fitment-bearing part
-  //   was being wrongly stripped. Fix: treat any part WITH fitments as
-  //   compatible (fitment exists = part is for some Suzuki model) and
-  //   only filter when designation explicitly names a DIFFERENT model.
-  // ─────────────────────────────────────────────────────────────────
   private filterByVehicleModel(products: any[], vehicle?: any): any[] {
     const model = this.vehicleModels.normalize(vehicle?.modele);
     if (!model) return products;
 
     return products.filter((p) => {
-      // BUGFIX-4: If the part has fitments, the fitment.modelName is an
-      // internal type code (e.g. "ABU310-TYPE1"), NOT a friendly model name.
-      // vehicleModels.normalize() returns null for type codes, causing all
-      // fitment-bearing parts to be wrongly rejected.
-      //
-      // Correct logic:
-      //  - If part has fitments → it is already matched to specific vehicle
-      //    types by the search query scope. Keep it (don't double-filter).
-      //  - If part has NO fitments → it may be a universal part or a part
-      //    whose designation mentions a specific model. Only filter then.
       if (Array.isArray(p.fitments) && p.fitments.length > 0) {
-        // Part has fitment data — it passed the search filter already.
-        // Only reject if designation explicitly names a DIFFERENT model.
         const combinedText = [p.displayName, p.designation2, p.designation]
           .filter(Boolean).join(' ').toUpperCase();
         const hasOtherModel = this.vehicleModels.hasModelInDesignation(combinedText) &&

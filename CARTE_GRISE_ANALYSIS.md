@@ -8,9 +8,6 @@
 ```
 
 This indicates the Gemini API response is incomplete.
-
----
-
 ## 📁 Files Involved in Carte Grise Processing
 
 ### Backend Files:

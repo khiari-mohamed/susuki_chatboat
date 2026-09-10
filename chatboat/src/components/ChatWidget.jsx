@@ -939,6 +939,8 @@ const ChatWidget = () => {
   const [sessionId,          setSessionId]          = useState(null);
   const [uploadProgress,     setUploadProgress]     = useState(0);
   const [imagePreview,       setImagePreview]       = useState(null);
+  const [directVin,          setDirectVin]          = useState('');
+  const [isVinVerifying,     setIsVinVerifying]     = useState(false);
   const messagesEndRef    = useRef(null);
   const fileInputRef      = useRef(null);
   const verifyTimeoutRef  = useRef(null);
@@ -1033,6 +1035,42 @@ const ChatWidget = () => {
     } finally {
       if (progressInterval) { clearInterval(progressInterval); progressInterval = null; }
       setIsVerifying(false);
+    }
+  };
+
+  const verifyDirectVin = async (event) => {
+    event.preventDefault();
+    const vin = directVin.trim().replace(/[\s-]/g, '').toUpperCase();
+    if (!vin) {
+      setVerificationError('Saisissez votre VIN.');
+      return;
+    }
+
+    setIsVinVerifying(true);
+    setVerificationError('');
+    try {
+      const response = await fetch(`${config.apiUrl}/verification/vin`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ vin }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || 'VIN non reconnu.');
+      }
+
+      setVehicleInfo(data.vehicleInfo);
+      setDirectVin('');
+      const tid = setTimeout(() => {
+        setIsVerified(true);
+        setMessages((prev) => [...prev, { id: Date.now(), text: 'VEHICLE_INFO', vehicleData: data.vehicleInfo, sender: 'bot', timestamp: new Date() }]);
+      }, 500);
+      verifyTimeoutRef.current = tid;
+    } catch (error) {
+      console.error('VIN verification error:', error);
+      setVerificationError(error.message || 'Erreur de connexion. Veuillez réessayer.');
+    } finally {
+      setIsVinVerifying(false);
     }
   };
 
@@ -1176,17 +1214,17 @@ const ChatWidget = () => {
             <div className="vehicle-brand">
               <IoShieldCheckmark className="brand-icon" />
               <div>
-                <h3>SUZUKI {vehicleInfo.modele} {vehicleInfo.annee}</h3>
+                <h3>{['SUZUKI', vehicleInfo.modele, vehicleInfo.annee].filter(Boolean).join(' ')}</h3>
                 <p className="vehicle-model">{vehicleInfo.modele}</p>
               </div>
             </div>
             <div className="vehicle-details">
               <div className="vehicle-table">
                 {[
-                  [<MdDirectionsCar className="table-icon"/>, 'Immatriculation', vehicleInfo.immatriculation],
+                  ...(vehicleInfo.immatriculation ? [[<MdDirectionsCar className="table-icon"/>, 'Immatriculation', vehicleInfo.immatriculation]] : []),
                   [<MdBusiness      className="table-icon"/>, 'Marque',          vehicleInfo.marque],
                   [<MdCarRepair     className="table-icon"/>, 'Modèle',          vehicleInfo.modele],
-                  [<MdCalendarToday className="table-icon"/>, 'Année',           vehicleInfo.annee],
+                  ...(vehicleInfo.annee ? [[<MdCalendarToday className="table-icon"/>, 'Année', vehicleInfo.annee]] : []),
                   ...(vehicleInfo.type ? [[<MdSettings    className="table-icon"/>, 'Type', vehicleInfo.type]]   : []),
                   ...(vehicleInfo.vin  ? [[<MdFingerprint className="table-icon"/>, 'VIN',  vehicleInfo.vin]]    : []),
                 ].map(([icon, label, value]) => (
@@ -1203,7 +1241,9 @@ const ChatWidget = () => {
             <p className="footer-subtitle">Demandez vos pièces de rechange en toute simplicité.</p>
             <button className="continue-btn" onClick={() => {
               setShowVehicleCard(false); setIsVerified(true);
-              setMessages((prev) => [...prev, { id: Date.now(), text: `Parfait ! Votre ${vehicleInfo.marque} ${vehicleInfo.modele} (${vehicleInfo.immatriculation}) est maintenant enregistré. Demandez-moi vos pièces de rechange !`, sender: 'bot', timestamp: new Date() }]);
+              const vehicleLabel = [vehicleInfo.marque, vehicleInfo.modele].filter(Boolean).join(' ');
+              const identifier = vehicleInfo.immatriculation || `VIN ${vehicleInfo.vin}`;
+              setMessages((prev) => [...prev, { id: Date.now(), text: `Parfait ! Votre ${vehicleLabel} (${identifier}) est maintenant enregistré. Demandez-moi vos pièces de rechange !`, sender: 'bot', timestamp: new Date() }]);
             }}>
               Continuer vers le chat
             </button>
@@ -1275,6 +1315,28 @@ const ChatWidget = () => {
                 </>
               )}
             </div>
+            <div className="vin-entry-divider"><span>ou</span></div>
+            <form className="vin-entry" onSubmit={verifyDirectVin}>
+              <label htmlFor="direct-vin">Saisissez directement votre VIN</label>
+              <div className="vin-entry-controls">
+                <MdFingerprint className="vin-entry-icon" aria-hidden="true" />
+                <input
+                  id="direct-vin"
+                  type="text"
+                  value={directVin}
+                  onChange={(e) => setDirectVin(e.target.value.toUpperCase())}
+                  placeholder="Ex. MA3..."
+                  maxLength={19}
+                  autoComplete="off"
+                  disabled={isVinVerifying || isVerifying}
+                  aria-label="VIN du véhicule"
+                />
+                <button type="submit" disabled={isVinVerifying || isVerifying || !directVin.trim()}>
+                  {isVinVerifying ? 'Vérification...' : 'Valider le VIN'}
+                </button>
+              </div>
+              <p>17 caractères alphanumériques</p>
+            </form>
             {verificationError && (
               <div className="error-message"><FiXCircle /><span>{verificationError}</span></div>
             )}
