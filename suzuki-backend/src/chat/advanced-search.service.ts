@@ -249,6 +249,22 @@ export class AdvancedSearchService implements OnModuleInit {
     );
   }
 
+  // ─── PUBLIC: refreshSynonymIndex ────────────────────────────────
+  // Re-pulls the in-memory synonym snapshot from SynonymsService and
+  // clears the fuzzy-match cache. onModuleInit() only ran once at
+  // boot, so this snapshot goes stale after SynonymsService.reload()
+  // is called (e.g. from the admin dashboard or /chat/synonyms/reload).
+  // Call this right after synonymsService.reload() to keep search
+  // results in sync with the synonyms table in real time.
+  refreshSynonymIndex(): void {
+    this.synonymsMap = this.synonymsService.getCategoryVariants();
+    this.normalizedSynonymLookup = this.synonymsService.getNormalizedLookup();
+    this.fuzzyMatchCache.clear();
+    this.logger.log(
+      `[AdvancedSearchService] Synonym index refreshed — ${Object.keys(this.synonymsMap).length} categories, ${Object.keys(this.normalizedSynonymLookup).length} normalized tokens`,
+    );
+  }
+
   // ─── PUBLIC: getDisplayName ─────────────────────────────────────
   // FIX-1: Always return French name (designation_2) when available
   getDisplayName(part: { designation: string; designation2?: string | null }): string {

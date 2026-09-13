@@ -9,6 +9,7 @@ import { StockModule } from './stock/stock.module';
 import { SynonymsModule } from './synonyms/synonyms.module';
 import { VehicleModelsModule } from './constants/vehicle-models.module';
 import { DebugModule } from './debug/debug.module';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { DebugModule } from './debug/debug.module';
     VerificationModule,
     StockModule,
     DebugModule, // @Global() — DebugService available everywhere
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [AppService],

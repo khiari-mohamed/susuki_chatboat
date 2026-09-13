@@ -38,6 +38,6 @@ import { StrictValidatorService } from './strict-validator.service';
     AIQueryNormalizerService,
     StrictValidatorService,
   ],
-  exports: [GeminiService, OpenAIService],
+  exports: [GeminiService, OpenAIService, AdvancedSearchService],
 })
 export class ChatModule {}

@@ -328,6 +328,11 @@ export class ChatController {
   async reloadSynonyms(): Promise<{ success: boolean; message: string; stats: any }> {
     try {
       await this.synonyms.reload();
+      // FIX: propagate the reload to AdvancedSearchService's in-memory
+      // snapshot too — it only reads SynonymsService once at boot
+      // (onModuleInit), so without this call search results stayed
+      // stale after any DB-level synonym change.
+      this.advancedSearch.refreshSynonymIndex();
       return {
         success: true,
         message: 'Synonym index reloaded from database',

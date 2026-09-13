@@ -312,3 +312,27 @@ model UploadTracking {
   @@index([userIp, uploadedAt])
   @@index([uploadedAt])
 }
+
+// ═══════════════════════════════════════════════════════════════════
+// ADMIN DASHBOARD — added for the CarPro data-management portal.
+// Independent of the chatbot's runtime data (parts/stock/fitment/...).
+// ═══════════════════════════════════════════════════════════════════
+enum AdminRole {
+  ADMIN
+  EDITOR
+}
+
+model AdminUser {
+  id           Int       @id @default(autoincrement())
+  email        String    @unique @db.VarChar(150)
+  passwordHash String    @map("password_hash") @db.VarChar(255)
+  name         String    @db.VarChar(100)
+  role         AdminRole @default(EDITOR)
+  isActive     Boolean   @default(true) @map("is_active")
+  lastLoginAt  DateTime? @map("last_login_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  @@map("admin_users")
+  @@index([email])
+}

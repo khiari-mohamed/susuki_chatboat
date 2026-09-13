@@ -1,0 +1,26 @@
+{
+  "name": "suzuki-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Portail admin CarPro — CRUD temps réel sur la base de données du chatbot Suzuki",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview --port 5173"
+  },
+  "dependencies": {
+    "axios": "^1.13.2",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-data-grid": "^7.0.0-beta.47",
+    "react-router-dom": "^6.28.0",
+    "recharts": "^2.15.0",
+    "socket.io-client": "^4.8.1"
+    
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "vite": "^6.0.7"
+  }
+}

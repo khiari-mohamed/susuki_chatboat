@@ -13,20 +13,38 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   
   // Global validation pipe
-  app.useGlobalPipes(new ValidationPipe());
+  // whitelist + transform are required for the admin dashboard DTOs
+  // (class-validator + class-transformer) to strip unknown fields and
+  // coerce query-string numbers/booleans. Existing controllers that use
+  // plain inline body types (no DTO class) are unaffected — Nest only
+  // validates parameters whose reflected type is an actual class.
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      transform: true,
+      forbidNonWhitelisted: true,
+      transformOptions: { enableImplicitConversion: true },
+    }),
+  );
   
   // Enable CORS with proper file upload support
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+  const dashboardUrl = process.env.DASHBOARD_URL || 'http://localhost:5173';
   const allowedOrigins = [
     frontendUrl,
+    dashboardUrl,
     'http://localhost:3000',
     'http://localhost:3001',
+    'http://localhost:5173',
     'http://5.199.136.2:3000'
   ];
   
   // Add production frontend if different from FRONTEND_URL
   if (process.env.NODE_ENV === 'production' && process.env.PRODUCTION_FRONTEND_URL) {
     allowedOrigins.push(process.env.PRODUCTION_FRONTEND_URL);
+  }
+  if (process.env.NODE_ENV === 'production' && process.env.PRODUCTION_DASHBOARD_URL) {
+    allowedOrigins.push(process.env.PRODUCTION_DASHBOARD_URL);
   }
   
   app.enableCors({
