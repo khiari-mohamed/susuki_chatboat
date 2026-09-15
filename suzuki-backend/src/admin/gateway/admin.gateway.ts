@@ -8,7 +8,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { Server, Socket } from 'socket.io';
 
-export type AdminCrudAction = 'created' | 'updated' | 'deleted';
+export type AdminCrudAction = 'created' | 'updated' | 'deleted' | 'bulk-deleted' | 'bulk-upserted';
 
 const allowedOrigins = (process.env.DASHBOARD_URL || 'http://localhost:5173')
   .split(',')
@@ -22,7 +22,7 @@ if (process.env.PRODUCTION_DASHBOARD_URL) {
   cors: { origin: allowedOrigins, credentials: true },
 })
 export class AdminGateway implements OnGatewayConnection, OnGatewayDisconnect {
-  @WebSocketServer() server: Server;
+  @WebSocketServer() server!: Server;
 
   private readonly logger = new Logger(AdminGateway.name);
   // socket.id -> { email, role } — kept for the "who's online" indicator.

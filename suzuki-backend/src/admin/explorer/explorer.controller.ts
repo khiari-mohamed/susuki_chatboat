@@ -1,4 +1,5 @@
-import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Query, Res, UseGuards } from '@nestjs/common';
+import type { Response } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -21,6 +22,16 @@ export class ExplorerController {
   @Get('tables')
   listTables() {
     return this.explorer.listTables();
+  }
+
+  @Get('export/all')
+  exportAll(@Query('search') search: string, @Query('limit') limit: string, @Query('offset') offset: string, @Res() res: Response) {
+    return this.explorer.exportAll(res, search, limit ? Number(limit) : undefined, offset ? Number(offset) : 0);
+  }
+
+  @Get('export/:table')
+  exportTable(@Param('table') table: string, @Query('search') search: string, @Query('limit') limit: string, @Query('offset') offset: string, @Res() res: Response) {
+    return this.explorer.exportTable(table, res, search, limit ? Number(limit) : undefined, offset ? Number(offset) : 0);
   }
 
   @Get('all')

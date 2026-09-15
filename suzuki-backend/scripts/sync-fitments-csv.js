@@ -2,18 +2,16 @@ const fs = require('fs');
 const path = require('path');
 const csv = require('csv-parser');
 const { PrismaClient } = require('@prisma/client');
+const { clean, normalizeTypeCode } = require('./lib/data-hygiene');
 
 const prisma = new PrismaClient();
 const csvPath = path.resolve(process.argv.find((arg) => arg.endsWith('.csv')) || 'C:/Users/LENOVO/Downloads/Model_Vehicule_Pieces_de_rechange.csv');
 const applyChanges = process.argv.includes('--apply');
 
-function clean(value) {
-  return value === undefined || value === null ? '' : String(value).replace(/^\uFEFF/, '').trim();
-}
-
-function normalizeCode(value) {
-  return clean(value).toUpperCase().replace(/\s+/g, '-').replace(/-TYPE-/g, '-TYPE');
-}
+// Was a locally-defined `normalizeCode` — now the shared
+// `normalizeTypeCode` from lib/data-hygiene.js, so the exact same
+// space→hyphen normalization rule is guaranteed to apply identically
+// here and in sync-vehicles-csv.js (both write to vehicle_type_master).
 
 function readCsv() {
   return new Promise((resolve, reject) => {
@@ -33,7 +31,7 @@ function readCsv() {
 function mapRows(rows) {
   return rows.map((row, index) => {
     const partReference = clean(row['N° article']).toUpperCase();
-    const typeCode = normalizeCode(row['Code externe']);
+    const typeCode = normalizeTypeCode(row['Code externe']);
     if (!partReference) throw new Error(`Missing part reference at CSV row ${index + 2}`);
     if (!typeCode) throw new Error(`Missing type code at CSV row ${index + 2}`);
     return { partReference, typeCode };

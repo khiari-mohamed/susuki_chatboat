@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { CacheModule } from './cache/cache.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ChatModule } from './chat/chat.module';
@@ -24,6 +25,7 @@ import { AdminModule } from './admin/admin.module';
         return config;
       },
     }),
+    CacheModule,           // @Global() — Redis cache with graceful fallback
     PrismaModule,          // @Global() — single Prisma connection pool for the whole app
     SynonymsModule,        // @Global() — SynonymsService available everywhere
     VehicleModelsModule,   // @Global() — VehicleModelsService available everywhere

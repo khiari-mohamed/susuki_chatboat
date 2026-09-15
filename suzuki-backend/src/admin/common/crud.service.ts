@@ -95,6 +95,28 @@ export class PrismaCrudService<T = Record<string, unknown>> {
     return this.delegate.update({ where: { id }, data, include: this.include });
   }
 
+  async bulkDelete(ids: number[]): Promise<{ count: number }> {
+    const result = await this.delegate.deleteMany({ where: { id: { in: ids } } });
+    return { count: result.count };
+  }
+
+  async bulkUpsert(rows: object[], uniqueKey: string): Promise<{ created: number; updated: number }> {
+    let created = 0, updated = 0;
+    for (const row of rows) {
+      const key = (row as any)[uniqueKey];
+      if (!key) continue;
+      const existing = await this.delegate.findFirst({ where: { [uniqueKey]: key } });
+      if (existing) {
+        await this.delegate.update({ where: { id: existing.id }, data: row });
+        updated++;
+      } else {
+        await this.delegate.create({ data: row });
+        created++;
+      }
+    }
+    return { created, updated };
+  }
+
   async remove(id: number): Promise<T> {
     await this.findById(id);
     return this.delegate.delete({ where: { id } });

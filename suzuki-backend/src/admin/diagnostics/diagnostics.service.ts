@@ -19,8 +19,6 @@ export class DiagnosticsService {
     try {
       return await delegate.count({ where: { [field]: null } });
     } catch (error: any) {
-      // Prisma rejects null filters on required fields (for example id).
-      // Such fields have zero null values by definition.
       if (error?.name === 'PrismaClientValidationError') return 0;
       throw error;
     }
@@ -216,9 +214,9 @@ export class DiagnosticsService {
       'error',
     );
 
-    // 6–7: real gaps — Vehicle.typeCode / Vehicle.modele are plain
-    // strings with NO enforced FK (see schema.prisma), so these two are
-    // genuinely likely to find real, previously-invisible data gaps.
+    // 6–7: real gaps — Vehicle.typeCode is a plain string with NO
+    // enforced FK (see schema.prisma), so this one is genuinely likely
+    // to find real, previously-invisible data gaps.
     await push(
       'vehicle_typecode_unknown',
       'Véhicules avec un type_code introuvable',
@@ -228,12 +226,34 @@ export class DiagnosticsService {
       'warning',
     );
 
+    // FIX 2026-09-13: this check used to compare vehicles.modele alone
+    // against vehicle_model_map.modele. But vehicle_model_map is
+    // deliberately fed from TWO different sources at two different
+    // granularities — a manual seed using short names ("BALENO",
+    // "SWIFT") and sync-vehicles-csv.js using long modele_description
+    // values ("NEW CELERIO POP 6AB") — and AdvancedSearchService's
+    // resolveVehicleScope() already queries BOTH fields (see
+    // src/chat/advanced-search.service.ts, "primaryCandidates" /
+    // "broadCandidates"). The old check therefore over-counted: a
+    // vehicle resolvable via modele_description looked "unresolved"
+    // just because its short modele had no match. This version checks
+    // both fields, and scopes to Suzuki only — a Peugeot or BMW with no
+    // Suzuki type_code mapping is correct behaviour, not a data gap.
     await push(
-      'vehicle_modele_without_map',
-      "Véhicules dont le modèle n'a pas de correspondance type_code",
-      "vehicles.modele absent de vehicle_model_map — pour ces véhicules, le chatbot ne peut pas retrouver les pièces compatibles via le chemin modele → vehicle_model_map → type_code → fitment.",
-      p.$queryRaw`SELECT COUNT(*)::int AS count FROM vehicles ve LEFT JOIN vehicle_model_map m ON ve.modele = m.modele WHERE ve.modele IS NOT NULL AND m.modele IS NULL`,
-      p.$queryRaw`SELECT DISTINCT ve.modele FROM vehicles ve LEFT JOIN vehicle_model_map m ON ve.modele = m.modele WHERE ve.modele IS NOT NULL AND m.modele IS NULL LIMIT 5`,
+      'vehicle_unresolvable_suzuki',
+      "Véhicules Suzuki réellement non résolvables (ni modèle ni description ne matchent)",
+      "vehicles.marque = 'SUZUKI' et ni modele ni modele_description ne trouvent de ligne dans vehicle_model_map — reproduit exactement la logique de resolveVehicleScope() du moteur de recherche, contrairement à l'ancien contrôle qui ne testait que modele.",
+      p.$queryRaw`
+        SELECT COUNT(*)::int AS count FROM vehicles ve
+        WHERE UPPER(ve.marque) = 'SUZUKI'
+          AND NOT EXISTS (SELECT 1 FROM vehicle_model_map m WHERE UPPER(m.modele) = UPPER(ve.modele))
+          AND NOT EXISTS (SELECT 1 FROM vehicle_model_map m WHERE UPPER(m.modele) = UPPER(ve.modele_description))`,
+      p.$queryRaw`
+        SELECT DISTINCT ve.modele, ve.modele_description FROM vehicles ve
+        WHERE UPPER(ve.marque) = 'SUZUKI'
+          AND NOT EXISTS (SELECT 1 FROM vehicle_model_map m WHERE UPPER(m.modele) = UPPER(ve.modele))
+          AND NOT EXISTS (SELECT 1 FROM vehicle_model_map m WHERE UPPER(m.modele) = UPPER(ve.modele_description))
+        LIMIT 8`,
       'warning',
     );
 
@@ -301,6 +321,32 @@ export class DiagnosticsService {
       'parts où designation_2 ET search_description sont tous les deux vides — le chatbot retombe alors uniquement sur la désignation anglaise brute.',
       p.$queryRaw`SELECT COUNT(*)::int AS count FROM parts WHERE (designation_2 IS NULL OR designation_2 = '') AND (search_description IS NULL OR search_description = '')`,
       p.$queryRaw`SELECT reference, designation FROM parts WHERE (designation_2 IS NULL OR designation_2 = '') AND (search_description IS NULL OR search_description = '') LIMIT 5`,
+      'warning',
+    );
+
+    // 16: source-confirmed data-quality issue — 109 duplicate VINs were
+    // found directly in CarPro's own raw CSV export (2026-09-13 audit),
+    // so this is not an artifact of our import — it's upstream.
+    await push(
+      'duplicate_vin',
+      'VIN dupliqués',
+      "Un même VIN attribué à plusieurs véhicules (vehicle_no différents) — confirmé présent directement dans l'export CarPro brut, donc un problème côté source, pas côté import.",
+      p.$queryRaw`SELECT COUNT(*)::int AS count FROM (SELECT vin FROM vehicles WHERE vin IS NOT NULL GROUP BY vin HAVING COUNT(*) > 1) d`,
+      p.$queryRaw`SELECT vin, ARRAY_AGG(vehicle_no) AS vehicle_numbers FROM vehicles WHERE vin IS NOT NULL GROUP BY vin HAVING COUNT(*) > 1 ORDER BY COUNT(*) DESC LIMIT 5`,
+      'warning',
+    );
+
+    // 17: pollution from placeholder/artifact text ("NAN", "N/A", ...).
+    // Root-caused 2026-09-13: an old sync-vehicles-csv.js fallback bug
+    // could never overwrite these once introduced by an earlier import
+    // (fixed — see lib/data-hygiene.js cleanOrNull()). Existing rows
+    // need the one-time manual cleanup in scripts/cleanup-junk-values.sql.
+    await push(
+      'junk_placeholder_values',
+      'Valeurs artefact ("NAN", "N/A"...) au lieu de NULL',
+      'vehicles.marque contenant une valeur de type placeholder Excel/export au lieu de NULL — voir scripts/cleanup-junk-values.sql pour le correctif (non exécuté automatiquement).',
+      p.$queryRaw`SELECT COUNT(*)::int AS count FROM vehicles WHERE UPPER(TRIM(marque)) IN ('NAN','N/A','NA','NULL','NONE','-','--','#N/A','UNDEFINED','#REF!','#VALUE!')`,
+      p.$queryRaw`SELECT marque, COUNT(*)::int AS count FROM vehicles WHERE UPPER(TRIM(marque)) IN ('NAN','N/A','NA','NULL','NONE','-','--','#N/A','UNDEFINED','#REF!','#VALUE!') GROUP BY marque`,
       'warning',
     );
 

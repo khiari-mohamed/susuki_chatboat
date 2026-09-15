@@ -1,4 +1,4 @@
-import { Delete, Get, Param, ParseIntPipe, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Post, Query } from '@nestjs/common';
 import { PrismaCrudService, ListResult } from './crud.service';
 import { AdminQueryDto } from './admin-query.dto';
 import { AdminGateway } from '../gateway/admin.gateway';
@@ -44,6 +44,22 @@ export abstract class AdminCrudController<T = Record<string, unknown>> {
 
   // Deletion is ADMIN-only — an EDITOR can add/correct catalog data but
   // can't remove rows outright (matches how the CarPro team works today).
+  @Delete()
+  @Roles('ADMIN')
+  async bulkDelete(@Body() body: { ids: number[] }): Promise<{ count: number }> {
+    const result = await this.service.bulkDelete(body.ids);
+    this.gateway.broadcast(this.tableName, 'bulk-deleted', { ids: body.ids });
+    return result;
+  }
+
+  @Post('bulk-upsert')
+  @Roles('ADMIN', 'EDITOR')
+  async bulkUpsert(@Body() body: { rows: object[]; uniqueKey: string }): Promise<{ created: number; updated: number }> {
+    const result = await this.service.bulkUpsert(body.rows, body.uniqueKey);
+    this.gateway.broadcast(this.tableName, 'bulk-upserted', {});
+    return result;
+  }
+
   @Delete(':id')
   @Roles('ADMIN')
   async remove(@Param('id', ParseIntPipe) id: number): Promise<T> {

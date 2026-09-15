@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { IsIn, IsInt, IsOptional, IsString, Min } from 'class-validator';
 
 export class AdminQueryDto {
   @IsOptional()
@@ -14,7 +14,6 @@ export class AdminQueryDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  @Max(500)
   pageSize: number = 100;
 
   @IsOptional()

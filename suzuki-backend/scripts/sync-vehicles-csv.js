@@ -2,22 +2,18 @@ const fs = require('fs');
 const path = require('path');
 const csv = require('csv-parser');
 const { PrismaClient } = require('@prisma/client');
+const { clean, cleanOrNull, normalizeTypeCode, preferNewOrExisting, JUNK_VALUES } = require('./lib/data-hygiene');
 
 const prisma = new PrismaClient();
 const csvPath = path.resolve(process.argv.find((arg) => arg.endsWith('.csv')) || 'C:/Users/LENOVO/Downloads/Base_vehicule_080926.csv');
 const applyChanges = process.argv.includes('--apply');
 
-function clean(value) {
-  return value === undefined || value === null ? '' : String(value).replace(/^\uFEFF/, '').trim();
-}
-
-function normalizeTypeCode(value) {
-  const code = clean(value).toUpperCase();
-  if (!code) return null;
-  return code
-    .replace(/\s+/g, '-')
-    .replace(/-TYPE-/g, '-TYPE');
-}
+// Every field that can legitimately change on re-sync AND must fall
+// back to the existing DB value when the new CSV cell is blank. Fixed
+// 2026-09-13: `typeCode` and `immatriculation` used to be excluded
+// from this list, so a CSV export with those columns blank for a
+// given row would silently erase a previously-known-good value.
+const MUTABLE_FIELDS = ['vin', 'marque', 'modele', 'modeleDescription', 'immatriculation', 'typeCode'];
 
 function readCsv() {
   return new Promise((resolve, reject) => {
@@ -29,21 +25,22 @@ function readCsv() {
     fs.createReadStream(csvPath)
       .pipe(csv({ mapHeaders: ({ header }) => clean(header) }))
       .on('data', (row) => rows.push(row))
-      .on('end', () => resolve(rows))
-      .on('error', reject);
+      .on('error', reject)
+      .on('end', () => resolve(rows));
   });
 }
 
 function mapRow(row) {
   const vehicleNo = clean(row['N° de série']).toUpperCase();
   if (!vehicleNo) throw new Error('Vehicle row has no N° de série');
+
   return {
     vehicleNo,
-    vin: clean(row.VIN) || null,
-    marque: clean(row['Code marque']) || null,
-    modele: clean(row['Code modèle']) || null,
-    modeleDescription: clean(row['N° modèle version']) || null,
-    immatriculation: clean(row['N° Immatriculation']) || null,
+    vin: cleanOrNull(row.VIN),
+    marque: cleanOrNull(row['Code marque']),
+    modele: cleanOrNull(row['Code modèle']),
+    modeleDescription: cleanOrNull(row['N° modèle version']),
+    immatriculation: cleanOrNull(row['N° Immatriculation']),
     typeCode: normalizeTypeCode(row['Vehicle Type']),
   };
 }
@@ -70,6 +67,22 @@ async function main() {
     vehicleNos.add(row.vehicleNo);
   }
 
+  // ── Business-rule / data-hygiene pre-flight (read-only) ──────────
+  const vinCounts = new Map();
+  for (const row of mappedRows) {
+    if (!row.vin) continue;
+    vinCounts.set(row.vin, (vinCounts.get(row.vin) || 0) + 1);
+  }
+  const duplicateVinsInCsv = [...vinCounts.entries()].filter(([, count]) => count > 1);
+
+  let junkValuesRejected = 0;
+  for (const row of rows) {
+    for (const col of ['VIN', 'Code marque', 'Code modèle', 'N° modèle version', 'N° Immatriculation']) {
+      const raw = clean(row[col]);
+      if (raw && !cleanOrNull(row[col])) junkValuesRejected++;
+    }
+  }
+
   const vehicleList = [...vehicleNos];
   const typeCodes = [...new Set(mappedRows.map((row) => row.typeCode).filter(Boolean))];
   const modelMapPairs = [...new Map(
@@ -81,12 +94,23 @@ async function main() {
       }]),
   ).values()];
 
-  const [existingVehicles, existingTypes, existingModelMaps] = await Promise.all([
+  const [existingVehicles, existingTypes, existingModelMaps, dbVehiclesNotInCsv, existingJunkMarque] = await Promise.all([
     prisma.vehicle.findMany({ where: { vehicleNo: { in: vehicleList } } }),
     prisma.vehicleTypeMaster.findMany({ where: { typeCode: { in: typeCodes } } }),
     prisma.vehicleModelMap.findMany({
       where: { OR: modelMapPairs.map((pair) => ({ modele: pair.modele, typeCode: pair.typeCode })) },
     }),
+    // Read-only visibility: vehicles this CSV export doesn't mention at
+    // all (retired from CarPro's fleet export, or a stale/partial CSV).
+    // Nothing is deleted for this — upserts never remove rows — but
+    // worth knowing before treating "the CSV" as the full picture.
+    prisma.vehicle.count({ where: { vehicleNo: { notIn: vehicleList } } }),
+    // Pre-existing junk already in the DB from past imports, which this
+    // sync's new fallback logic will now correctly LEAVE UNTOUCHED if
+    // the CSV cell is blank for that vehicle (blank ≠ "fix it for me").
+    // Cleaning these up is a deliberate, separate, reviewed action —
+    // see scripts/cleanup-junk-values.sql.
+    prisma.vehicle.count({ where: { marque: { in: [...JUNK_VALUES] } } }),
   ]);
 
   const vehiclesByNo = new Map(existingVehicles.map((vehicle) => [vehicle.vehicleNo.toUpperCase(), vehicle]));
@@ -106,25 +130,50 @@ async function main() {
     missingVin: mappedRows.filter((row) => !row.vin).length,
     missingModel: mappedRows.filter((row) => !row.modele).length,
     missingVersion: mappedRows.filter((row) => !row.modeleDescription).length,
+    missingTypeCode: mappedRows.filter((row) => !row.typeCode).length,
+    // ── new, actionable visibility ──
+    duplicateVinsInCsv: duplicateVinsInCsv.length,
+    duplicateVinSamples: duplicateVinsInCsv.slice(0, 5).map(([vin, count]) => ({ vin, count })),
+    junkValuesRejectedThisRun: junkValuesRejected,
+    dbVehiclesNotMentionedInThisCsv: dbVehiclesNotInCsv,
+    dbVehiclesWithPreExistingJunkMarque: existingJunkMarque,
+    fieldsThatWouldHaveBeenErasedByTheOldBug: 0,
   };
 
   const changedVehicles = [];
+  const fieldChangeExamples = [];
   for (const row of mappedRows) {
     const existing = vehiclesByNo.get(row.vehicleNo);
-    const merged = {
-      ...row,
-      vin: row.vin || existing?.vin || null,
-      marque: row.marque || existing?.marque || null,
-      modele: row.modele || existing?.modele || null,
-      modeleDescription: row.modeleDescription || existing?.modeleDescription || null,
-    };
-    if (!existing || ['vin', 'marque', 'modele', 'modeleDescription', 'immatriculation', 'typeCode']
-      .some((field) => (existing[field] ?? null) !== merged[field])) {
+    const merged = { vehicleNo: row.vehicleNo };
+    for (const field of MUTABLE_FIELDS) {
+      merged[field] = preferNewOrExisting(row[field], existing?.[field] ?? null);
+      // Would this row's field have gone from "has a value" to null
+      // under the OLD (buggy) logic that only protected vin/marque/
+      // modele/modeleDescription? Purely informational — the fix
+      // above already prevents it either way.
+      if (['typeCode', 'immatriculation'].includes(field) && !row[field] && existing?.[field]) {
+        summary.fieldsThatWouldHaveBeenErasedByTheOldBug++;
+      }
+    }
+
+    const changedFields = existing
+      ? MUTABLE_FIELDS.filter((field) => (existing[field] ?? null) !== merged[field])
+      : MUTABLE_FIELDS;
+    if (!existing || changedFields.length > 0) {
       summary.vehiclesChanged++;
-      if (existing) changedVehicles.push(existing);
+      if (existing) {
+        changedVehicles.push(existing);
+        if (fieldChangeExamples.length < 5) {
+          fieldChangeExamples.push({
+            vehicleNo: row.vehicleNo,
+            changed: Object.fromEntries(changedFields.map((f) => [f, { from: existing[f] ?? null, to: merged[f] }])),
+          });
+        }
+      }
     }
     row.merged = merged;
   }
+  summary.fieldChangeExamples = fieldChangeExamples;
 
   console.log(JSON.stringify({ csvPath, ...summary }, null, 2));
   if (!applyChanges) {

@@ -1,8 +1,36 @@
 import React, { useEffect, useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
+import {
+  LayoutDashboard, Package, Layers, Link2, Car, GitMerge, Cpu, BookOpen,
+  MessageSquare, Users, Database, BarChart2, LogOut, ChevronRight, Circle,
+} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { getSocket } from '../api/socket';
 import { ENTITIES, ENTITY_NAV_ORDER } from '../config/entities';
+
+const ENTITY_ICONS = {
+  parts: Package,
+  stock: Layers,
+  fitments: Link2,
+  vehicles: Car,
+  'vehicle-model-map': GitMerge,
+  'vehicle-types': Cpu,
+  'item-references': BookOpen,
+  synonyms: MessageSquare,
+};
+
+function NavItem({ to, icon: Icon, label, end = false }) {
+  return (
+    <NavLink
+      to={to}
+      end={end}
+      className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
+    >
+      <Icon size={15} strokeWidth={1.8} />
+      <span>{label}</span>
+    </NavLink>
+  );
+}
 
 export default function Layout() {
   const { user, logout } = useAuth();
@@ -11,70 +39,64 @@ export default function Layout() {
   useEffect(() => {
     const socket = getSocket();
     if (!socket) return;
-
-    function handlePresence(payload) {
-      setOnline(payload.online || []);
-    }
-    socket.on('presence', handlePresence);
-    return () => socket.off('presence', handlePresence);
+    const h = (p) => setOnline(p.online || []);
+    socket.on('presence', h);
+    return () => socket.off('presence', h);
   }, []);
 
   return (
     <div className="app-shell">
       <aside className="sidebar">
         <div className="sidebar-brand">
-          <span className="sidebar-logo">CarPro</span>
-          <span className="sidebar-brand-sub">Portail Admin Suzuki</span>
+          <div className="sidebar-logo-mark">CP</div>
+          <div>
+            <span className="sidebar-logo">CarPro</span>
+            <span className="sidebar-brand-sub">Portail Admin Suzuki</span>
+          </div>
         </div>
 
         <nav className="sidebar-nav">
-          <NavLink to="/" end className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}>
-            📊 Tableau de bord
-          </NavLink>
+          <NavItem to="/" icon={LayoutDashboard} label="Tableau de bord" end />
 
           <div className="nav-section-label">Catalogue</div>
-          {ENTITY_NAV_ORDER.map((key) => (
-            <NavLink
-              key={key}
-              to={`/data/${key}`}
-              className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}
-            >
-              {ENTITIES[key].label}
-            </NavLink>
-          ))}
+          {ENTITY_NAV_ORDER.map((key) => {
+            const Icon = ENTITY_ICONS[key] || Package;
+            return <NavItem key={key} to={`/data/${key}`} icon={Icon} label={ENTITIES[key].label} />;
+          })}
 
           {user?.role === 'ADMIN' && (
             <>
               <div className="nav-section-label">Administration</div>
-              <NavLink to="/users" className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}>
-                👤 Utilisateurs
-              </NavLink>
+              <NavItem to="/users" icon={Users} label="Utilisateurs" />
             </>
           )}
 
           <div className="nav-section-label">Base de données</div>
-          <NavLink to="/explorer" className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}>
-            🗄 Explorateur complet
-          </NavLink>
-          <NavLink to="/diagnostics" className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}>
-            📈 Diagnostics
-          </NavLink>
+          <NavItem to="/explorer" icon={Database} label="Explorateur" />
+          <NavItem to="/diagnostics" icon={BarChart2} label="Diagnostics" />
         </nav>
 
-        <div className="sidebar-presence">
-          <span className="presence-dot" />
-          {online.length} connecté{online.length > 1 ? 's' : ''}
+        <div className="sidebar-footer">
+          <div className="sidebar-presence">
+            <Circle size={8} fill="#22c55e" color="#22c55e" />
+            <span>{online.length} connecté{online.length > 1 ? 's' : ''}</span>
+          </div>
         </div>
       </aside>
 
       <div className="main-column">
         <header className="topbar">
-          <div />
+          <div className="topbar-breadcrumb">
+            <ChevronRight size={14} className="topbar-chevron" />
+          </div>
           <div className="topbar-user">
-            <span className="topbar-name">{user?.name}</span>
-            <span className={`role-badge role-${user?.role?.toLowerCase()}`}>{user?.role}</span>
-            <button className="btn-secondary" onClick={logout}>
-              Déconnexion
+            <div className="topbar-avatar">{user?.name?.[0]?.toUpperCase()}</div>
+            <div className="topbar-info">
+              <span className="topbar-name">{user?.name}</span>
+              <span className={`role-badge role-${user?.role?.toLowerCase()}`}>{user?.role}</span>
+            </div>
+            <button className="topbar-logout" onClick={logout} title="Déconnexion">
+              <LogOut size={15} />
             </button>
           </div>
         </header>

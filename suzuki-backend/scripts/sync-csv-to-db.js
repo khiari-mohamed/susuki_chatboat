@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const csv = require('csv-parser');
 const { PrismaClient } = require('@prisma/client');
+const { clean, cleanOrNull, canonicalize, numberOrNull } = require('./lib/data-hygiene');
 
 const prisma = new PrismaClient();
 const csvPath = path.resolve(process.argv.find((arg) => arg.endsWith('.csv')) || 'C:/Users/LENOVO/Downloads/Base_Articles_CPP_080926.csv');
@@ -19,18 +20,6 @@ const FIELD_MAP = {
   fabricant: 'Libellé fabricant',
   categorie: 'Catégorie Article',
 };
-
-function clean(value) {
-  return value === undefined || value === null ? '' : String(value).replace(/^\uFEFF/, '').trim();
-}
-
-function numberOrNull(value, field, reference) {
-  const cleaned = clean(value).replace(/\s/g, '').replace(',', '.');
-  if (!cleaned) return null;
-  const parsed = Number(cleaned);
-  if (!Number.isFinite(parsed)) throw new Error(`Invalid ${field} for ${reference}: ${value}`);
-  return parsed;
-}
 
 function csvReference(row) {
   return clean(row['N°'] || row['No'] || row.reference).toUpperCase();
@@ -59,23 +48,41 @@ function mapRow(row) {
 
   const stockConsolide = numberOrNull(row[FIELD_MAP.stockConsolide], 'Stock consolidé', reference);
   const stockDisponible = numberOrNull(row[FIELD_MAP.stockDisponible], 'Stock disponible', reference);
+  const prixHt = numberOrNull(row[FIELD_MAP.prixHt], 'Prix unitaire', reference);
+  const prixTtc = numberOrNull(row[FIELD_MAP.prixTtc], 'Prix unitaire TTC', reference);
 
   return {
     reference,
     part: {
       designation: designation || null,
-      designation2: clean(row[FIELD_MAP.designation2]) || null,
-      unite: clean(row[FIELD_MAP.unite]) || null,
-      prixHt: numberOrNull(row[FIELD_MAP.prixHt], 'Prix unitaire', reference),
-      prixTtc: numberOrNull(row[FIELD_MAP.prixTtc], 'Prix unitaire TTC', reference),
-      fabricant: clean(row[FIELD_MAP.fabricant]) || null,
-      categorie: clean(row[FIELD_MAP.categorie]) || null,
+      designation2: cleanOrNull(row[FIELD_MAP.designation2]),
+      unite: cleanOrNull(row[FIELD_MAP.unite]),
+      prixHt,
+      prixTtc,
+      // Business rule: catalogue-level lookup fields (categorie,
+      // fabricant) are canonicalized (upper-case, whitespace-collapsed)
+      // on the way in — this is what actually stops the "Filtre" /
+      // "filtre" / "FILTRE" duplicate-variant problem from growing:
+      // fixing it once in the DB doesn't help if every future sync
+      // reintroduces whatever casing CarPro's export happens to use.
+      fabricant: canonicalize(row[FIELD_MAP.fabricant]),
+      categorie: canonicalize(row[FIELD_MAP.categorie]),
     },
     stock: {
       totalQuantity: stockConsolide,
       stockDisponible,
       stockConsolide,
+      // Business rule (confirmed with client 2026-07-07): sellable
+      // only when stock_consolide > 2.
       statut: stockConsolide > 2 ? 'Disponible' : 'Indisponible',
+    },
+    // Pre-flight anomaly flags — never block the sync, always reported
+    // in the dry-run summary so a human decides what to do about them.
+    anomalies: {
+      priceTtcBelowHt: prixHt !== null && prixTtc !== null && prixTtc < prixHt,
+      negativePrice: (prixHt !== null && prixHt < 0) || (prixTtc !== null && prixTtc < 0),
+      negativeStock: [stockConsolide, stockDisponible].some((v) => v !== null && v < 0),
+      disponibleAboveConsolide: stockDisponible !== null && stockConsolide !== null && stockDisponible > stockConsolide,
     },
   };
 }
@@ -103,12 +110,22 @@ async function main() {
   }
 
   const referenceList = [...references];
-  const [existingParts, existingStocks] = await Promise.all([
+  const [existingParts, existingStocks, dbPartsNotInCsv] = await Promise.all([
     prisma.part.findMany({ where: { reference: { in: referenceList } } }),
     prisma.stock.findMany({ where: { reference: { in: referenceList } } }),
+    // Read-only visibility: parts sourced from this CSV pipeline
+    // (source='01_PROD') that this export no longer mentions at all —
+    // upserts never delete, so nothing is at risk, but a large number
+    // here means the CSV is a partial/filtered export, worth asking
+    // CarPro about before assuming "the CSV" is the full catalogue.
+    prisma.part.count({ where: { source: newPartSource, reference: { notIn: referenceList } } }),
   ]);
   const partsByReference = new Map(existingParts.map((part) => [part.reference.toUpperCase(), part]));
   const stocksByReference = new Map(existingStocks.map((stock) => [stock.reference.toUpperCase(), stock]));
+
+  const anomalyRows = mappedRows.filter((row) =>
+    Object.values(row.anomalies).some(Boolean),
+  );
 
   const summary = {
     mode: applyChanges ? 'APPLY' : 'DRY_RUN',
@@ -122,6 +139,17 @@ async function main() {
     stockAvailableAfterSync: mappedRows.filter((row) => row.stock.stockConsolide > 2).length,
     stockUnavailableAfterSync: mappedRows.filter((row) => row.stock.stockConsolide <= 2).length,
     designationFallbacks: 0,
+    // ── new, actionable visibility ──
+    dbPartsNotMentionedInThisCsv: dbPartsNotInCsv,
+    priceOrStockAnomalies: anomalyRows.length,
+    priceOrStockAnomalySamples: anomalyRows.slice(0, 10).map((row) => ({
+      reference: row.reference,
+      ...Object.fromEntries(Object.entries(row.anomalies).filter(([, v]) => v)),
+      prixHt: row.part.prixHt,
+      prixTtc: row.part.prixTtc,
+      stockDisponible: row.stock.stockDisponible,
+      stockConsolide: row.stock.stockConsolide,
+    })),
   };
 
   const changedPartSnapshots = [];
