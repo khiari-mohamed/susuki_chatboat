@@ -21,7 +21,14 @@ export class VerificationService {
       };
     }
 
-    const vehicle = await this.prisma.vehicle.findFirst({
+    // FIX 2026-09-13: same duplicate-VIN issue found in the other two
+    // VIN-lookup call sites (advanced-search.service.ts,
+    // search-validator.service.ts) — findFirst() with no orderBy was
+    // non-deterministic when a VIN matches more than one vehicle (109
+    // confirmed cases, source-data issue). Prefer the duplicate with a
+    // non-null modele (more useful to show the customer), else the
+    // most recently created row.
+    const vinMatches = await this.prisma.vehicle.findMany({
       where: { vin: { equals: vin, mode: 'insensitive' } },
       select: {
         vin: true,
@@ -31,7 +38,9 @@ export class VerificationService {
         modeleDescription: true,
         immatriculation: true,
       },
+      orderBy: { id: 'desc' },
     });
+    const vehicle = vinMatches.find((v) => v.modele) ?? vinMatches[0] ?? null;
 
     if (!vehicle) {
       return {

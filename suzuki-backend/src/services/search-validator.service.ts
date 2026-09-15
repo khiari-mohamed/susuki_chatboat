@@ -293,10 +293,15 @@ export class SearchValidatorService {
 
     let dbVehicle: any = null;
     if (vin) {
-      dbVehicle = await this.prisma.vehicle.findFirst({
+      // FIX 2026-09-13: same duplicate-VIN issue as advanced-search.service.ts
+      // — findFirst() with no orderBy was non-deterministic. Prefer the
+      // duplicate that has a typeCode set, else the most recent row.
+      const vinMatches = await this.prisma.vehicle.findMany({
         where: { vin: { equals: vin, mode: 'insensitive' } },
         select: { vin: true, vehicleNo: true, modele: true, modeleDescription: true, typeCode: true },
+        orderBy: { id: 'desc' },
       });
+      dbVehicle = vinMatches.find((v) => v.typeCode) ?? vinMatches[0] ?? null;
     }
     if (!dbVehicle && vehicleNo) {
       dbVehicle = await this.prisma.vehicle.findFirst({

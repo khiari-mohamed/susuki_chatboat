@@ -15,15 +15,6 @@ export interface IntegrityCheckResult {
 export class DiagnosticsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  private async countNullValues(delegate: any, field: string): Promise<number> {
-    try {
-      return await delegate.count({ where: { [field]: null } });
-    } catch (error: any) {
-      if (error?.name === 'PrismaClientValidationError') return 0;
-      throw error;
-    }
-  }
-
   // ─── Overview: row/column counts across every table ────────────
   async getOverview() {
     const tables = await Promise.all(
@@ -47,26 +38,6 @@ export class DiagnosticsService {
   // ─── Per-column profile for one table: fill rate, distinct count,
   // top values, min/max — the standard "data profiling" pass. ─────
   async getColumnProfile(key: string) {
-    if (key === 'all') {
-      const profiles = await Promise.all(EXPLORER_TABLES.map((table) => this.getSingleColumnProfile(table.key)));
-      return {
-        table: { key: 'all', label: 'toutes les tables' },
-        totalRows: profiles.reduce((sum, profile) => sum + (profile?.totalRows ?? 0), 0),
-        columns: profiles.flatMap((profile) =>
-          profile
-            ? profile.columns.map((column) => ({
-                ...column,
-                key: `${profile.table.key}.${column.key}`,
-              }))
-            : [],
-        ),
-      };
-    }
-
-    return this.getSingleColumnProfile(key);
-  }
-
-  private async getSingleColumnProfile(key: string) {
     const table = EXPLORER_TABLES.find((t) => t.key === key);
     if (!table) return null;
 
@@ -78,8 +49,6 @@ export class DiagnosticsService {
         const base: Record<string, unknown> = { key: col.key, type: col.type };
 
         if (col.type === 'string') {
-          // One groupBy gives us null/empty counts, distinct count, and
-          // the top values in a single round trip.
           const groups: any[] = await delegate.groupBy({
             by: [col.key],
             _count: { _all: true },
@@ -102,7 +71,7 @@ export class DiagnosticsService {
             .map((g) => ({ value: g[col.key], count: g._count._all }));
         } else if (col.type === 'number') {
           const [nullCount, agg] = await Promise.all([
-            this.countNullValues(delegate, col.key),
+            delegate.count({ where: { [col.key]: null } }),
             delegate.aggregate({ _min: { [col.key]: true }, _max: { [col.key]: true }, _avg: { [col.key]: true } }),
           ]);
           base.nullCount = nullCount;
@@ -112,7 +81,7 @@ export class DiagnosticsService {
           base.avg = agg._avg[col.key];
         } else if (col.type === 'datetime') {
           const [nullCount, agg] = await Promise.all([
-            this.countNullValues(delegate, col.key),
+            delegate.count({ where: { [col.key]: null } }),
             delegate.aggregate({ _min: { [col.key]: true }, _max: { [col.key]: true } }),
           ]);
           base.nullCount = nullCount;
@@ -124,7 +93,7 @@ export class DiagnosticsService {
           base.trueCount = trueCount;
           base.falseCount = totalRows - trueCount;
         } else if (col.type === 'json') {
-          const nullCount: number = await this.countNullValues(delegate, col.key);
+          const nullCount: number = await delegate.count({ where: { [col.key]: null } });
           base.nullCount = nullCount;
           base.filledPct = totalRows > 0 ? Math.round(((totalRows - nullCount) / totalRows) * 1000) / 10 : 0;
         }
@@ -137,10 +106,6 @@ export class DiagnosticsService {
   }
 
   // ─── Integrity & sanity checks ───────────────────────────────────
-  // Each check is a deliberate, named SQL query, not a generic scan —
-  // targeting the exact issues flagged in the CarPro report and the
-  // schema's own comments (type_code space/hyphen inconsistency,
-  // stock_disponible vs stock_consolide semantics, etc.).
   async getIntegrityChecks(): Promise<IntegrityCheckResult[]> {
     const checks: IntegrityCheckResult[] = [];
     const p = this.prisma;
@@ -232,13 +197,10 @@ export class DiagnosticsService {
     // granularities — a manual seed using short names ("BALENO",
     // "SWIFT") and sync-vehicles-csv.js using long modele_description
     // values ("NEW CELERIO POP 6AB") — and AdvancedSearchService's
-    // resolveVehicleScope() already queries BOTH fields (see
-    // src/chat/advanced-search.service.ts, "primaryCandidates" /
-    // "broadCandidates"). The old check therefore over-counted: a
-    // vehicle resolvable via modele_description looked "unresolved"
-    // just because its short modele had no match. This version checks
-    // both fields, and scopes to Suzuki only — a Peugeot or BMW with no
-    // Suzuki type_code mapping is correct behaviour, not a data gap.
+    // resolveVehicleScope() already queries BOTH fields. The old check
+    // therefore over-counted: a vehicle resolvable via modele_description
+    // looked "unresolved" just because its short modele had no match.
+    // This version checks both fields, and scopes to Suzuki only.
     await push(
       'vehicle_unresolvable_suzuki',
       "Véhicules Suzuki réellement non résolvables (ni modèle ni description ne matchent)",
@@ -306,15 +268,12 @@ export class DiagnosticsService {
       'error',
     );
 
-    // 12–14: normalization candidates — same real-world value written
-    // with different case/whitespace. This is exactly the kind of thing
-    // that should live in a lookup table instead of a free-text column.
+    // 12–14: normalization candidates.
     checks.push(await this.duplicateVariantsCheck('categorie', 'parts', 'Variantes de casse dans "catégorie"'));
     checks.push(await this.duplicateVariantsCheck('fabricant', 'parts', 'Variantes de casse dans "fabricant"'));
     checks.push(await this.duplicateVariantsCheck('unite', 'parts', 'Variantes de casse dans "unité"'));
 
-    // 15: rows with zero usable display text at all — worse than either
-    // gap alone (the dashboard home already tracks each gap separately).
+    // 15: rows with zero usable display text at all.
     await push(
       'parts_fully_blank_display',
       'Pièces sans aucun texte affichable',
@@ -325,8 +284,7 @@ export class DiagnosticsService {
     );
 
     // 16: source-confirmed data-quality issue — 109 duplicate VINs were
-    // found directly in CarPro's own raw CSV export (2026-09-13 audit),
-    // so this is not an artifact of our import — it's upstream.
+    // found directly in CarPro's own raw CSV export (2026-09-13 audit).
     await push(
       'duplicate_vin',
       'VIN dupliqués',
@@ -337,10 +295,6 @@ export class DiagnosticsService {
     );
 
     // 17: pollution from placeholder/artifact text ("NAN", "N/A", ...).
-    // Root-caused 2026-09-13: an old sync-vehicles-csv.js fallback bug
-    // could never overwrite these once introduced by an earlier import
-    // (fixed — see lib/data-hygiene.js cleanOrNull()). Existing rows
-    // need the one-time manual cleanup in scripts/cleanup-junk-values.sql.
     await push(
       'junk_placeholder_values',
       'Valeurs artefact ("NAN", "N/A"...) au lieu de NULL',
@@ -350,18 +304,47 @@ export class DiagnosticsService {
       'warning',
     );
 
+    // 18: "phantom" vehicle rows — a vehicle_no with literally every
+    // other field null. Found 2026-09-13 while reviewing a live sample
+    // export (16% of the 50 most-recently-added vehicles!).
+    await push(
+      'vehicle_phantom_rows',
+      'Véhicules "fantômes" (aucun champ rempli à part le n° de série)',
+      "vehicles où marque, modele, modele_description, vin, type_code ET l'immatriculation sont tous NULL — probablement une réservation de numéro de série avant import complet côté CarPro.",
+      p.$queryRaw`SELECT COUNT(*)::int AS count FROM vehicles WHERE marque IS NULL AND modele IS NULL AND modele_description IS NULL AND vin IS NULL AND type_code IS NULL AND statut IS NULL`,
+      p.$queryRaw`SELECT vehicle_no FROM vehicles WHERE marque IS NULL AND modele IS NULL AND modele_description IS NULL AND vin IS NULL AND type_code IS NULL AND statut IS NULL ORDER BY id DESC LIMIT 5`,
+      'warning',
+    );
+
+    // 19: ambiguous bridge rows — the same modele text resolving to more
+    // than one type_code.
+    await push(
+      'vehicle_model_map_ambiguous',
+      'Modèles ambigus dans vehicle_model_map (plusieurs type_code pour le même nom)',
+      'Un même texte de modèle pointe vers 2+ type_code différents — élargit la recherche du chatbot au lieu de la restreindre à un seul type_code pour ce modèle.',
+      p.$queryRaw`SELECT COUNT(*)::int AS count FROM (SELECT modele FROM vehicle_model_map GROUP BY modele HAVING COUNT(DISTINCT type_code) > 1) d`,
+      p.$queryRaw`SELECT modele, ARRAY_AGG(DISTINCT type_code) AS type_codes FROM vehicle_model_map GROUP BY modele HAVING COUNT(DISTINCT type_code) > 1 ORDER BY modele LIMIT 8`,
+      'warning',
+    );
+
+    // 20: data misplaced across columns — a marque value that's actually
+    // a known model name (e.g. "JIMNY" typed into Code marque).
+    await push(
+      'marque_looks_like_model',
+      'Valeur de marque qui ressemble à un nom de modèle',
+      "vehicles.marque correspond exactement à une valeur déjà vue dans vehicles.modele ailleurs dans la table — signale probablement une saisie dans la mauvaise colonne côté source.",
+      p.$queryRaw`SELECT COUNT(*)::int AS count FROM vehicles v WHERE v.marque IS NOT NULL AND EXISTS (SELECT 1 FROM vehicles v2 WHERE v2.modele IS NOT NULL AND UPPER(v2.modele) = UPPER(v.marque))`,
+      p.$queryRaw`SELECT DISTINCT vehicle_no, marque FROM vehicles v WHERE v.marque IS NOT NULL AND EXISTS (SELECT 1 FROM vehicles v2 WHERE v2.modele IS NOT NULL AND UPPER(v2.modele) = UPPER(v.marque)) LIMIT 5`,
+      'warning',
+    );
+
     return checks;
   }
 
   private async duplicateVariantsCheck(column: string, table: string, title: string): Promise<IntegrityCheckResult> {
     // $queryRawUnsafe is used here only because column/table names can't
-    // be parameterized in Prisma's tagged-template $queryRaw. This is
-    // safe: `column`/`table` are never derived from request input —
-    // every call site above passes a hardcoded literal ('categorie',
-    // 'parts', ...), never anything reachable from a client request.
-    //
-    // Groups by the normalized (lower+trim) value; a group with more
-    // than one distinct raw variant is a normalization candidate.
+    // be parameterized in Prisma's tagged-template $queryRaw. Safe:
+    // column/table are always hardcoded literals, never request input.
     const rows: Array<{ normalized: string; variants: string[]; total: number }> = await this.prisma.$queryRawUnsafe(
       `SELECT LOWER(TRIM(${column})) AS normalized, ARRAY_AGG(DISTINCT ${column}) AS variants, COUNT(*)::int AS total
        FROM ${table}

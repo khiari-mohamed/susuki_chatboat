@@ -350,7 +350,16 @@ export class AdvancedSearchService implements OnModuleInit {
 
     let dbVehicle: any = null;
     if (vin) {
-      dbVehicle = await this.prisma.vehicle.findFirst({
+      // FIX 2026-09-13: 109 confirmed duplicate VINs in the source data
+      // (two vehicle_no sharing the same VIN — confirmed present in
+      // CarPro's own raw export, not introduced by our import).
+      // findFirst() with no orderBy was non-deterministic about which
+      // duplicate it returned — could silently resolve the wrong
+      // modele/typeCode for that vehicle. Now: fetch every match and
+      // prefer the one that actually has a typeCode set (more useful
+      // for compatibility search), falling back to the most recently
+      // created row.
+      const vinMatches = await this.prisma.vehicle.findMany({
         where: { vin: { equals: vin, mode: 'insensitive' } },
         select: {
           vin: true,
@@ -359,7 +368,9 @@ export class AdvancedSearchService implements OnModuleInit {
           modeleDescription: true,
           typeCode: true,
         },
+        orderBy: { id: 'desc' },
       });
+      dbVehicle = vinMatches.find((v) => v.typeCode) ?? vinMatches[0] ?? null;
     }
     if (!dbVehicle && vehicleNo) {
       dbVehicle = await this.prisma.vehicle.findFirst({
@@ -451,6 +462,31 @@ export class AdvancedSearchService implements OnModuleInit {
       const modelValueVariants = Array.from(
         new Set(modelValues.flatMap((value) => this.generateModelVariants(value))),
       );
+
+      // FIX 2026-09-13: vehicle_type_master.modelName is unreliable for
+      // most rows — a live data sample showed it mirrors type_code
+      // itself ("A3K415-TYPE1" as its own "model name") rather than a
+      // real human-readable name, for roughly 86% of the table. That
+      // made the vehicleTypeMaster `contains` fallback below largely
+      // ineffective for anything but a code-shaped query.
+      // vehicle_model_map.modele has much richer data ("N SW GLX A
+      // SLDA", "CELERIO GL-POP", ...), so try a fuzzy (contains) pass
+      // against it too — same variant list, better-quality field —
+      // before falling through to vehicle_type_master. Gated on
+      // typeCodes still being empty so it never overrides a good exact
+      // match above; this only fires when the strict paths found
+      // nothing, exactly where a fuzzier net is safe to cast.
+      if (typeCodes.size === 0) {
+        const fuzzyModelMapRows = await this.prisma.vehicleModelMap.findMany({
+          where: {
+            OR: modelValueVariants.map((modele) => ({
+              modele: { contains: modele, mode: 'insensitive' },
+            })),
+          },
+          select: { typeCode: true },
+        });
+        fuzzyModelMapRows.forEach((row) => typeCodes.add(row.typeCode));
+      }
 
       const typeRows = await this.prisma.vehicleTypeMaster.findMany({
         where: {
