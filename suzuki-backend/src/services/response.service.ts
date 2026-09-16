@@ -195,7 +195,7 @@ export class ResponseService {
         const name = this.getDisplayName(anyProduct);
         return (
           `${name}${vehicleInfo}\n` +
-          `Statut: Disponible — prix non communiqué.\n\n` +
+          `Statut: Indisponible — prix non communiqué.\n\n` +
           `💡 Contactez CarPro au ☎️ 70 603 500 pour les délais et tarifs.`
         );
       }
@@ -278,7 +278,7 @@ export class ResponseService {
         const name   = this.getDisplayName(p);
         const price  = this.getPrice(p);
         const source = this.getSourceSuffix(p);
-        return `• ${name}${source} — ${price}`;
+        return `• ${name}${source} — ${price ?? 'prix non communiqué'}`;
       })
       .join('\n');
 

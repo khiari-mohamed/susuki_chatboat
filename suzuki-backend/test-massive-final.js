@@ -22,6 +22,8 @@ const TESTS = [
   { cat: 'Tricky', q: 'support amortisseur', expect: 'product', contains: 'SUPPORT' },
   { cat: 'Tricky', q: 'cache retroviseur', expect: 'product', contains: 'CACHE' },
   { cat: 'Tricky', q: 'clip plaquette', expect: 'product', contains: 'CLIP' },
+  { cat: 'Punctuation', q: 'support, pare-choc avant', expect: 'product', contains: 'SUPPORT' },
+  { cat: 'Punctuation', q: 'moulure-pare-choc avant', expect: 'product', contains: 'MOULURE' },
   
   // === POSITIONS ===
   { cat: 'Position', q: 'amortisseur av', expect: 'clarification', note: 'Needs G/D' },

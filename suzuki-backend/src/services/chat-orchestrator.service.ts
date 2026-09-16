@@ -10,6 +10,11 @@ import { AIQueryNormalizerService } from './ai-query-normalizer.service';
 import { AdvancedSearchService } from '../chat/advanced-search.service';
 import { VehicleModelsService } from '../constants/vehicle-models.service';
 import { StrictValidatorService } from '../chat/strict-validator.service';
+import {
+  ACCESSORY_KEYWORDS,
+  containsClassificationKeyword,
+  EXPLICIT_ACCESSORY_REQUEST_WORDS,
+} from '../constants/part-classification.constants';
 
 export interface ProcessMessageResponse {
   response: string;
@@ -641,32 +646,15 @@ export class ChatOrchestratorService {
   private filterAccessoriesIfNeeded(products: any[], query: string): any[] {
     const queryLower = query.toLowerCase();
 
-    const accessoryWords = [
-      'durite', 'tuyau', 'flexible', 'support', 'cache', 'kit', 'joint', 'bouchon', 'vis',
-      'boulon', 'ecrou', 'agrafe', 'agraffe', 'cercle', 'cable', 'câble', 'courroie', 'sangle',
-      'toc', 'bushing', 'silent', 'silentbloc', 'coupelle',
-      // BUGFIX: door/hood accessories that were ranking above the actual panel
-      'contacteur', 'loquet', 'serrure', 'charniere', 'montant', 'tiran', 'tirant', 'adhesif',
-      'chapeau', 'agrafe', 'tige', 'arret', 'switcher', 'reservoir',
-      // BUGFIX: radiateur accessories — prevent false side clarification on radiateur query
-      'traverse', 'tete', 'vase',
-      // BUGFIX: capot accessories — calle/cale capot must not outrank the actual capot panel
-      'calle', 'cale',
-      // BUGFIX: calandre accessories — chrome trim, isolant must not trigger type clarification
-      // NOTE: 'grille' removed — it is a synonym for calandre (main part), not an accessory
-      'chrome', 'isolant', 'sigle', 'monogramme',
-    ];
-    const explicitAccessoryWords = [
-      'support', 'joint', 'contacteur', 'loquet', 'serrure', 'charniere',
-      'charnière', 'agrafe', 'agraffe', 'agraphe', 'vis', 'boulon', 'ecrou',
-      'kit', 'sangle', 'cable', 'câble', 'toc', 'bushing', 'silentbloc',
-      // BUGFIX 2026-09-13: 'accessoire'/'accessoires' itself — if the
-      // customer explicitly asks for an accessory, don't filter it out.
-      'accessoire', 'accessoires',
-    ];
-    const userAskedForAccessory = explicitAccessoryWords.some((w) =>
-      new RegExp(`(^|\\s)${w}(\\s|$)`, 'i').test(queryLower),
-    );
+    // FIX 2026-09-15: both lists now come from the single shared
+    // constants file (see part-classification.constants.ts header for
+    // the data-driven rationale) instead of being maintained here
+    // independently — this is what let 'renfort'/'extension'/
+    // 'moulure'/'baguette'/'sabot'/'elargisseur'/'moustache'/'spoiler'
+    // fall through undetected in the reported bug.
+    const accessoryWords = ACCESSORY_KEYWORDS;
+    const explicitAccessoryWords = EXPLICIT_ACCESSORY_REQUEST_WORDS;
+    const userAskedForAccessory = explicitAccessoryWords.some((w) => containsClassificationKeyword(queryLower, w));
     const mainParts:   any[] = [];
     const accessories: any[] = [];
 
@@ -689,10 +677,7 @@ export class ChatOrchestratorService {
       const isTaggedAccessory = categorie === 'ACCESSOIRES';
 
       const combined = this.getCombinedText(p).toLowerCase();
-      const containsAccessoryWord = accessoryWords.some((w) => {
-        const regex = new RegExp(`(^|\\s)${w}(\\s|$)`, 'i');
-        return regex.test(combined);
-      });
+      const containsAccessoryWord = accessoryWords.some((w) => containsClassificationKeyword(combined, w));
 
       if (isTaggedAccessory || containsAccessoryWord) {
         accessories.push(p);

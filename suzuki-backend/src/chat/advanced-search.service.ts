@@ -3,6 +3,10 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
 import { SynonymsService } from '../synonyms/synonyms.service';
 import { VehicleModelsService } from '../constants/vehicle-models.service';
+import {
+  ACCESSORY_KEYWORDS,
+  MAIN_PART_KEYWORDS,
+} from '../constants/part-classification.constants';
 import axios from 'axios';
 
 interface PositionRequirements {
@@ -965,12 +969,13 @@ export class AdvancedSearchService implements OnModuleInit {
     const userTypedTokens = context.userTypedTokens;
 
     // ── Accessory / main part filtering ─────────────────────────
-    const accessoryWords = ['sangle', 'support', 'causse', 'clip', 'jeu', 'kit', 'ensemble', 'set',
-      'boitier', 'cache', 'couvercle', 'durite', 'tuyau', 'flexible', 'cable', 'câble',
-      'joint', 'bouchon', 'vis', 'boulon', 'ecrou', 'agrafe', 'agraffe', 'cercle'];
-    const mainPartWords = ['radiateur', 'moteur', 'alternateur', 'demarreur', 'batterie', 'phare',
-      'feu', 'porte', 'capot', 'aile', 'retroviseur', 'amortisseur', 'disque', 'plaquette',
-      'filtre', 'pompe', 'compresseur', 'etrier', 'tambour', 'volant', 'siege', 'tableau'];
+    // FIX 2026-09-15: now sourced from the single shared constants
+    // file (previously an independent, drifted-apart copy — see
+    // part-classification.constants.ts for the data-driven rationale
+    // and chat-orchestrator.service.ts for the authoritative
+    // post-search filter that uses the same list).
+    const accessoryWords = ACCESSORY_KEYWORDS;
+    const mainPartWords = MAIN_PART_KEYWORDS;
 
     const userAskedForAccessory = queryWords.some((qw) => accessoryWords.includes(qw));
     const userAskedForMainPart  = queryWords.some((qw) => mainPartWords.includes(qw));
