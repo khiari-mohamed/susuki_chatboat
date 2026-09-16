@@ -47,8 +47,15 @@ export class ResponseService {
   // FIX-2: Safe price formatter — handles string, number, or Decimal
   // ─────────────────────────────────────────────────────────────────
   private getPrice(p: any): string | null {
-    // Always show prix_ttc (TTC) — client-facing price includes all taxes
-    const raw = p.prixTtc ?? p.prix_ttc ?? p.prixHt ?? p.prix_ht ?? null;
+    // BUSINESS RULE (email CarPro 2026-09-13): "utilisation du prix
+    // public Car Pro et non du prix gros Car Pro Parts" — prix_ttc is
+    // the public/customer-facing price (all taxes included), prix_ht
+    // is the wholesale/pre-tax price. FIX: no longer falls back to
+    // prixHt when prixTtc is missing — showing the wholesale price to
+    // a customer would violate this rule even as a rare fallback (only
+    // ~5% of parts lack prix_ttc). Missing price now just shows no
+    // price rather than silently substituting the wrong one.
+    const raw = p.prixTtc ?? p.prix_ttc ?? null;
     if (raw == null) return null;
     const num = typeof raw === 'string' ? parseFloat(raw) : Number(raw);
     if (isNaN(num)) return null;
@@ -76,11 +83,16 @@ export class ResponseService {
   private isAvailable(p: any): boolean {
     const stock = p?.stock ?? {};
     const consolidated = stock.stockConsolide ?? stock.stock_consolide ?? p?.stockConsolide ?? p?.stock_consolide;
+    // BUSINESS RULE (email CarPro 2026-09-13): "Stock supérieur ou égal
+    // à 2" — was `> 2` (strict), corrected to `>= 2` to match exactly
+    // what was confirmed in writing. Fixed consistently everywhere this
+    // threshold appears (chat-orchestrator, search.service,
+    // advanced-search.service, chat.controller, here).
     if (consolidated !== undefined && consolidated !== null) {
-      return Number(consolidated) > 2;
+      return Number(consolidated) >= 2;
     }
     const fallbackQuantity = stock.totalQuantity ?? stock.total_quantity ?? p?.totalQuantity ?? p?.total_quantity ?? 0;
-    return Number(fallbackQuantity) > 2;
+    return Number(fallbackQuantity) >= 2;
   }
 
   selectPrimaryProduct(products: any[]): any | null {

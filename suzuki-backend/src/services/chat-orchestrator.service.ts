@@ -75,7 +75,7 @@ export class ChatOrchestratorService {
     );
 
     return {
-      statut: stockConsolide > 2 ? 'Disponible' : 'Indisponible',
+      statut: stockConsolide >= 2 ? 'Disponible' : 'Indisponible',
       totalQuantity,
       stockDisponible,
       stockConsolide,
@@ -656,6 +656,9 @@ export class ChatOrchestratorService {
       'support', 'joint', 'contacteur', 'loquet', 'serrure', 'charniere',
       'charnière', 'agrafe', 'agraffe', 'agraphe', 'vis', 'boulon', 'ecrou',
       'kit', 'sangle', 'cable', 'câble', 'toc', 'bushing', 'silentbloc',
+      // BUGFIX 2026-09-13: 'accessoire'/'accessoires' itself — if the
+      // customer explicitly asks for an accessory, don't filter it out.
+      'accessoire', 'accessoires',
     ];
     const userAskedForAccessory = explicitAccessoryWords.some((w) =>
       new RegExp(`(^|\\s)${w}(\\s|$)`, 'i').test(queryLower),
@@ -669,17 +672,35 @@ export class ChatOrchestratorService {
     const accessories: any[] = [];
 
     for (const p of products) {
-      // FIX-2: scan BOTH fields for accessory word detection
-      const combined = this.getCombinedText(p).toLowerCase();
+      // FIX 2026-09-13 (root cause of "pare-brise/pare-choc → returned
+      // an accessory" reports): this used to rely ONLY on the
+      // accessoryWords keyword list scanned against the designation
+      // text. That list has no way to catch something like "Accessoire
+      // pour pare-chocs" — none of its words appear in that text, so it
+      // sailed through as a "main part" for a bumper/windshield query.
+      // parts.categorie already has a dedicated 'ACCESSOIRES' value
+      // (confirmed in the live data) — checking it directly is the
+      // reliable, data-driven signal the keyword list was trying to
+      // approximate. Both signals are kept: categorie catches anything
+      // tagged as an accessory regardless of wording, the keyword list
+      // still catches consumables/hardware that aren't tagged
+      // 'ACCESSOIRES' in categorie but still aren't "the main part"
+      // (a bolt, a clip, a hose clamp, ...).
+      const categorie = String(p.categorie ?? '').trim().toUpperCase();
+      const isTaggedAccessory = categorie === 'ACCESSOIRES';
 
+      const combined = this.getCombinedText(p).toLowerCase();
       const containsAccessoryWord = accessoryWords.some((w) => {
         const regex = new RegExp(`(^|\\s)${w}(\\s|$)`, 'i');
         return regex.test(combined);
       });
 
-      if (containsAccessoryWord) {
+      if (isTaggedAccessory || containsAccessoryWord) {
         accessories.push(p);
-        this.logger.log(`[ACCESSORY-FILTER] Detected accessory: "${this.getEffectiveText(p)}"`);
+        this.logger.log(
+          `[ACCESSORY-FILTER] Detected accessory: "${this.getEffectiveText(p)}" ` +
+          `(categorie=${categorie || 'n/a'}, keyword=${containsAccessoryWord})`,
+        );
       } else {
         mainParts.push(p);
       }

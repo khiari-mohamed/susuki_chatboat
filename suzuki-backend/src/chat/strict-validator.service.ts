@@ -1,4 +1,3 @@
-
 import { Injectable, Logger } from '@nestjs/common';
 @Injectable()
 export class StrictValidatorService {
@@ -194,13 +193,37 @@ export class StrictValidatorService {
     return canonical[token] || token;
   }
   private extractMainPartType(tokens: string[]): string | null {
+    // FIX 2026-09-13 — root cause of the confirmed "pare-brise →
+    // pare-chocs" misidentification (CarPro test, atelier 08/09/2026):
+    // the generic scan below only recognized the bare root "pare",
+    // which hasPartType() then mapped ONLY to bumper synonyms — so ANY
+    // "pare-*" query (windshield, mud flap, sun visor...) matched
+    // bumper parts. "pare" alone is ambiguous in French (pare-brise /
+    // pare-choc / pare-boue / pare-soleil are completely different
+    // parts); only the compound word disambiguates it. This check MUST
+    // run before the generic single-token scan, on the ordered token
+    // list, so it can see "pare" followed by its actual suffix.
+    for (let i = 0; i < tokens.length - 1; i++) {
+      if (tokens[i] !== 'pare') continue;
+      const next = tokens[i + 1];
+      if (next === 'brise') return 'pare_brise';
+      if (next === 'choc' || next === 'chocs') return 'pare_choc';
+      if (next === 'boue') return 'pare_boue';
+      if (next === 'soleil') return 'pare_soleil';
+    }
+
     const partTypes = [
       'amortisseur', 'plaquette', 'disque', 'filtre', 'phare', 'batterie', 'courroie', 'bougie',
       'retroviseur', 'feu', 'optique', 'optic', 'clignotant', 'aile', 'capot', 'porte', 'radiateur',
       'durite', 'alternateur', 'demarreur', 'capteur', 'embrayage', 'rotule', 'triangle', 'bras',
       'tambour', 'etrier', 'maitre', 'cylindre', 'pompe', 'injecteur', 'tapis', 'boulon',
       'culasse', 'ressort', 'stabilisatrice', 'bobine', 'tendeur', 'cardan', 'silencieux',
-      'distribution', 'thermostat', 'echappement', 'catalyseur', 'vitre', 'lunette', 'pare',
+      'distribution', 'thermostat', 'echappement', 'catalyseur', 'vitre', 'lunette',
+      // FIX 2026-09-13: bare 'pare' removed from this generic list.
+      // It's now ONLY reachable through the compound detection above,
+      // which requires a real "pare-X" suffix to resolve to a specific
+      // part type — a lone "pare" with no recognized suffix no longer
+      // silently falls back to bumper.
       'calandre', 'serrure', 'charniere', 'roulement', 'malle', 'longeron', 'traverse',
       'condenseur', 'compresseur', 'vilebrequin', 'piston', 'segment', 'bielle', 'soupape',
       'volant', 'cremaillere', 'rotule', 'biellette', 'moyeu', 'differentiel', 'cardan',
@@ -272,7 +295,18 @@ export class StrictValidatorService {
                        'panel assy back door', 'front door', 'rear door'],
       vitre:          ['glass', 'glace', 'window', 'windshield', 'rear window'],
       lunette:        ['rear window', 'glass back', 'glass rear'],
-      pare:           ['bumper', 'bumper front', 'bumper rear', 'pare choc'],
+      // FIX 2026-09-13: the old bare 'pare' → bumper-only mapping is
+      // removed. It's replaced by the 4 real compound part types below,
+      // now produced by extractMainPartType()'s compound detection.
+      // Each keeps both English OEM wording and French compound
+      // wording — the multi-word synonym matching below
+      // (synWords.every(...)) checks that both halves appear somewhere
+      // in the candidate's designation, so "PARE BRISE AVANT" in
+      // designation_2 matches too.
+      pare_choc:      ['bumper', 'bumper front', 'bumper rear', 'pare choc'],
+      pare_brise:     ['windshield', 'windscreen', 'wind shield', 'pare brise', 'glace avant', 'vitre avant'],
+      pare_boue:      ['mud flap', 'mudguard', 'garde boue', 'pare boue', 'splash guard'],
+      pare_soleil:    ['sun visor', 'visor', 'pare soleil'],
       calandre:       ['grille', 'radiator grille', 'front grille'],
       malle:          ['back door', 'panel back', 'trunk', 'tailgate'],
       serrure:        ['lock', 'latch', 'lock set', 'latch assy'],
