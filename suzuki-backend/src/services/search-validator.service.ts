@@ -484,7 +484,7 @@ export class SearchValidatorService {
           ORDER BY
             -- Prefer French field match for ranking
             CASE WHEN p.designation_2 ILIKE ${`%${normalized}%`} THEN 0 ELSE 1 END,
-            CASE WHEN COALESCE(s.stock_consolide, s.total_quantity, 0) > 2 THEN 0 ELSE 1 END
+            CASE WHEN COALESCE(s.stock_consolide, 0) >= 2 THEN 0 ELSE 1 END
           LIMIT 100
         `;
       } catch (queryError) {

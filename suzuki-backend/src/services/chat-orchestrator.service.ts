@@ -71,7 +71,7 @@ export class ChatOrchestratorService {
     const totalQuantity = Number(stock?.totalQuantity ?? stock?.total_quantity ?? 0);
     const stockDisponible = Number(stock?.stockDisponible ?? stock?.stock_disponible ?? 0);
     const stockConsolide = Number(
-      stock?.stockConsolide ?? stock?.stock_consolide ?? totalQuantity,
+      stock?.stockConsolide ?? stock?.stock_consolide ?? 0,
     );
 
     return {
@@ -487,13 +487,17 @@ export class ChatOrchestratorService {
 
       if (stockProducts.length > 0) {
         const available   = stockProducts.filter(
-          (p) => Number(p.stock?.stockConsolide ?? p.stock?.stock_consolide ?? p.stock?.totalQuantity ?? 0) > 2 || p.available,
+          (p) => Number(p.stock?.stockConsolide ?? p.stock?.stock_consolide ?? 0) >= 2,
         );
         const vehicleInfo = vehicle?.modele ? ` pour votre ${vehicle.marque} ${vehicle.modele}` : '';
         // FIX-1: use French name in stock response
         const response    = available.length > 0
           ? `Oui, ${context.lastPart} est disponible${vehicleInfo}.\n\nPRODUITS DISPONIBLES:\n${
-              available.slice(0, 1).map((p) => `• ${this.getEffectiveText(p)} — ${p.prixHt} TND`).join('\n')
+              available.slice(0, 1).map((p) => {
+                const publicPrice = p.prixTtc ?? p.prix_ttc;
+                const priceLine = publicPrice != null ? ` — ${publicPrice} TND` : ' — prix non communiqué';
+                return `• ${this.getEffectiveText(p)}${priceLine}`;
+              }).join('\n')
             }\n\nContactez CarPro au ☎️ 70 603 500 pour réserver.`
           : `Désolé, ${context.lastPart} n'est pas disponible actuellement${vehicleInfo}. Contactez CarPro au ☎️ 70 603 500.`;
         await this.sessionService.saveBotResponse(session.id, response, { intent: 'STOCK_CHECK' });
@@ -663,11 +667,6 @@ export class ChatOrchestratorService {
     const userAskedForAccessory = explicitAccessoryWords.some((w) =>
       new RegExp(`(^|\\s)${w}(\\s|$)`, 'i').test(queryLower),
     );
-    if (userAskedForAccessory) {
-      this.logger.log(`[ACCESSORY-FILTER] User asked for accessory — returning all ${products.length}`);
-      return products;
-    }
-
     const mainParts:   any[] = [];
     const accessories: any[] = [];
 
@@ -704,6 +703,11 @@ export class ChatOrchestratorService {
       } else {
         mainParts.push(p);
       }
+    }
+
+    if (userAskedForAccessory) {
+      this.logger.log(`[ACCESSORY-FILTER] User asked for accessory — returning ${accessories.length} accessories`);
+      return accessories;
     }
 
     if (mainParts.length > 0) {

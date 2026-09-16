@@ -253,7 +253,7 @@ export class StockService {
   }
 
   private resolveAvailabilityStatus(stock: any): 'Disponible' | 'Indisponible' {
-    const consolidated = Number(stock?.stockConsolide ?? stock?.stock_consolide ?? stock?.totalQuantity ?? 0);
-    return consolidated > 2 ? 'Disponible' : 'Indisponible';
+    const consolidated = Number(stock?.stockConsolide ?? stock?.stock_consolide ?? 0);
+    return consolidated >= 2 ? 'Disponible' : 'Indisponible';
   }
 }

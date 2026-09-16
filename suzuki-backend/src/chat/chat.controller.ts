@@ -375,11 +375,11 @@ export class ChatController {
     const totalQuantity = Number(stock?.totalQuantity ?? stock?.total_quantity ?? 0);
     const stockDisponible = Number(stock?.stockDisponible ?? stock?.stock_disponible ?? 0);
     const stockConsolide = Number(
-      stock?.stockConsolide ?? stock?.stock_consolide ?? totalQuantity,
+      stock?.stockConsolide ?? stock?.stock_consolide ?? 0,
     );
 
     return {
-      statut: stockConsolide > 2 ? 'Disponible' : 'Indisponible',
+      statut: stockConsolide >= 2 ? 'Disponible' : 'Indisponible',
       totalQuantity,
       stockDisponible,
       stockConsolide,

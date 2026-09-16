@@ -85,7 +85,7 @@ const PART_COLUMNS: { column: string; usedInSearch: boolean; note: string }[] = 
 
 const STOCK_COLUMNS: { column: string; usedInSearch: boolean; note: string }[] = [
   { column: 'stock_disponible', usedInSearch: false, note: 'Stock disponible source CarPro - informatif, ne determine pas seul la disponibilite client' },
-  { column: 'stock_consolide',  usedInSearch: true,  note: 'Stock consolide source CarPro - disponible client uniquement si strictement superieur a 2' },
+  { column: 'stock_consolide',  usedInSearch: true,  note: 'Stock consolide source CarPro - disponible client uniquement si superieur ou egal a 2' },
   { column: 'reference',      usedInSearch: true,  note: 'Clé de jointure vers la table parts' },
   // FIX: previously said total_quantity "sert aussi au tri (les pièces
   // disponibles sont légèrement priorisées)". That's only true when
@@ -94,7 +94,7 @@ const STOCK_COLUMNS: { column: string; usedInSearch: boolean; note: string }[] =
   // for virtually every row (see claims checklist), total_quantity has
   // no real effect on sort/availability in practice today.
   { column: 'total_quantity', usedInSearch: false, note: 'Quantité en stock — affichée au client uniquement ; utilisée en repli seulement si stock_consolide est NULL (cas rare, voir "Stock consolidé" dans la checklist ci-dessous)' },
-  { column: 'statut',         usedInSearch: false, note: 'Statut historique affiché seulement; la disponibilité client est recalculée avec stock_consolide > 2' },
+  { column: 'statut',         usedInSearch: false, note: 'Statut historique affiché seulement; la disponibilité client est recalculée avec stock_consolide >= 2' },
 ];
 
 const FITMENT_COLUMNS: { column: string; usedInSearch: boolean; note: string }[] = [
@@ -161,7 +161,7 @@ export class DebugService {
         COUNT(*) FILTER (WHERE reference IS NOT NULL AND reference <> '')::int AS reference_filled,
         COUNT(*) FILTER (WHERE stock_disponible IS NOT NULL)::int            AS stock_disponible_filled,
         COUNT(*) FILTER (WHERE stock_consolide IS NOT NULL)::int             AS stock_consolide_filled,
-        COUNT(*) FILTER (WHERE stock_consolide > 2)::int                     AS stock_consolide_available_count,
+        COUNT(*) FILTER (WHERE stock_consolide >= 2)::int                    AS stock_consolide_available_count,
         COUNT(*) FILTER (WHERE total_quantity IS NOT NULL)::int              AS total_quantity_filled,
         COUNT(*) FILTER (WHERE statut IS NOT NULL AND statut <> '')::int     AS statut_filled,
         COUNT(*) FILTER (WHERE statut = 'Disponible')::int                  AS disponible_count,
@@ -377,9 +377,9 @@ export class DebugService {
     });
 
     claims.push({
-      claim: 'Disponibilite client calculee avec stock_consolide > 2',
+      claim: 'Disponibilite client calculee avec stock_consolide >= 2',
       status: input.stockConsolideAvailable > 0 ? 'ok' : 'warning',
-      detail: `${input.stockConsolideAvailable} ligne(s) ont stock_consolide > 2 et doivent etre considerees disponibles.`,
+      detail: `${input.stockConsolideAvailable} ligne(s) ont stock_consolide >= 2 et doivent etre considerees disponibles.`,
     });
 
     claims.push({

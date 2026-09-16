@@ -29,7 +29,7 @@
 //   ✅ NEVER diagnose problems or ask about symptoms
 //   ✅ ONLY ask clarification about position/type/variant
 //   ✅ DB-driven clarification system (avant/arrière, gauche/droite)
-//   ✅ Pricing ONLY when exactly ONE part, available, stockConsolide > 2
+//   ✅ Pricing ONLY when exactly ONE part, available, stockConsolide >= 2
 //   ✅ NEVER list multiple parts with prices
 //   ✅ NEVER infer or guess pricing
 //   ✅ Redirect problems to CarPro ☎️ 70 603 500
@@ -61,7 +61,7 @@ OBJECTIVE: Provide part information ONLY - NEVER diagnose problems
 - Display price ONLY when:
   1. Exactly ONE part is identified
   2. Part is available in database
-  3. Stock consolide > 2 (stock.stockConsolide > 2)
+  3. Stock consolide >= 2 (stock.stockConsolide >= 2)
 - If multiple parts exist: System will ask clarification, show NO prices
 - If no part found: NO price, NO range, NO estimate
 - NEVER infer or guess pricing information
@@ -117,14 +117,14 @@ OBJECTIVE: Provide part information ONLY - NEVER diagnose problems
       "designation2": "raw French name from DB",
       "reference": "part reference number",
       "partsFound": true,
-      "prixHt": "price excl tax — ONLY if exactly one part AND stockConsolide > 2",
-      "prixTtc": "price incl tax — ONLY if exactly one part AND stockConsolide > 2",
+      "prixHt": "internal pre-tax price — NEVER display to the customer",
+      "prixTtc": "public tax-included price — ONLY if exactly one part AND stockConsolide >= 2",
       "stockInfo": "Disponible (N en stock) | Indisponible",
       "sourceLabel": "Suzuki OEM | CarPro Parts",
       "categorie": "part category"
     }
   ],
-  "priceInfo": "Price string ONLY if exactly ONE part identified, available, and stockConsolide > 2. Otherwise omit.",
+  "priceInfo": "Public price string ONLY if exactly ONE part identified, available, and stockConsolide >= 2. Otherwise omit.",
   "stockInfo": "Availability ONLY if exactly ONE part identified",
   "smartSuggestions": ["Related parts only — NO maintenance advice, NO diagnostic suggestions"],
   "exactMatch": true,

@@ -91,17 +91,14 @@ export class ResponseService {
     if (consolidated !== undefined && consolidated !== null) {
       return Number(consolidated) >= 2;
     }
-    const fallbackQuantity = stock.totalQuantity ?? stock.total_quantity ?? p?.totalQuantity ?? p?.total_quantity ?? 0;
-    return Number(fallbackQuantity) >= 2;
+    return false;
   }
 
   selectPrimaryProduct(products: any[]): any | null {
     if (!Array.isArray(products) || products.length === 0) return null;
 
     const available = products.filter(
-      (p) =>
-        this.isAvailable(p) &&
-        (p.prixHt != null || p.prix_ht != null),
+      (p) => this.isAvailable(p),
     );
 
     if (available.length > 0) {
@@ -128,9 +125,7 @@ export class ResponseService {
     // BUGFIX-1: stock may be null for parts missing a stock row.
     // Treat null stock as Indisponible (safe default, matches DB behaviour).
     const available = products.filter(
-      (p) =>
-        this.isAvailable(p) &&
-        (p.prixTtc != null || p.prix_ttc != null || p.prixHt != null || p.prix_ht != null),
+      (p) => this.isAvailable(p),
     );
     const unavailable = products.filter(
       (p) => !this.isAvailable(p),
@@ -144,7 +139,7 @@ export class ResponseService {
           const name   = this.getDisplayName(p);
           const price  = this.getPrice(p);
           const source = this.getSourceSuffix(p);
-          return `• ${name}${source} — ${price}`;
+          return `• ${name}${source} — ${price ?? 'prix non communiqué'}`;
         })
         .join('\n');
       return (
@@ -191,9 +186,7 @@ export class ResponseService {
       : '';
 
     const available = products.filter(
-      (p) =>
-        this.isAvailable(p) &&
-        (p.prixTtc != null || p.prix_ttc != null || p.prixHt != null || p.prix_ht != null),
+      (p) => this.isAvailable(p),
     );
 
     if (available.length === 0) {
@@ -202,7 +195,7 @@ export class ResponseService {
         const name = this.getDisplayName(anyProduct);
         return (
           `${name}${vehicleInfo}\n` +
-          `Statut: Indisponible — prix non communiqué.\n\n` +
+          `Statut: Disponible — prix non communiqué.\n\n` +
           `💡 Contactez CarPro au ☎️ 70 603 500 pour les délais et tarifs.`
         );
       }
@@ -216,7 +209,7 @@ export class ResponseService {
         const name   = this.getDisplayName(p);
         const price  = this.getPrice(p);
         const source = this.getSourceSuffix(p);
-        return `• ${name}${source} — ${price}`;
+        return `• ${name}${source} — ${price ?? 'prix non communiqué'}`;
       })
       .join('\n');
 
@@ -268,9 +261,7 @@ export class ResponseService {
       : '';
 
     const available = products.filter(
-      (p) =>
-        this.isAvailable(p) &&
-        (p.prixTtc != null || p.prix_ttc != null || p.prixHt != null || p.prix_ht != null),
+      (p) => this.isAvailable(p),
     );
 
     if (available.length === 0) {

@@ -286,9 +286,9 @@ export class AdvancedSearchService implements OnModuleInit {
   // ─── PUBLIC: formatPartResult ───────────────────────────────────
   private isStockAvailable(stock: any): boolean {
     const consolidated = Number(
-      stock?.stockConsolide ?? stock?.stock_consolide ?? stock?.totalQuantity ?? 0,
+      stock?.stockConsolide ?? stock?.stock_consolide ?? 0,
     );
-    return consolidated > 2;
+    return consolidated >= 2;
   }
 
   private formatStock(stock: any): {
@@ -300,11 +300,11 @@ export class AdvancedSearchService implements OnModuleInit {
     const totalQuantity = Number(stock?.totalQuantity ?? stock?.total_quantity ?? 0);
     const stockDisponible = Number(stock?.stockDisponible ?? stock?.stock_disponible ?? 0);
     const stockConsolide = Number(
-      stock?.stockConsolide ?? stock?.stock_consolide ?? totalQuantity,
+      stock?.stockConsolide ?? stock?.stock_consolide ?? 0,
     );
 
     return {
-      statut: stockConsolide > 2 ? 'Disponible' : 'Indisponible',
+      statut: stockConsolide >= 2 ? 'Disponible' : 'Indisponible',
       totalQuantity,
       stockDisponible,
       stockConsolide,
