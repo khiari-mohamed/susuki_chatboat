@@ -215,7 +215,11 @@ export class SearchValidatorService {
   }
 
   private normalizeTypeCode(value: string): string {
-    return value.toUpperCase().trim().replace(/\s+/g, '-');
+    // Normalize both "AVH310-TYPE 2" and "AVH310-TYPE2" to the same form.
+    // The DB stores type codes with a space ("AVH310-TYPE 2") but the vehicle
+    // resolution pipeline produces the hyphenated form ("AVH310-TYPE2").
+    // We keep the space form as canonical to match what fitment rows contain.
+    return value.toUpperCase().trim().replace(/-TYPE(\d)/i, '-TYPE $1');
   }
 
   private getVehicleYear(vehicle: any): number | null {
@@ -335,7 +339,10 @@ export class SearchValidatorService {
 
     const typeCodes = new Set<string>();
     if (explicitTypeCode && /TYPE/i.test(explicitTypeCode)) {
-      typeCodes.add(this.normalizeTypeCode(explicitTypeCode));
+      const normalized = this.normalizeTypeCode(explicitTypeCode);
+      typeCodes.add(normalized);
+      // Also add the hyphenated variant so both forms match fitment rows
+      typeCodes.add(normalized.replace('-TYPE ', '-TYPE'));
     }
 
     if (!explicitTypeCode && modelValues.length > 0) {

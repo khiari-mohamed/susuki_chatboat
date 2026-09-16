@@ -1363,7 +1363,14 @@ export class AdvancedSearchService implements OnModuleInit {
       }
     }
 
-    let parts = text.split(' ').map((p) => p.trim()).filter(Boolean);
+    // Split on spaces AND hyphens so "pare-brise" → ["pare", "brise"]
+    // and "pare-choc" → ["pare", "choc"] — both are already keys in
+    // typeWeights, so no fuzzy correction fires and the DB query uses
+    // the correct space-separated form that matches catalog values like
+    // "PARE BRISE AVANT" and "SUPPORT PARE CHOC AV D".
+    // strict-validator.service.ts already does this correctly with
+    // split(/[\s-]+/) — this aligns tokenize() with that behaviour.
+    let parts = text.split(/[\s-]+/).map((p) => p.trim()).filter(Boolean);
     const stopWords = this.synonymsService.getStopWords();
     parts = parts.filter((token) => !stopWords.has(token));
 

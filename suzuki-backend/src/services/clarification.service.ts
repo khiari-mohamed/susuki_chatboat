@@ -268,14 +268,21 @@ export class ClarificationService {
   private isBilateralPart(products: any[], queryTokens: string[] = []): boolean {
     const bilateral = [
       'retroviseur', 'feu', 'phare', 'aile', 'amortisseur', 'amorto', 'porte',
-      'clignotant', 'essuie', 'vitre', 'poignee', 'poignée',
+      'clignotant', 'essuie', 'vitre', 'poignee', 'pognee',
       // FIX-4: French designation_2 terms also bilateral
       'optique', 'charniere', 'serrure', 'enjoliveur', 'custode',
     ];
 
-
     if (queryTokens.length > 0) {
-      return queryTokens.some((token) => bilateral.includes(token));
+      // Use prefix match (length >= 5) so truncated tokens like
+      // "retroviseu" (missing the final 'r') still trigger bilateral
+      // detection — the user clearly typed a bilateral part name.
+      return queryTokens.some((token) =>
+        bilateral.some((b) =>
+          b === token ||
+          (token.length >= 5 && (b.startsWith(token) || token.startsWith(b))),
+        ),
+      );
     }
 
     const relevantProducts = queryTokens.length > 0

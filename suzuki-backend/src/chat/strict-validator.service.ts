@@ -81,6 +81,13 @@ export class StrictValidatorService {
           );
           return false;
         }
+        // ── RULE 1b: Reject subordinate/accessory parts when user asked for the main part
+        if (this.isSubordinatePart(combinedTokens, mainPartType)) {
+          this.logger.warn(
+            `[STRICT-VALIDATION] REJECTED "${displayName}" — Subordinate part (accessory for ${mainPartType}, not the part itself)`,
+          );
+          return false;
+        }
       }
 
       // ── RULE 2: Position must not CONFLICT ────────────────────
@@ -148,8 +155,37 @@ export class StrictValidatorService {
   // ─────────────────────────────────────────────────────────────────
   // Canonicalize plural / variant query tokens
   // ─────────────────────────────────────────────────────────────────
+  // Words that indicate a part is an accessory/sub-component OF the main part,
+  // not the main part itself. Used to reject e.g. "CLIP RESSORT PLAQUETTE DE FREIN"
+  // when the user asked for "plaquette de frein".
+  private static readonly SUBORDINATE_PREFIXES = [
+    'clip', 'ressort', 'kit', 'agrafe', 'vis', 'boulon', 'ecrou', 'goupille',
+    'cache', 'protection', 'tuyau', 'durit', 'durite', 'boitier', 'support',
+    'fixation', 'attache', 'bride', 'collier', 'joint', 'rondelle', 'clavette',
+  ];
+
+  // Part types that are "main consumable" parts — when the user asks for one of
+  // these, reject any result whose designation starts with a subordinate prefix
+  // followed by the part type (meaning it's an accessory FOR that part, not the part).
+  private static readonly MAIN_CONSUMABLE_TYPES = [
+    'plaquette', 'disque', 'tambour', 'etrier', 'ferodo',
+    'filtre', 'bougie', 'courroie', 'amortisseur',
+  ];
+
+  private isSubordinatePart(designationTokens: string[], mainType: string): boolean {
+    if (!StrictValidatorService.MAIN_CONSUMABLE_TYPES.includes(mainType)) return false;
+    // The designation must contain the main type word (otherwise it wouldn't have
+    // passed hasPartType). Check if the FIRST substantive token is a subordinate prefix.
+    const firstToken = designationTokens[0];
+    return StrictValidatorService.SUBORDINATE_PREFIXES.includes(firstToken);
+  }
+
   private canonicalizeQueryToken(token: string): string {
     const canonical: Record<string, string> = {
+      // Tunisian / phonetic spellings
+      plakete:       'plaquette',
+      plakette:      'plaquette',
+      frain:         'frein',
       plaquettes:    'plaquette',
       disques:       'disque',
       filtres:       'filtre',

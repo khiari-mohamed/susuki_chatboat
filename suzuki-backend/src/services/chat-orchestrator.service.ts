@@ -10,11 +10,7 @@ import { AIQueryNormalizerService } from './ai-query-normalizer.service';
 import { AdvancedSearchService } from '../chat/advanced-search.service';
 import { VehicleModelsService } from '../constants/vehicle-models.service';
 import { StrictValidatorService } from '../chat/strict-validator.service';
-import {
-  ACCESSORY_KEYWORDS,
-  containsClassificationKeyword,
-  EXPLICIT_ACCESSORY_REQUEST_WORDS,
-} from '../constants/part-classification.constants';
+import { SynonymsService } from '../synonyms/synonyms.service';
 
 export interface ProcessMessageResponse {
   response: string;
@@ -38,15 +34,11 @@ export interface ProcessMessageResponse {
 export class ChatOrchestratorService {
   private readonly logger = new Logger(ChatOrchestratorService.name);
 
-  private readonly carPartNames = [
-    'maitre', 'maître', 'cylindre', 'etrier', 'étrier', 'toit', 'cremaillere', 'crémaillère',
-    'filtre', 'plaquette', 'disque', 'amortisseur', 'phare', 'batterie', 'courroie', 'bougie',
-    'alternateur', 'démarreur', 'capteur', 'pneu', 'joint', 'durite', 'radiateur', 'pompe',
-    'injecteur', 'embrayage', 'roulement', 'rotule', 'biellette', 'bras', 'triangle',
-    'ressort', 'silentbloc', 'soufflet', 'cache', 'support', 'agrafe', 'agraffe', 'agraphe',
-    'valve', 'soupape', 'culasse', 'piston', 'segment', 'bielle', 'vilebrequin',
-    'silencieux', 'clignotant',
-  ];
+  // The local carPartNames list that used to live here was removed —
+  // isCarPart checks below now call synonymsService.isKnownAutomotiveTerm(),
+  // the same DB-backed check used by AIQueryNormalizerService and
+  // IntelligenceService (see synonyms.service.ts). This was one of three
+  // copies of the same list that could silently drift out of sync.
   private static readonly AVANT_RE   = /\b(avant|av|front|fr)\b/i;
   private static readonly ARRIERE_RE = /\b(arriere|arrière|ar|rear|rr)\b/i;
   private static readonly GAUCHE_RE  = /\b(gauche|g|left|lh)\b/i;
@@ -64,6 +56,7 @@ export class ChatOrchestratorService {
     private advancedSearch: AdvancedSearchService,
     private vehicleModels: VehicleModelsService,
     private strictValidator: StrictValidatorService,
+    private synonymsService: SynonymsService,
   ) {
     setInterval(() => this.clarificationService.cleanup(), 300000);
   }
@@ -169,7 +162,7 @@ export class ChatOrchestratorService {
   // ─────────────────────────────────────────────────────────────────
   private isFilterOperation(message: string): boolean {
     const lower = message.toLowerCase();
-    const isCarPart = this.carPartNames.some((part) => lower.includes(part));
+    const isCarPart = this.synonymsService.isKnownAutomotiveTerm(lower);
     if (isCarPart) return false;
 
     const filterPhrases = [
@@ -222,7 +215,8 @@ export class ChatOrchestratorService {
     // 0. AI-powered normalization
     const normalized       = await this.aiNormalizer.normalizeQuery(message);
     const processedMessage = normalized.normalized;
-    this.logger.log(`Original: "${message}" → Normalized: "${processedMessage}"`);
+    const safeLog = (s: string) => s.replace(/[\r\n\t]/g, ' ').slice(0, 200);
+    this.logger.log(`Original: "${safeLog(message)}" → Normalized: "${safeLog(processedMessage)}"`);
 
     // 1. Get / create session
     const session       = await this.sessionService.getOrCreate(sessionId, vehicle);
@@ -237,7 +231,7 @@ export class ChatOrchestratorService {
     if (normalized.isGreeting || normalized.isThanks) {
       const hasPositionOrAction = /\b(avant|arrière|arriere|gauche|droite|av|ar|g|d|chouf|choufli|montre|voir|regarde|wri)\b/i.test(processedMessage);
       // BUGFIX: never short-circuit on greeting if the message also contains a car part name
-      const hasCarPart = this.carPartNames.some((part) => processedMessage.toLowerCase().includes(part));
+      const hasCarPart = this.synonymsService.isKnownAutomotiveTerm(processedMessage);
       if (!hasPositionOrAction && !hasCarPart) {
         const response = normalized.isGreeting
           ? this.responseService.buildGreetingResponse()
@@ -259,9 +253,7 @@ export class ChatOrchestratorService {
     // Model mismatch blocking
     const vehicleModel   = this.vehicleModels.normalize(vehicle?.modele);
     const requestedModel = this.vehicleModels.detectModelInText(processedMessage);
-    const isCarPartQuery = this.carPartNames.some((part) =>
-      processedMessage.toLowerCase().includes(part),
-    );
+    const isCarPartQuery = this.synonymsService.isKnownAutomotiveTerm(processedMessage);
     const isPriceOrAvailabilityQuery =
       !isCarPartQuery &&
       (/\b(prix|ch7al|combien|cout|tarif|disponible|famma|avoir)\b/i.test(message) ||
@@ -451,7 +443,7 @@ export class ChatOrchestratorService {
     // 6. Non-search intents
     if (intent.type === 'GREETING' || intent.type === 'THANKS') {
       const hasPositionOrAction = /\b(avant|arrière|arriere|gauche|droite|av|ar|g|d|chouf|choufli|montre|voir|regarde|wri)\b/i.test(processedMessage);
-      const hasCarPart = this.carPartNames.some((part) => processedMessage.toLowerCase().includes(part));
+      const hasCarPart = this.synonymsService.isKnownAutomotiveTerm(processedMessage);
       if (!hasPositionOrAction && !hasCarPart) {
         const response = intent.type === 'GREETING'
           ? this.responseService.buildGreetingResponse()
@@ -646,15 +638,35 @@ export class ChatOrchestratorService {
   private filterAccessoriesIfNeeded(products: any[], query: string): any[] {
     const queryLower = query.toLowerCase();
 
-    // FIX 2026-09-15: both lists now come from the single shared
-    // constants file (see part-classification.constants.ts header for
-    // the data-driven rationale) instead of being maintained here
-    // independently — this is what let 'renfort'/'extension'/
-    // 'moulure'/'baguette'/'sabot'/'elargisseur'/'moustache'/'spoiler'
-    // fall through undetected in the reported bug.
-    const accessoryWords = ACCESSORY_KEYWORDS;
-    const explicitAccessoryWords = EXPLICIT_ACCESSORY_REQUEST_WORDS;
-    const userAskedForAccessory = explicitAccessoryWords.some((w) => containsClassificationKeyword(queryLower, w));
+    const accessoryWords = [
+      'durite', 'tuyau', 'flexible', 'support', 'cache', 'kit', 'joint', 'bouchon', 'vis',
+      'boulon', 'ecrou', 'agrafe', 'agraffe', 'cercle', 'cable', 'câble', 'courroie', 'sangle',
+      'toc', 'bushing', 'silent', 'silentbloc', 'coupelle',
+      // BUGFIX: door/hood accessories that were ranking above the actual panel
+      'contacteur', 'loquet', 'serrure', 'charniere', 'montant', 'tiran', 'tirant', 'adhesif',
+      'chapeau', 'agrafe', 'tige', 'arret', 'switcher', 'reservoir',
+      // BUGFIX: radiateur accessories — prevent false side clarification on radiateur query
+      'traverse', 'tete', 'vase',
+      // BUGFIX: capot accessories — calle/cale capot must not outrank the actual capot panel
+      'calle', 'cale',
+      // BUGFIX: calandre accessories — chrome trim, isolant must not trigger type clarification
+      // NOTE: 'grille' removed — it is a synonym for calandre (main part), not an accessory
+      'chrome', 'isolant', 'sigle', 'monogramme',
+      // BUGFIX: filtre queries — durit/tuyau/boitier are accessories of the filter assembly,
+      // not the filter element itself. Only applies when the query is about a filter.
+      ...(queryLower.includes('filtre') ? ['durit', 'boitier', 'tuyau'] : []),
+    ];
+    const explicitAccessoryWords = [
+      'support', 'joint', 'contacteur', 'loquet', 'serrure', 'charniere',
+      'charnière', 'agrafe', 'agraffe', 'agraphe', 'vis', 'boulon', 'ecrou',
+      'kit', 'sangle', 'cable', 'câble', 'toc', 'bushing', 'silentbloc',
+      // BUGFIX 2026-09-13: 'accessoire'/'accessoires' itself — if the
+      // customer explicitly asks for an accessory, don't filter it out.
+      'accessoire', 'accessoires',
+    ];
+    const userAskedForAccessory = explicitAccessoryWords.some((w) =>
+      new RegExp(`(^|\\s)${w}(\\s|$)`, 'i').test(queryLower),
+    );
     const mainParts:   any[] = [];
     const accessories: any[] = [];
 
@@ -677,7 +689,10 @@ export class ChatOrchestratorService {
       const isTaggedAccessory = categorie === 'ACCESSOIRES';
 
       const combined = this.getCombinedText(p).toLowerCase();
-      const containsAccessoryWord = accessoryWords.some((w) => containsClassificationKeyword(combined, w));
+      const containsAccessoryWord = accessoryWords.some((w) => {
+        const regex = new RegExp(`(^|\\s)${w}(\\s|$)`, 'i');
+        return regex.test(combined);
+      });
 
       if (isTaggedAccessory || containsAccessoryWord) {
         accessories.push(p);

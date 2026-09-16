@@ -23,6 +23,29 @@
 //         any French part name tokens that survived alongside
 //         Tunisian words (mixed queries like "n7eb retroviseur").
 //
+// FIX-6 (2026-09-16): the local `carPartNames` list — one of three
+//         near-identical copies scattered across services — is gone.
+//         isCarPart now calls synonymsService.isKnownAutomotiveTerm(),
+//         a single DB-backed check (dynamic synonym index, with the
+//         old three lists merged into one static safety-net fallback
+//         inside SynonymsService). See synonyms.service.ts.
+//
+// FIX-7 (2026-09-16): the hardcoded `knownCorrections` typo map is now
+//         a FALLBACK, not the only source. At call time it's merged
+//         with synonymsService.getTypoMap() (DB rows, langue='typo',
+//         manageable from /admin/synonyms with no deploy). DB entries
+//         win on key collisions. Behavior is unchanged on a DB with no
+//         typo rows yet — this is additive, not a replacement.
+//
+// FIX-8 (2026-09-16): added a lightweight circuit breaker + in-memory
+//         stats around the OpenAI call. If the AI's own output keeps
+//         getting rejected by the existing validation checks (word
+//         preservation / triple-letter / bad-prefix) over a rolling
+//         window, we stop calling it for a while and go straight to
+//         the DB Tunisian map — cheaper, and avoids paying OpenAI
+//         latency for a mode that's currently failing anyway. This is
+//         in-memory only (resets on restart) — no schema change.
+//
 // NOTE: synonyms.service.ts is architecturally correct and does not
 //       need structural changes. See synonyms.service.ts fix notes
 //       at the bottom of this file.
@@ -35,7 +58,37 @@ import { SynonymsService } from '../synonyms/synonyms.service';
 @Injectable()
 export class AIQueryNormalizerService {
   private readonly logger = new Logger(AIQueryNormalizerService.name);
-  private tunisianWordSet: Set<string> | null = null;
+  // No cache — getTunisianMap() already returns an in-memory object.
+  // Caching the Set here caused stale results after synonymsService.reload()
+  // (e.g. admin adds a new TN word via dashboard → cache never invalidated).
+
+  // ─────────────────────────────────────────────────────────────────
+  // FIX-8: circuit breaker state — rolling window of the last AI
+  // validation outcomes (true = accepted, false = rejected/errored).
+  // Kept small and in-memory on purpose; see getNormalizationStats().
+  // ─────────────────────────────────────────────────────────────────
+  private static readonly AI_WINDOW_SIZE = 100;
+  private static readonly AI_MIN_SAMPLE = 20;   // don't trip on tiny samples
+  private static readonly AI_REJECTION_THRESHOLD = 0.3;
+  private aiOutcomes: boolean[] = [];
+
+  // Lightweight, process-local counters for observability. Not
+  // persisted — restart resets them. Enough to answer "is OpenAI
+  // helping or hurting" without a schema migration; promote to a real
+  // NormalizationLog table later if historical trends are needed.
+  private stats = {
+    totalCalls: 0,
+    passthroughCarPart: 0,
+    passthroughServiceQuestion: 0,
+    fuzzyCorrectionsApplied: 0,
+    passthroughAfterCorrection: 0,
+    aiSkippedCircuitOpen: 0,
+    aiAccepted: 0,
+    aiRejectedWordChanged: 0,
+    aiRejectedTripleLetter: 0,
+    aiRejectedBadPrefix: 0,
+    aiCallError: 0,
+  };
 
   constructor(
     private openaiService: OpenAIService,
@@ -43,96 +96,48 @@ export class AIQueryNormalizerService {
   ) {}
 
   private getTunisianWordSet(): Set<string> {
-    if (!this.tunisianWordSet) {
-      this.tunisianWordSet = new Set(Object.keys(this.synonymsService.getTunisianMap()));
+    return new Set(Object.keys(this.synonymsService.getTunisianMap()));
+  }
+
+  /** FIX-8: record one AI validation outcome and trim the rolling window. */
+  private recordAiOutcome(accepted: boolean): void {
+    this.aiOutcomes.push(accepted);
+    if (this.aiOutcomes.length > AIQueryNormalizerService.AI_WINDOW_SIZE) {
+      this.aiOutcomes.shift();
     }
-    return this.tunisianWordSet;
+  }
+
+  /** FIX-8: true once the AI's recent rejection rate crosses the threshold. */
+  private isAiCircuitOpen(): boolean {
+    if (this.aiOutcomes.length < AIQueryNormalizerService.AI_MIN_SAMPLE) return false;
+    const rejections = this.aiOutcomes.filter((accepted) => !accepted).length;
+    const rejectionRate = rejections / this.aiOutcomes.length;
+    return rejectionRate > AIQueryNormalizerService.AI_REJECTION_THRESHOLD;
+  }
+
+  /** Process-local normalization stats — see the `stats` field above. */
+  getNormalizationStats() {
+    const rejections = this.aiOutcomes.filter((accepted) => !accepted).length;
+    const rejectionRate = this.aiOutcomes.length > 0 ? rejections / this.aiOutcomes.length : 0;
+    return {
+      ...this.stats,
+      aiWindowSize: this.aiOutcomes.length,
+      aiRecentRejectionRate: Number(rejectionRate.toFixed(3)),
+      aiCircuitOpen: this.isAiCircuitOpen(),
+      dbTypoMapSize: this.synonymsService.getTypoMapSize(),
+    };
   }
 
   // ─────────────────────────────────────────────────────────────────
-  // FIX-1: Comprehensive French car part name list.
-  // Covers BOTH designation_2 French names AND designation English
-  // OEM terms so that queries in either language bypass unnecessary
-  // AI normalization when no Tunisian marker is present.
+  // FIX-7: small in-code seed for typo corrections. This used to be
+  // the ONLY source (hardcoded, needs a deploy to change). It is now
+  // merged UNDER synonymsService.getTypoMap() (DB, langue='typo') at
+  // call time — DB rows win on key collisions, and this stays purely
+  // as a bootstrap/safety-net so behavior never regresses on an
+  // unmigrated DB. Run seed-typo-corrections.ts once to move these
+  // into the DB so they become admin-manageable.
   // ─────────────────────────────────────────────────────────────────
-  private readonly carPartNames: string[] = [
-    // ── Braking ──────────────────────────────────────────────────
-    'maitre', 'maître', 'cylindre', 'etrier', 'étrier', 'frein', 'frina',
-    'plaquette', 'plaquettes', 'disque', 'disques', 'tambour', 'sabot',
-    // ── Suspension / steering ────────────────────────────────────
-    'amortisseur', 'amortisseurs', 'ressort', 'rotule', 'triangle', 'biellette',
-    'bras', 'cremaillere', 'crémaillère', 'silent', 'silentbloc', 'coupelle',
-    'moyeu', 'roulement', 'roulements', 'soufflet', 'stabilisatrice',
-    // ── Engine ───────────────────────────────────────────────────
-    'culasse', 'piston', 'segment', 'bielle', 'vilebrequin', 'vilbrequin',
-    'soupape', 'joint', 'joints', 'courroie', 'distribution', 'tendeur',
-    'poulie', 'volant', 'cardan', 'embrayage',
-    // ── Filters ──────────────────────────────────────────────────
-    'filtre', 'filtres',
-    // ── Electrical ───────────────────────────────────────────────
-    'batterie', 'alternateur', 'démarreur', 'demarreur', 'bougie', 'bougies',
-    'bobine', 'capteur', 'capteurs', 'calculateur', 'faisceau', 'fusible',
-    'relais', 'contacteur', 'commodo', 'commande', 'radar',
-    // ── Cooling ──────────────────────────────────────────────────
-    'radiateur', 'durite', 'durites', 'pompe', 'thermostat', 'condenseur',
-    'compresseur', 'vase', 'reservoir',
-    // ── Fuel / injection ─────────────────────────────────────────
-    'injecteur', 'injecteurs',
-    // ── Exhaust ──────────────────────────────────────────────────
-    'silencieux', 'echappement', 'catalyseur', 'collecteur',
-    // ── Body / panels — FIX-1: these were missing ────────────────
-    'aile', 'capot', 'porte', 'pare', 'choc', 'parechoc', 'pare-choc',
-    'calandre', 'malle', 'coffre', 'vitre', 'lunette', 'parebrise',
-    'pare-brise', 'baguette', 'moulure', 'seuil', 'longeron', 'traverse',
-    'renfort', 'tablier', 'plancher', 'toit', 'custode', 'hayon',
-    'charniere', 'serrure', 'loquet', 'poignee', 'garniture', 'enjoliveur',
-    // ── Lighting — FIX-1: these were missing ─────────────────────
-    'phare', 'phares', 'feu', 'feux', 'optique', 'clignotant', 'clignotants',
-    'catadioptre', 'lampe', 'ampoule',
-    // ── Interior — FIX-1: these were missing ─────────────────────
-    'siege', 'sièges', 'ceinture', 'volant', 'tableau', 'tapis', 'airbag',
-    'retroviseur', 'rétroviseur', 'retro',
-    // ── Wipers / washer — FIX-1: these were missing ──────────────
-    'essuie', 'balai', 'leve', 'monte',
-    // ── Misc ─────────────────────────────────────────────────────
-    'agrafe', 'agraffe', 'agraphe', 'agrafes', 'agraffes', 'agraphes',
-    'valve', 'soupape', 'cache', 'support', 'clip', 'vis', 'boulon',
-    'ecrou', 'rondelle', 'cric', 'antenne', 'klaxon',
-  ];
-
-  async normalizeQuery(query: string): Promise<{
-    normalized: string;
-    isGreeting: boolean;
-    isThanks: boolean;
-    confidence: number;
-  }> {
-    const lowerQuery = query.toLowerCase();
-
-    // FIX-1: Use the extended car part name list
-    const isCarPart = this.carPartNames.some((part) => lowerQuery.includes(part));
-
-    const isServiceQuestion =
-      /ouvrez|ouvert|heure|horaire|livraison|délai|garantie|situé|adresse|où|localisation/i.test(lowerQuery);
-
-    // Tunisian marker detection — unchanged
-    const hasTunisianMarker =
-      /[0-9]/.test(lowerQuery.replace(/\s/g, '')) ||
-      /\b(n7eb|ch7al|bghit|famma|choufli|chouf|wach|mte3|ken|behi|barcha|ahla|salem|yezzi|mouch|mech|3aychek|ta3|9ad|zeda|wri)\b/i.test(lowerQuery) ||
-      [...this.getTunisianWordSet()].some((tn) =>
-        new RegExp(`\\b${tn.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(lowerQuery),
-      );
-
-    // Pure French/English car part query with no Tunisian — pass through unchanged
-    if (isCarPart && !hasTunisianMarker) {
-      return { normalized: query, isGreeting: false, isThanks: false, confidence: 0.9 };
-    }
-    if (isServiceQuestion && !hasTunisianMarker) {
-      return { normalized: query, isGreeting: false, isThanks: false, confidence: 0.9 };
-    }
-
-    // ── FIX-2: Extended typo correction map ──────────────────────
-    // Covers French designation_2 vocabulary typos users commonly make
-    const knownCorrections: Record<string, string> = {
+  private static readonly STATIC_TYPO_FALLBACK: Record<string, string> = {
       // Original corrections
       ilbrequin:   'vilebrequin',
       vilbrequin:  'vilebrequin',
@@ -219,6 +224,46 @@ export class AIQueryNormalizerService {
       leveglace:     'leve glace',
       monteglace:    'monte glace',
       laveglace:     'lave glace',
+  };
+
+  async normalizeQuery(query: string): Promise<{
+    normalized: string;
+    isGreeting: boolean;
+    isThanks: boolean;
+    confidence: number;
+  }> {
+    this.stats.totalCalls++;
+    const lowerQuery = query.toLowerCase();
+
+    // FIX-6: dynamic, DB-backed check (was: local carPartNames array)
+    const isCarPart = this.synonymsService.isKnownAutomotiveTerm(lowerQuery);
+
+    const isServiceQuestion =
+      /ouvrez|ouvert|heure|horaire|livraison|délai|garantie|situé|adresse|où|localisation/i.test(lowerQuery);
+
+    // Tunisian marker detection — unchanged
+    const hasTunisianMarker =
+      /[0-9]/.test(lowerQuery.replace(/\s/g, '')) ||
+      /\b(n7eb|ch7al|bghit|famma|choufli|chouf|wach|mte3|ken|behi|barcha|ahla|salem|yezzi|mouch|mech|3aychek|ta3|9ad|zeda|wri)\b/i.test(lowerQuery) ||
+      [...this.getTunisianWordSet()].some((tn) =>
+        new RegExp(`\\b${tn.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(lowerQuery),
+      );
+
+    // Pure French/English car part query with no Tunisian — pass through unchanged
+    if (isCarPart && !hasTunisianMarker) {
+      this.stats.passthroughCarPart++;
+      return { normalized: query, isGreeting: false, isThanks: false, confidence: 0.9 };
+    }
+    if (isServiceQuestion && !hasTunisianMarker) {
+      this.stats.passthroughServiceQuestion++;
+      return { normalized: query, isGreeting: false, isThanks: false, confidence: 0.9 };
+    }
+
+    // FIX-7: DB typo rows (langue='typo') merged OVER the static seed map.
+    // Same sort-by-length + apply loop as before, just a richer source.
+    const knownCorrections: Record<string, string> = {
+      ...AIQueryNormalizerService.STATIC_TYPO_FALLBACK,
+      ...this.synonymsService.getTypoMap(),
     };
 
     const sortedCorrections = Object.entries(knownCorrections).sort(
@@ -242,6 +287,66 @@ export class AIQueryNormalizerService {
       }
     }
 
+    // FIX-9 (2026-09-16): fuzzy typo correction — this is the actual
+    // answer to "I can't predict every wrong word". The exact map above
+    // only catches typos someone has already seen and added. This pass
+    // catches ANY typo of a word already in the vocabulary by edit
+    // distance, with no list to maintain. See
+    // SynonymsService.findClosestVocabularyWord() for the matching
+    // rules (conservative: unambiguous match required, distance budget
+    // scales with word length).
+    const rawTokens = correctedQuery.split(/(\s+)/); // keep whitespace so we can rejoin exactly
+    for (let i = 0; i < rawTokens.length; i++) {
+      const token = rawTokens[i];
+      if (!/^[a-zA-Zàâçéèêëîïôûùüÿñæœ-]+$/.test(token)) continue; // skip whitespace/numbers/punctuation
+      if (token.length < 4) continue;
+      if (this.synonymsService.getStopWords().has(token.toLowerCase())) continue;
+
+      const fix = this.synonymsService.findClosestVocabularyWord(token);
+      if (fix && fix.toLowerCase() !== token.toLowerCase()) {
+        this.stats.fuzzyCorrectionsApplied++;
+        this.logger.log(`✨ Fuzzy-corrected: "${token}" → "${fix}" (no list entry needed)`);
+        rawTokens[i] = fix;
+      }
+    }
+    correctedQuery = rawTokens.join('');
+
+    // After both correction passes, re-check whether the query is now a
+    // recognized car part with no Tunisian marker — if so, skip the
+    // OpenAI round-trip entirely. This is where fuzzy correction pays
+    // for itself: an unseen typo that used to force an AI call now
+    // resolves for free.
+    const correctedLower = correctedQuery.toLowerCase();
+    const isCarPartAfterCorrection = this.synonymsService.isKnownAutomotiveTerm(correctedLower);
+    if (isCarPartAfterCorrection && !hasTunisianMarker) {
+      this.stats.passthroughAfterCorrection++;
+      return { normalized: correctedQuery, isGreeting: false, isThanks: false, confidence: 0.88 };
+    }
+
+    // FIX-8: circuit breaker — if the AI's own output has been getting
+    // rejected by the checks below more than 30% of the time over the
+    // last 100 calls, skip the OpenAI round-trip entirely and go
+    // straight to the DB Tunisian map. Cheaper, and we were going to
+    // reject the AI output most of the time anyway in this state.
+    if (this.isAiCircuitOpen()) {
+      this.stats.aiSkippedCircuitOpen++;
+      this.logger.warn(
+        `⚡ AI circuit open (rejection rate > ${AIQueryNormalizerService.AI_REJECTION_THRESHOLD * 100}% ` +
+        `over last ${this.aiOutcomes.length} calls) — skipping OpenAI, using DB Tunisian map`,
+      );
+      const fallbackNormalized = this.applyTunisianNormalization(correctedQuery);
+      return {
+        normalized: fallbackNormalized || correctedQuery,
+        isGreeting:
+          /^(bonjour|salut|hello|hi|salem|ahla|salam)\b/i.test(correctedQuery),
+        isThanks:
+          /\b(merci|thanks|3aychek|barcha|au revoir|bye|à bientôt|bonne journée|besslema|sahha|ciao|adieu)\b/i.test(
+            correctedQuery,
+          ),
+        confidence: 0.5,
+      };
+    }
+
     try {
       const aiResult = await this.normalizeWithAI(correctedQuery);
       const correctedWords = this.extractMeaningfulWords(correctedQuery);
@@ -263,6 +368,8 @@ export class AIQueryNormalizerService {
         const hasFuzzyMatch  = resultWords.some((rw) => this.levenshtein(qWord, rw) <= 1);
 
         if (!hasExactMatch && !hasPluralMatch && !hasFuzzyMatch) {
+          this.stats.aiRejectedWordChanged++;
+          this.recordAiOutcome(false);
           this.logger.warn(`⚠️ AI changed/removed word "${qWord}" — using corrected query instead`);
           return {
             normalized: correctedQuery,
@@ -276,6 +383,8 @@ export class AIQueryNormalizerService {
       // Reject AI output that adds suspicious prefixes or triple letters
       for (const rWord of resultWords) {
         if (rWord.length >= 4 && rWord[0] === rWord[1] && rWord[1] === rWord[2]) {
+          this.stats.aiRejectedTripleLetter++;
+          this.recordAiOutcome(false);
           this.logger.warn(`⚠️ AI added triple letters "${rWord}" — rejecting AI result`);
           return {
             normalized: correctedQuery,
@@ -286,6 +395,8 @@ export class AIQueryNormalizerService {
         }
         for (const cWord of correctedWords) {
           if (rWord === 'a' + cWord || rWord === 'aa' + cWord) {
+            this.stats.aiRejectedBadPrefix++;
+            this.recordAiOutcome(false);
             this.logger.warn(`⚠️ AI added prefix to "${cWord}" → "${rWord}" — rejecting AI result`);
             return {
               normalized: correctedQuery,
@@ -297,9 +408,15 @@ export class AIQueryNormalizerService {
         }
       }
 
+      this.stats.aiAccepted++;
+      this.recordAiOutcome(true);
       this.logger.log(`✅ AI: "${query}" → "${aiResult.normalized}" (${aiResult.confidence})`);
       return aiResult;
     } catch (error: any) {
+      // Not recorded in the rejection-rate window on purpose — a network
+      // timeout or API error says nothing about whether the AI's actual
+      // *output* is trustworthy, which is what the circuit breaker tracks.
+      this.stats.aiCallError++;
       this.logger.warn(`⚠️ AI failed: ${error.message}`);
       // FIX-5: Tunisian fallback preserves French part name tokens
       const fallbackNormalized = this.applyTunisianNormalization(correctedQuery);

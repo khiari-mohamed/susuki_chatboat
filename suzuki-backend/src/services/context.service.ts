@@ -277,13 +277,27 @@ export class ContextService {
       return `${context.lastPart} ${message}`;
     }
 
-    // Part-less message with position — append to lastPart
+    // Part-less message with position — append to lastPart ONLY if the
+    // message is a bare position answer (1-3 words max, no unknown nouns).
+    // Guard: if the message contains words that look like independent nouns
+    // (length >= 5, not position words, not filler) the user is asking for
+    // something new — do NOT glue the previous context onto it.
+    // Example that must NOT trigger: "aileron arrière sport" — "aileron" and
+    // "sport" are unknown nouns, so this is a new query, not a position answer.
     if (!hasSpecificPart && hasPosition && context.lastPart) {
-      const posMatch = message.match(
-        /\b(avant|arrière|arriere|gauche|droite|av|ar|g|d)\b/gi,
+      const positionWords = new Set(['avant','arriere','arrière','av','ar','gauche','droite','g','d']);
+      const fillerWords   = new Set(['je','un','une','des','le','la','les','du','de','pour','avec','veux','cherche','besoin']);
+      const words = message.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').split(/\s+/).filter(Boolean);
+      const hasUnknownNoun = words.some(
+        (w) => w.length >= 5 && !positionWords.has(w) && !fillerWords.has(w),
       );
-      if (posMatch) {
-        return `${context.lastPart} ${posMatch.join(' ')}`;
+      if (!hasUnknownNoun) {
+        const posMatch = message.match(
+          /\b(avant|arrière|arriere|gauche|droite|av|ar|g|d)\b/gi,
+        );
+        if (posMatch) {
+          return `${context.lastPart} ${posMatch.join(' ')}`;
+        }
       }
     }
 

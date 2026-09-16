@@ -138,7 +138,7 @@ export const ENTITIES = {
     ],
   },
 
-  synonyms: {
+    synonyms: {
     key: 'synonyms',
     apiPath: '/synonyms',
     socketTable: 'synonyms',
@@ -155,7 +155,7 @@ export const ENTITIES = {
         width: 110,
         createOnly: true,
         required: true,
-        options: ['fr', 'tn', 'stop'],
+        options: ['fr', 'tn', 'stop', 'typo'],
       },
     ],
   },

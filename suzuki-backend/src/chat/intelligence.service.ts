@@ -17,56 +17,14 @@ export class IntelligenceService {
   private readonly MAX_TRACKED_RESPONSES = 100;
 
   // ─────────────────────────────────────────────────────────────────
-  // FIX-1: Full French car part name list — covers BOTH designation
-  //         (English OEM) AND designation_2 (French primary field).
-  //         Used in detectIntent() and analyzeQueryClarity().
+  // The local carPartNames list that used to live here was removed —
+  // detectIntent() now calls synonymsService.isKnownAutomotiveTerm(),
+  // a single DB-backed check shared with AIQueryNormalizerService and
+  // ChatOrchestratorService (see synonyms.service.ts). This was one of
+  // three copies of the same list (the others were in
+  // ai-query-normalizer.service.ts and chat-orchestrator.service.ts)
+  // that could silently drift out of sync with each other.
   // ─────────────────────────────────────────────────────────────────
-  private readonly carPartNames: string[] = [
-    // ── Steering / suspension ────────────────────────────────────
-    'maitre', 'maître', 'cylindre', 'etrier', 'étrier',
-    'cremaillere', 'crémaillère', 'rotule', 'triangle', 'biellette',
-    'roulement', 'stabilisatrice', 'ressort', 'silentbloc', 'soufflet',
-    'cardan', 'moyeu', 'coupelle', 'bras',
-    // ── Braking ──────────────────────────────────────────────────
-    'plaquette', 'disque', 'tambour', 'frein', 'frina',
-    // ── Filters ──────────────────────────────────────────────────
-    'filtre',
-    // ── Engine ───────────────────────────────────────────────────
-    'courroie', 'distribution', 'tendeur', 'poulie', 'embrayage',
-    'culasse', 'piston', 'segment', 'bielle', 'vilebrequin', 'vilbrequin',
-    'soupape', 'joint', 'joints',
-    // ── Electrical ───────────────────────────────────────────────
-    'batterie', 'alternateur', 'démarreur', 'demarreur',
-    'bougie', 'bobine', 'capteur', 'calculateur', 'faisceau',
-    'fusible', 'relais', 'contacteur', 'commodo', 'commande', 'radar',
-    // ── Cooling ──────────────────────────────────────────────────
-    'radiateur', 'durite', 'durites', 'pompe', 'thermostat',
-    'condenseur', 'compresseur', 'vase', 'reservoir', 'réservoir',
-    // ── Fuel / injection ─────────────────────────────────────────
-    'injecteur', 'injecteurs',
-    // ── Exhaust ──────────────────────────────────────────────────
-    'silencieux', 'echappement', 'échappement', 'catalyseur', 'collecteur',
-    // ── Body / panels — FIX-1 ────────────────────────────────────
-    'aile', 'capot', 'porte', 'pare', 'choc', 'parechoc', 'pare-choc',
-    'calandre', 'malle', 'coffre', 'vitre', 'lunette', 'parebrise',
-    'pare-brise', 'baguette', 'moulure', 'seuil', 'longeron', 'traverse',
-    'renfort', 'tablier', 'plancher', 'toit', 'custode', 'hayon',
-    'charniere', 'charnière', 'serrure', 'loquet', 'poignee', 'poignée',
-    'garniture', 'enjoliveur',
-    // ── Lighting — FIX-1 ─────────────────────────────────────────
-    'phare', 'phares', 'feu', 'feux', 'optique', 'clignotant',
-    'catadioptre', 'lampe', 'ampoule',
-    // ── Interior — FIX-1 ─────────────────────────────────────────
-    'siege', 'siège', 'ceinture', 'volant', 'tableau', 'tapis', 'airbag',
-    'retroviseur', 'rétroviseur', 'retro',
-    // ── Wipers / washer — FIX-1 ──────────────────────────────────
-    'essuie', 'balai', 'leve', 'monte',
-    // ── Misc ─────────────────────────────────────────────────────
-    'agrafe', 'agraffe', 'agraphe', 'agrafes', 'agraffes', 'agraphes',
-    'valve', 'soupape', 'cache', 'support', 'clip', 'vis', 'boulon',
-    'ecrou', 'rondelle', 'cric', 'antenne', 'klaxon',
-    'pneu', 'tuyau', 'toit', 'suspension',
-  ];
 
   constructor(
     private prisma: PrismaService,
@@ -118,7 +76,10 @@ export class IntelligenceService {
   }
 
   // ─────────────────────────────────────────────────────────────────
-  // FIX-2: analyzeQueryClarity — extended partKeywords list
+  // analyzeQueryClarity — DB-backed part detection via isKnownAutomotiveTerm
+  // The local partKeywords list was removed — synonymsService.isKnownAutomotiveTerm()
+  // is the single shared check (DB-driven, grows automatically with the
+  // catalog) used by all services. No list to maintain here.
   // ─────────────────────────────────────────────────────────────────
   analyzeQueryClarity(message: string): number {
     try {
@@ -128,29 +89,8 @@ export class IntelligenceService {
       const lower      = message.toLowerCase();
       const normalized = this.normalizeTunisian(lower);
 
-      // FIX-2: Extended part keywords — covers full French vocabulary
-      const partKeywords = [
-        // Original
-        'filtre', 'plaquette', 'disque', 'amortisseur', 'phare', 'batterie',
-        'courroie', 'bougie', 'alternateur', 'démarreur', 'capteur',
-        'pneu', 'tuyau', 'joint', 'durite', 'radiateur', 'condenseur',
-        'pompe', 'injecteur', 'embrayage', 'roulement',
-        // FIX-2: French designation_2 vocabulary
-        'retroviseur', 'rétroviseur', 'aile', 'capot', 'porte', 'vitre',
-        'lunette', 'calandre', 'pare', 'hayon', 'charniere', 'serrure',
-        'enjoliveur', 'clignotant', 'optique', 'feu', 'feux',
-        'baguette', 'garniture', 'moulure', 'seuil', 'longeron', 'traverse',
-        'siege', 'ceinture', 'volant', 'tapis', 'radar',
-        'bobine', 'calculateur', 'faisceau', 'relais', 'fusible',
-        'thermostat', 'compresseur', 'vase', 'reservoir',
-        'silencieux', 'echappement', 'echappement', 'catalyseur',
-        'culasse', 'vilebrequin', 'distribution', 'cardan', 'rotule',
-        'triangle', 'biellette', 'bras', 'ressort', 'cremaillere',
-        'tambour', 'etrier', 'agrafe', 'agraffe',
-        'essuie', 'balai', 'leve', 'monte',
-      ];
-
-      if (partKeywords.some((k) => lower.includes(k) || normalized.includes(k))) {
+      if (this.synonymsService.isKnownAutomotiveTerm(lower) ||
+          this.synonymsService.isKnownAutomotiveTerm(normalized)) {
         clarity += 15;
       }
 
@@ -455,7 +395,7 @@ export class IntelligenceService {
   }
 
   // ─────────────────────────────────────────────────────────────────
-  // FIX-1 + FIX-4: detectIntent — uses carPartNames class property
+  // FIX-1 + FIX-4: detectIntent — uses synonymsService.isKnownAutomotiveTerm()
   //                 and extended hasSpecificPart regex
   // ─────────────────────────────────────────────────────────────────
   detectIntent(
@@ -475,10 +415,12 @@ export class IntelligenceService {
         return { type: 'SEARCH', confidence: 0.95, subIntent: this.detectSubIntent(message) };
       }
 
-      // FIX-1: Use class-level carPartNames (extended with French vocabulary)
-      const hasCarPart = this.carPartNames.some(
-        (part) => lower.includes(part) || combined.includes(part),
-      );
+      // Dynamic, DB-backed check (was: local carPartNames array) — see
+      // SynonymsService.isKnownAutomotiveTerm(). Checked against both the
+      // raw and Tunisian-normalized text, same as before.
+      const hasCarPart =
+        this.synonymsService.isKnownAutomotiveTerm(lower) ||
+        this.synonymsService.isKnownAutomotiveTerm(combined);
       if (hasCarPart) {
         return { type: 'SEARCH', confidence: 0.90, subIntent: this.detectSubIntent(message) };
       }
@@ -514,7 +456,7 @@ export class IntelligenceService {
       if (
         !hasPendingClarification &&
         this.isGreetingWord(lower) &&
-        !this.carPartNames.some((p) => combined.includes(p)) &&
+        !this.synonymsService.isKnownAutomotiveTerm(combined) &&
         !/stock|prix|disponible|famma|choufli|montre|voir|avant|arriere|arrière|gauche|droite/i.test(
           combined,
         )
@@ -526,7 +468,7 @@ export class IntelligenceService {
       if (
         /^(bonjour|salut|hello|hi|salam|assalam)/i.test(message) &&
         /aide|help|assistance|trouver.*pièces|j'aurais besoin/i.test(lower) &&
-        !this.carPartNames.some((p) => combined.includes(p))
+        !this.synonymsService.isKnownAutomotiveTerm(combined)
       ) {
         return { type: 'GREETING', confidence: 0.95 };
       }

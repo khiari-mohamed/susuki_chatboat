@@ -42,6 +42,61 @@ export class SynonymsService implements OnModuleInit {
   private tunisianMap: Record<string, string> = {};
   // Stop-words (rows where langue === 'stop')
   private stopWords: Set<string> = new Set();
+  // TYPO: known misspelling (mot) → correct spelling (canonical),
+  // rows where langue === 'typo'. DB-managed via /admin/synonyms —
+  // AIQueryNormalizerService merges this OVER its small static seed
+  // map so new typos are fixable from the admin dashboard with no
+  // deploy. Empty until someone adds rows or runs the one-off seed
+  // script (suzuki-backend/seed-typo-corrections.ts).
+  private typoMap: Record<string, string> = {};
+  // Fuzzy-match vocabulary — every known single-word French term,
+  // normalized. Built in loadFromDatabase(). See isKnownAutomotiveTerm's
+  // sibling below, findClosestVocabularyWord().
+  private vocabularyWords: Set<string> = new Set();
+
+  // ─────────────────────────────────────────────────────────────────
+  // Safety-net vocabulary used by isKnownAutomotiveTerm() ONLY when the
+  // DB-driven synonym index doesn't already recognize a term (e.g. a
+  // fresh install before seedFrenchDesignation2Synonyms() has run, or
+  // the DB failing to load — see loadFromDatabase() catch block).
+  // This is the union of the three carPartNames lists that used to be
+  // hand-maintained separately in AIQueryNormalizerService,
+  // ChatOrchestratorService and IntelligenceService. Keeping ONE copy
+  // here — as a fallback, not the primary source — removes the "edit
+  // one, forget the other two" bug risk while changing no observable
+  // behavior for terms the DB already knows about.
+  private static readonly STATIC_FALLBACK_PART_TERMS: string[] = [
+    'maitre', 'maître', 'cylindre', 'etrier', 'étrier', 'frein', 'frina',
+    'plaquette', 'plaquettes', 'disque', 'disques', 'tambour', 'sabot',
+    'amortisseur', 'amortisseurs', 'ressort', 'rotule', 'triangle', 'biellette',
+    'bras', 'cremaillere', 'crémaillère', 'silent', 'silentbloc', 'coupelle',
+    'moyeu', 'roulement', 'roulements', 'soufflet', 'stabilisatrice',
+    'culasse', 'piston', 'segment', 'bielle', 'vilebrequin', 'vilbrequin',
+    'soupape', 'joint', 'joints', 'courroie', 'distribution', 'tendeur',
+    'poulie', 'volant', 'cardan', 'embrayage', 'filtre', 'filtres',
+    'batterie', 'alternateur', 'démarreur', 'demarreur', 'bougie', 'bougies',
+    'bobine', 'capteur', 'capteurs', 'calculateur', 'faisceau', 'fusible',
+    'relais', 'contacteur', 'commodo', 'commande', 'radar',
+    'radiateur', 'durite', 'durites', 'pompe', 'thermostat', 'condenseur',
+    'compresseur', 'vase', 'reservoir', 'réservoir',
+    'injecteur', 'injecteurs', 'silencieux', 'echappement', 'échappement',
+    'catalyseur', 'collecteur',
+    'aile', 'capot', 'porte', 'pare', 'choc', 'parechoc', 'pare-choc',
+    'calandre', 'malle', 'coffre', 'vitre', 'lunette', 'parebrise',
+    'pare-brise', 'baguette', 'moulure', 'seuil', 'longeron', 'traverse',
+    'renfort', 'tablier', 'plancher', 'toit', 'custode', 'hayon',
+    'charniere', 'charnière', 'serrure', 'loquet', 'poignee', 'poignée',
+    'garniture', 'enjoliveur',
+    'phare', 'phares', 'feu', 'feux', 'optique', 'clignotant', 'clignotants',
+    'catadioptre', 'lampe', 'ampoule',
+    'siege', 'sièges', 'ceinture', 'tableau', 'tapis', 'airbag',
+    'retroviseur', 'rétroviseur', 'retro',
+    'essuie', 'balai', 'leve', 'monte',
+    'agrafe', 'agraffe', 'agraphe', 'agrafes', 'agraffes', 'agraphes',
+    'valve', 'cache', 'support', 'clip', 'vis', 'boulon',
+    'ecrou', 'rondelle', 'cric', 'antenne', 'klaxon',
+    'pneu', 'tuyau', 'suspension',
+  ];
 
   constructor(private prisma: PrismaService) {}
 
@@ -60,6 +115,7 @@ export class SynonymsService implements OnModuleInit {
       this.categoryVariants = {};
       this.tunisianMap      = {};
       this.stopWords        = new Set();
+      this.typoMap          = {};
 
       for (const row of rows) {
         if (row.langue === 'stop') {
@@ -71,6 +127,14 @@ export class SynonymsService implements OnModuleInit {
         if (row.langue === 'tn') {
           // Tunisian: mot → canonical (french translation)
           this.tunisianMap[row.mot] = row.canonical;
+          continue;
+        }
+
+        if (row.langue === 'typo') {
+          // Typo correction: mot (the misspelling) → canonical (correct
+          // spelling). Keyed lowercase — AIQueryNormalizerService matches
+          // case-insensitively against the raw user query.
+          this.typoMap[(row.mot || '').toLowerCase()] = row.canonical;
           continue;
         }
 
@@ -102,12 +166,37 @@ export class SynonymsService implements OnModuleInit {
       const frNormCount = Object.keys(this.normalizedLookup).length;
       const frCatCount  = Object.keys(this.categoryVariants).length;
       const tnCount     = Object.keys(this.tunisianMap).length;
+      const typoCount   = Object.keys(this.typoMap).length;
+
+      // Fuzzy-match vocabulary: every single-word (no spaces) known term,
+      // normalized. Built from whatever the DB actually knows — grows the
+      // moment new synonyms/canonicals are added, no separate maintenance.
+      this.vocabularyWords = new Set<string>();
+      for (const key of Object.keys(this.normalizedLookup)) {
+        if (key.length >= 3 && !key.includes(' ')) this.vocabularyWords.add(key);
+      }
+      for (const canonical of Object.keys(this.categoryVariants)) {
+        const n = this.normalize(canonical);
+        if (n.length >= 3 && !n.includes(' ')) this.vocabularyWords.add(n);
+      }
+      for (const term of SynonymsService.STATIC_FALLBACK_PART_TERMS) {
+        const n = this.normalize(term);
+        if (n.length >= 3 && !n.includes(' ')) this.vocabularyWords.add(n);
+      }
 
       this.logger.log(
         `✅ SynonymsService loaded ${rows.length} rows — ` +
         `FR normalized: ${frNormCount}, FR categories: ${frCatCount}, ` +
-        `TN: ${tnCount}, stop-words: ${this.stopWords.size}`,
+        `TN: ${tnCount}, TYPO: ${typoCount}, stop-words: ${this.stopWords.size}`,
       );
+      if (typoCount === 0) {
+        this.logger.warn(
+          '⚠️ No langue=\'typo\' rows in synonyms table — AIQueryNormalizerService ' +
+          'is running on its static fallback corrections only. Run ' +
+          'seed-typo-corrections.ts (or add rows via /admin/synonyms) to manage ' +
+          'typo corrections from the dashboard without a deploy.',
+        );
+      }
     } catch (error) {
       this.logger.error(
         '❌ Failed to load synonyms from DB — search will work without synonym expansion',
@@ -117,6 +206,8 @@ export class SynonymsService implements OnModuleInit {
       this.categoryVariants = {};
       this.tunisianMap      = {};
       this.stopWords        = new Set();
+      this.typoMap          = {};
+      this.vocabularyWords  = new Set();
     }
   }
 
@@ -145,6 +236,47 @@ export class SynonymsService implements OnModuleInit {
     return this.stopWords;
   }
 
+  /** Known misspelling (lowercase) → correct spelling. DB-managed, langue='typo'. */
+  getTypoMap(): Record<string, string> {
+    return this.typoMap;
+  }
+
+  // ─────────────────────────────────────────────────────────────────
+  // isKnownAutomotiveTerm — SINGLE shared replacement for the three
+  // hand-maintained `carPartNames` arrays that used to live separately
+  // in AIQueryNormalizerService, ChatOrchestratorService and
+  // IntelligenceService (same intent, three copies that could silently
+  // drift apart). Dynamic first (DB synonym index — grows the moment
+  // someone adds a row via /admin/synonyms or runs
+  // seedFrenchDesignation2Synonyms(), no deploy needed), then a static
+  // safety net so behavior never regresses on a fresh/unmigrated DB.
+  //
+  // Matching is done word-by-word (and on adjacent word pairs, since
+  // some canonical categories are two words, e.g. "pare brise") against
+  // the normalized lookup — O(words in text), not O(size of index) —
+  // so this stays cheap to call per message from multiple services.
+  // ─────────────────────────────────────────────────────────────────
+  isKnownAutomotiveTerm(text: string): boolean {
+    if (!text) return false;
+    const normalized = this.normalize(text);
+    const words = normalized.split(' ').filter(Boolean);
+
+    for (const word of words) {
+      if (word.length >= 3 && this.normalizedLookup[word]) return true;
+    }
+    for (let i = 0; i < words.length - 1; i++) {
+      const phrase = `${words[i]} ${words[i + 1]}`;
+      if (this.normalizedLookup[phrase]) return true;
+    }
+
+    // Static fallback — substring match, matching the original
+    // per-service `.includes()` behavior exactly, so nothing that used
+    // to be recognized stops being recognized.
+    return SynonymsService.STATIC_FALLBACK_PART_TERMS.some((term) =>
+      normalized.includes(this.normalize(term)),
+    );
+  }
+
   /** Get canonical category for a token, or null if not found */
   findCanonical(token: string): string | null {
     return this.normalizedLookup[this.normalize(token)] ?? null;
@@ -170,6 +302,89 @@ export class SynonymsService implements OnModuleInit {
 
   getStopWordCount(): number {
     return this.stopWords.size;
+  }
+
+  getTypoMapSize(): number {
+    return Object.keys(this.typoMap).length;
+  }
+
+  getVocabularySize(): number {
+    return this.vocabularyWords.size;
+  }
+
+  // ─────────────────────────────────────────────────────────────────
+  // findClosestVocabularyWord — the actual answer to "I can't predict
+  // every wrong word": instead of enumerating known typos, measure edit
+  // distance between the unrecognized word and every word the DB
+  // already knows about (vocabularyWords, built in loadFromDatabase()
+  // from real catalog data), and auto-correct to the closest one IF
+  // it's an unambiguous, plausible match. No new typo needs a
+  // hardcoded or DB entry — any misspelling of a word already in the
+  // vocabulary gets caught automatically.
+  //
+  // Deliberately conservative to avoid mangling valid-but-rare words:
+  //  - word itself, length, and threshold gate false positives
+  //  - the winning candidate must be STRICTLY closer than the runner-up
+  //    (an ambiguous tie between two different corrections → no
+  //    correction, safer to leave it for the AI / pass through as-is)
+  //  - distance budget shrinks relative to word length, so short words
+  //    need a near-exact match, long words tolerate a couple of typos
+  //
+  // Returns the corrected word, or null if no confident correction.
+  // ─────────────────────────────────────────────────────────────────
+  findClosestVocabularyWord(word: string): string | null {
+    const normalized = this.normalize(word);
+    if (normalized.length < 4 || normalized.includes(' ')) return null;
+    if (this.vocabularyWords.has(normalized)) return null; // already correct
+
+    const maxDistance =
+      normalized.length <= 5 ? 1 :
+      normalized.length <= 9 ? 2 : 3;
+
+    let best: string | null = null;
+    let bestDist = Infinity;
+    let secondBestDist = Infinity;
+
+    for (const candidate of this.vocabularyWords) {
+      // Cheap pre-filter: distance can never be less than the length
+      // difference, so skip candidates that are already out of budget.
+      if (Math.abs(candidate.length - normalized.length) > maxDistance) continue;
+
+      const dist = SynonymsService.levenshtein(normalized, candidate);
+      if (dist < bestDist) {
+        secondBestDist = bestDist;
+        bestDist = dist;
+        best = candidate;
+      } else if (dist < secondBestDist && candidate !== best) {
+        secondBestDist = dist;
+      }
+    }
+
+    if (best && bestDist <= maxDistance && bestDist < secondBestDist) {
+      return best;
+    }
+    return null;
+  }
+
+  private static levenshtein(a: string, b: string): number {
+    if (a.length === 0) return b.length;
+    if (b.length === 0) return a.length;
+    const matrix: number[][] = [];
+    for (let i = 0; i <= b.length; i++) matrix[i] = [i];
+    for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
+    for (let i = 1; i <= b.length; i++) {
+      for (let j = 1; j <= a.length; j++) {
+        matrix[i][j] =
+          b.charAt(i - 1) === a.charAt(j - 1)
+            ? matrix[i - 1][j - 1]
+            : Math.min(
+                matrix[i - 1][j - 1] + 1,
+                matrix[i][j - 1] + 1,
+                matrix[i - 1][j] + 1,
+              );
+      }
+    }
+    return matrix[b.length][a.length];
   }
 
   /** Reload from DB — call after seeding or admin updates */
