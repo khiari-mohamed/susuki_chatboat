@@ -115,8 +115,9 @@ export default function DiagnosticsPage() {
     client
       .get('/diagnostics/overview')
       .then(({ data }) => {
-        setOverview(data);
-        if (data.tables.length > 0) setActiveTable('all');
+        const tables = Array.isArray(data.tables) ? data.tables : [];
+        setOverview({ ...data, tables });
+        if (tables.length > 0) setActiveTable('all');
       })
       .catch((err) => setError(err.response?.data?.message || 'Erreur de chargement'));
 
@@ -228,7 +229,7 @@ export default function DiagnosticsPage() {
         >
           toutes les tables
         </button>
-        {overview?.tables.map((t) => (
+        {overview?.tables?.map((t) => (
           <button
             key={t.key}
             className={t.key === activeTable ? 'explorer-tab active' : 'explorer-tab'}
@@ -241,7 +242,7 @@ export default function DiagnosticsPage() {
 
       <div className="col-profile-list">
         {loadingProfile && <div className="full-page-loader" style={{ height: 120 }}>Chargement…</div>}
-        {!loadingProfile && profile?.columns.map((col) => <ColumnProfileRow key={col.key} col={col} />)}
+        {!loadingProfile && profile?.columns?.map((col) => <ColumnProfileRow key={col.key} col={col} />)}
       </div>
 
       {/* ── Integrity checks ─────────────────────────────────── */}
