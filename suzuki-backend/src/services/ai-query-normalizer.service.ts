@@ -54,6 +54,14 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OpenAIService } from '../chat/openai.service';
 import { SynonymsService } from '../synonyms/synonyms.service';
+import {
+  extractRequestedPositions,
+  hasAnyPosition,
+  isPositionToken,
+  positionsToWords,
+  samePositions,
+  tokenizeName,
+} from '../chat/part-constraints';
 
 @Injectable()
 export class AIQueryNormalizerService {
@@ -408,10 +416,14 @@ export class AIQueryNormalizerService {
         }
       }
 
+      // FIX 2026-09-20: the model may fix words, but it may NOT add, drop or
+      // change a position. Positions are decided by the customer's own
+      // words (+ the DB Tunisian dictionary), never by the LLM.
+      const guarded = this.enforcePositionFidelity(correctedQuery, aiResult.normalized);
       this.stats.aiAccepted++;
       this.recordAiOutcome(true);
-      this.logger.log(`✅ AI: "${query}" → "${aiResult.normalized}" (${aiResult.confidence})`);
-      return aiResult;
+      this.logger.log(`✅ AI: "${query}" → "${guarded}" (${aiResult.confidence})`);
+      return { ...aiResult, normalized: guarded };
     } catch (error: any) {
       // Not recorded in the rejection-rate window on purpose — a network
       // timeout or API error says nothing about whether the AI's actual
@@ -433,6 +445,51 @@ export class AIQueryNormalizerService {
     }
   }
 
+
+  // ─────────────────────────────────────────────────────────────────
+  // FIX 2026-09-20: position fidelity guard.
+  // extractMeaningfulWords() deliberately ignores position words, so the
+  // checks above could never notice the LLM adding "avant" or turning "g"
+  // into "droite". Compare the positions of what the customer typed (after
+  // the deterministic DB dialect map) with the positions of the LLM output;
+  // on any difference keep the LLM's wording for the PART and restore the
+  // customer's positions. Drift is logged so missing dialect words can be
+  // added to the Tunisian dictionary (admin → synonyms).
+  // ─────────────────────────────────────────────────────────────────
+  private enforcePositionFidelity(source: string, aiNormalized: string): string {
+    const expected = extractRequestedPositions(this.applyTunisianNormalization(source));
+    const proposed = extractRequestedPositions(aiNormalized);
+
+    // Concatenated input ("plaquetteavg", "adhesifarporteavg") is the one case
+    // where the LLM legitimately DISCOVERS positions the tokenizer cannot see.
+    // For such long blobs an LLM position is accepted only if its abbreviation
+    // really occurs inside the blob.
+    const blobs = tokenizeName(source).filter((t) => t.length >= 8);
+    const surface: Record<string, string[]> = {
+      AV: ['av', 'avant'], AR: ['ar', 'arr', 'arriere'],
+      G: ['g', 'gauche'], D: ['d', 'droite', 'droit'],
+      SUP: ['sup'], INF: ['inf'],
+    };
+    const supportedByBlob = (code: string) =>
+      blobs.some((b) => (surface[code] ?? []).some((f) => b.includes(f)));
+    const allowed = {
+      axes:   [...expected.axes,   ...proposed.axes.filter((a) => !expected.axes.includes(a)   && supportedByBlob(a))],
+      sides:  [...expected.sides,  ...proposed.sides.filter((x) => !expected.sides.includes(x)  && supportedByBlob(x))],
+      levels: [...expected.levels, ...proposed.levels.filter((l) => !expected.levels.includes(l) && supportedByBlob(l))],
+    };
+    if (samePositions(allowed, proposed)) return aiNormalized;
+
+    this.logger.warn(
+      `[POSITION-DRIFT] "${source}" → AI "${aiNormalized}" — AI positions ` +
+      `${JSON.stringify(proposed)} not supported by the customer's words ${JSON.stringify(allowed)}; restoring`,
+    );
+    const withoutPositions = tokenizeName(aiNormalized)
+      .filter((t) => !isPositionToken(t))
+      .join(' ');
+    return hasAnyPosition(allowed)
+      ? `${withoutPositions} ${positionsToWords(allowed).join(' ')}`.trim()
+      : withoutPositions;
+  }
 
   // ─────────────────────────────────────────────────────────────────
   // FIX-5: applyTunisianNormalization
@@ -534,7 +591,9 @@ export class AIQueryNormalizerService {
     isThanks: boolean;
     confidence: number;
   }> {
-    const prompt = `You are a car parts query parser for a Suzuki parts catalog.
+    // FIX 2026-09-20: rules go in the system message, the query alone in the
+    // user message, through completeJson() (no catalog persona, temperature 0).
+    const systemPrompt = `You are a car parts query parser for a Suzuki parts catalog.
 The catalog uses FRENCH names as primary display names (designation_2 field).
 Your job is to normalize user queries into clean French search terms.
 
@@ -569,16 +628,18 @@ EXAMPLES:
 - "g ar glace monte appareil" → "gauche arriere glace monte appareil"
 - "ch7al retroviseur" → "prix retroviseur"
 
-QUERY: "${query}"
-
 Respond with ONLY valid JSON, no markdown:
 {"normalized":"clean French query","isGreeting":true/false,"isThanks":true/false,"confidence":0.0-1.0}`;
 
-    const response  = await this.openaiService.chat(prompt, [], 'JSON only');
-    const jsonMatch = response.match(/\{[^}]+\}/);
-    if (!jsonMatch) throw new Error('No JSON in AI response');
+    const response  = await this.openaiService.completeJson(systemPrompt, `QUERY: "${query}"`);
+    let jsonText = response.trim();
+    if (!jsonText.startsWith('{')) {
+      const jsonMatch = response.match(/\{[^}]+\}/);
+      if (!jsonMatch) throw new Error('No JSON in AI response');
+      jsonText = jsonMatch[0];
+    }
 
-    const result = JSON.parse(jsonMatch[0]);
+    const result = JSON.parse(jsonText);
     return {
       normalized: result.normalized || query,
       isGreeting: !!result.isGreeting,

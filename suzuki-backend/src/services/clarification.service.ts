@@ -26,6 +26,12 @@
 // ═══════════════════════════════════════════════════════════════════
 
 import { Injectable } from '@nestjs/common';
+import {
+  extractRequestedPositions,
+  getCatalogPositions,
+  hasAnyPosition,
+  positionsSatisfy,
+} from '../chat/part-constraints';
 
 interface ClarificationContext {
   originalQuery: string;
@@ -153,8 +159,10 @@ export class ClarificationService {
       };
     }
 
-    const hasPos  = /\b(avant|arrière|arriere|av|ar)\b/i.test(message);
-    const hasSide = /\b(gauche|droite|droit|dr|g|gh)\b/i.test(message);
+    // FIX 2026-09-20: shared parser — the old side regex had no plain "d".
+    const requestedPositions = extractRequestedPositions(message);
+    const hasPos  = requestedPositions.axes.length > 0;
+    const hasSide = requestedPositions.sides.length > 0;
 
     // Parts that are single central pieces — never have a left/right side.
     // Asking for side clarification on these is always wrong.
@@ -438,42 +446,11 @@ export class ClarificationService {
   // FIX-2: filterBySpec — checks combined text (French + English)
   // ─────────────────────────────────────────────────────────────────
   private filterBySpec(products: any[], message: string): any[] {
-    const lower = message.toLowerCase();
-    const pos   =
-      lower.includes('avant')   ? 'avant'   :
-      lower.includes('arrière') || lower.includes('arriere') ? 'arrière' : null;
-    const side  =
-      lower.includes('gauche')  ? 'gauche'  :
-      lower.includes('droite')  || lower.includes('droit')   ? 'droite'  : null;
-
-    if (!pos && !side) return products;
-
-    return products.filter((p) => {
-      // FIX-2: use combined text for filtering
-      const combined = this.getCombinedText(p).toLowerCase();
-
-      // Reject wrong position
-      if (pos === 'avant'   && /\b(arriere|arrière|ar|rear|rr)\b/i.test(combined)) return false;
-      if (pos === 'arrière' && /\b(avant|av|front|fr)\b/i.test(combined))           return false;
-
-      // Reject wrong side
-      if (side === 'gauche' && /\b(droite|droit|d|right|rh)\b/i.test(combined))    return false;
-      if (side === 'droite' && /\b(gauche|g|left|lh)\b/i.test(combined))            return false;
-
-      // Require correct position
-      const matchPos =
-        !pos ||
-        (pos === 'avant'   && /\b(avant|av|front|fr)\b/i.test(combined)) ||
-        (pos === 'arrière' && /\b(arriere|arrière|ar|rear|rr)\b/i.test(combined));
-
-      // Require correct side
-      const matchSide =
-        !side ||
-        (side === 'gauche' && /\b(gauche|g|left|lh)\b/i.test(combined)) ||
-        (side === 'droite' && /\b(droite|droit|d|right|rh)\b/i.test(combined));
-
-      return matchPos && matchSide;
-    });
+    const requested = extractRequestedPositions(message);
+    if (!hasAnyPosition(requested)) return products;
+    // FIX 2026-09-20: a part must really HAVE the requested position (French
+    // name first). The old version scanned French + English text together.
+    return products.filter((p) => positionsSatisfy(requested, getCatalogPositions(p)));
   }
 
   // ─────────────────────────────────────────────────────────────────
@@ -510,25 +487,15 @@ export class ClarificationService {
       const combined = this.getCombinedText(p).toUpperCase();
       const tokens   = combined.split(/[\s\-\/\(\),]+/).filter(Boolean);
 
-      // ── POSITION ──────────────────────────────────────────────
-      const hasAv = tokens.some((t) =>
-        ['AV', 'AVANT', 'AVG', 'AVD', 'FRONT', 'FR'].includes(t),
-      );
-      const hasAr = tokens.some((t) =>
-        ['AR', 'ARRIERE', 'ARRIÈRE', 'ARG', 'ARD', 'REAR', 'RR'].includes(t),
-      );
-      if (hasAv) positions.add('avant');
-      if (hasAr) positions.add('arrière');
-
-      // ── SIDE ──────────────────────────────────────────────────
-      const hasG = tokens.some((t) =>
-        ['G', 'GH', 'GAUCHE', 'AVG', 'ARG', 'LEFT', 'LH', 'CONDUCTEUR'].includes(t),
-      );
-      const hasD = tokens.some((t) =>
-        ['D', 'DR', 'DROITE', 'DROIT', 'AVD', 'ARD', 'RIGHT', 'RH', 'PASSAGER'].includes(t),
-      );
-      if (hasG) sides.add('gauche');
-      if (hasD) sides.add('droite');
+      // ── POSITION / SIDE ───────────────────────────────────────
+      // FIX 2026-09-20: read from the shared catalog parser instead of the
+      // combined French+English token list ("OUT REAR VIEW" is not a rear
+      // position, "D'AIR" is not a right side).
+      const actualPositions = getCatalogPositions(p);
+      if (actualPositions.axes.includes('AV')) positions.add('avant');
+      if (actualPositions.axes.includes('AR')) positions.add('arrière');
+      if (actualPositions.sides.includes('G')) sides.add('gauche');
+      if (actualPositions.sides.includes('D')) sides.add('droite');
 
       // ── TYPE (filter fluid / accessory words) ──────────────────
       tokens.forEach((w) => {

@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { extractRequestedPositions, getCatalogPositions } from './part-constraints';
 @Injectable()
 export class StrictValidatorService {
   private readonly logger = new Logger(StrictValidatorService.name);
@@ -16,31 +17,21 @@ export class StrictValidatorService {
     if (french.toLowerCase() === english.toLowerCase()) return french;
     return `${french} ${english}`.trim();
   }
-  private static readonly AVANT_TOKENS   = ['avant', 'av', 'front', 'fr', 'avd', 'avg'];
-  private static readonly ARRIERE_TOKENS = ['arriere', 'ar', 'rear', 'rr', 'ard', 'arg'];
-  private static readonly GAUCHE_TOKENS  = ['gauche', 'gh', 'left', 'lh', 'g', 'avg', 'arg'];
-  private static readonly DROITE_TOKENS  = ['droite', 'droit', 'dr', 'right', 'rh', 'd', 'avd', 'ard'];
-
+  // FIX 2026-09-20: same shared position reader as the search gate (French
+  // name first, English only when there is no French name, elisions removed).
   private computePositionFlags(part: any): {
     hasAvant: boolean;
     hasArriere: boolean;
     hasGauche: boolean;
     hasDroite: boolean;
   } {
-    const frenchTokens   = this.normalize(part.designation2 ?? part.designation_2 ?? '').split(/[\s-]+/).filter(Boolean);
-    const fallbackTokens = this.normalize(part.designation ?? '').split(/[\s-]+/).filter(Boolean);
-
-    const frHasAvant   = this.hasAnyToken(frenchTokens, StrictValidatorService.AVANT_TOKENS);
-    const frHasArriere = this.hasAnyToken(frenchTokens, StrictValidatorService.ARRIERE_TOKENS);
-    const frHasGauche  = this.hasAnyToken(frenchTokens, StrictValidatorService.GAUCHE_TOKENS);
-    const frHasDroite  = this.hasAnyToken(frenchTokens, StrictValidatorService.DROITE_TOKENS);
-
-    const hasAvant   = (frHasAvant || frHasArriere) ? frHasAvant   : this.hasAnyToken(fallbackTokens, StrictValidatorService.AVANT_TOKENS);
-    const hasArriere = (frHasAvant || frHasArriere) ? frHasArriere : this.hasAnyToken(fallbackTokens, StrictValidatorService.ARRIERE_TOKENS);
-    const hasGauche  = (frHasGauche || frHasDroite) ? frHasGauche  : this.hasAnyToken(fallbackTokens, StrictValidatorService.GAUCHE_TOKENS);
-    const hasDroite  = (frHasGauche || frHasDroite) ? frHasDroite  : this.hasAnyToken(fallbackTokens, StrictValidatorService.DROITE_TOKENS);
-
-    return { hasAvant, hasArriere, hasGauche, hasDroite };
+    const actual = getCatalogPositions(part);
+    return {
+      hasAvant:   actual.axes.includes('AV'),
+      hasArriere: actual.axes.includes('AR'),
+      hasGauche:  actual.sides.includes('G'),
+      hasDroite:  actual.sides.includes('D'),
+    };
   }
 
   // ─────────────────────────────────────────────────────────────────
@@ -92,7 +83,7 @@ export class StrictValidatorService {
 
       // ── RULE 2: Position must not CONFLICT ────────────────────
       // FIX-6: French-priority resolution — see computePositionFlags()
-      const queryPosition = this.extractPosition(normalizedQuery);
+      const queryPosition = this.extractPosition(query);
       if (queryPosition) {
         const { hasAvant, hasArriere } = this.computePositionFlags(part);
         const partHasWrongPosition =
@@ -108,7 +99,7 @@ export class StrictValidatorService {
 
       // ── RULE 3: Side must not CONFLICT ───────────────────────
       // FIX-6: French-priority resolution — see computePositionFlags()
-      const querySide = this.extractSide(normalizedQuery);
+      const querySide = this.extractSide(query);
       if (querySide) {
         const { hasGauche, hasDroite } = this.computePositionFlags(part);
         const partHasWrongSide =
@@ -440,19 +431,17 @@ export class StrictValidatorService {
   }
 
   // ─────────────────────────────────────────────────────────────────
+  // Only a single, unambiguous request counts for the conflict rules below.
   private extractPosition(text: string): string | null {
-    if (/\b(avant|av)\b/i.test(text))   return 'avant';
-    if (/\b(arriere|ar)\b/i.test(text)) return 'arriere';
-    return null;
+    const { axes } = extractRequestedPositions(text);
+    if (axes.length !== 1) return null;
+    return axes[0] === 'AV' ? 'avant' : 'arriere';
   }
 
   private extractSide(text: string): string | null {
-    if (/\b(gauche)\b/i.test(text))              return 'gauche';
-    if (/\b(droite|droit)\b/i.test(text))        return 'droite';
-    // Only match standalone 'g' or 'd' if not part of a longer word
-    if (/(?<![a-z])g(?![a-z])/i.test(text))      return 'gauche';
-    if (/(?<![a-z])d(?![a-z])/i.test(text) && !/\b(de|du|des|dans|dont|donc)\b/i.test(text)) return 'droite';
-    return null;
+    const { sides } = extractRequestedPositions(text);
+    if (sides.length !== 1) return null;
+    return sides[0] === 'G' ? 'gauche' : 'droite';
   }
 
   private isReferenceQuery(query: string): boolean {
@@ -460,10 +449,6 @@ export class StrictValidatorService {
     return candidates.some(
       (candidate) => /\d/.test(candidate) && candidate.replace(/[-_]/g, '').length >= 8,
     );
-  }
-
-  private hasAnyToken(tokens: string[], expected: string[]): boolean {
-    return expected.some((token) => tokens.includes(token));
   }
 
   // ─────────────────────────────────────────────────────────────────

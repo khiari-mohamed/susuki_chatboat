@@ -150,6 +150,56 @@ export class OpenAIService {
     }
   }
 
+  // FIX 2026-09-20: dedicated JSON completion for machine tasks (query
+  // normalization). chat() wraps every prompt in the customer-facing catalog
+  // persona (whose own schema is {humanReadable, products…}), which
+  // contradicted the normalizer's {normalized…} schema. Here: no persona,
+  // temperature 0, JSON mode, small budget.
+  async completeJson(systemPrompt: string, userPrompt: string, maxTokens = 200): Promise<string> {
+    this.metrics.totalCalls++;
+    const cacheKey = `json::${systemPrompt.length}::${userPrompt}`;
+    const cached = this.getCachedResponse(cacheKey);
+    if (cached) {
+      this.metrics.cacheHits++;
+      return cached;
+    }
+    await this.enforceRateLimit();
+    let lastErr: any;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const resp = await axios.post(
+          this.apiUrl,
+          {
+            model:           this.model,
+            messages:        [
+              { role: 'system', content: systemPrompt },
+              { role: 'user',   content: String(userPrompt).slice(0, 4000) },
+            ],
+            temperature:     0,
+            max_tokens:      maxTokens,
+            response_format: { type: 'json_object' },
+          },
+          {
+            headers: {
+              'Content-Type':  'application/json',
+              'Authorization': `Bearer ${this.apiKey}`,
+            },
+            timeout: 8000,
+          },
+        );
+        const content: string = resp.data.choices?.[0]?.message?.content ?? '';
+        this.metrics.successfulCalls++;
+        if (content) this.cacheResponse(cacheKey, content);
+        return content;
+      } catch (err: any) {
+        lastErr = err;
+        if (attempt === 0) await this.delay(400);
+      }
+    }
+    this.metrics.failedCalls++;
+    throw lastErr || new Error('completeJson failed');
+  }
+
   private async callWithRetry(
     systemPrompt:        string,
     message:             string,

@@ -11,6 +11,8 @@ import { AdvancedSearchService } from '../chat/advanced-search.service';
 import { VehicleModelsService } from '../constants/vehicle-models.service';
 import { StrictValidatorService } from '../chat/strict-validator.service';
 import { SynonymsService } from '../synonyms/synonyms.service';
+import { getCatalogPositions } from '../chat/part-constraints';
+import type { ConstraintOutcome } from '../chat/part-constraints';
 
 export interface ProcessMessageResponse {
   response: string;
@@ -39,11 +41,6 @@ export class ChatOrchestratorService {
   // the same DB-backed check used by AIQueryNormalizerService and
   // IntelligenceService (see synonyms.service.ts). This was one of three
   // copies of the same list that could silently drift out of sync.
-  private static readonly AVANT_RE   = /\b(avant|av|front|fr)\b/i;
-  private static readonly ARRIERE_RE = /\b(arriere|arrière|ar|rear|rr)\b/i;
-  private static readonly GAUCHE_RE  = /\b(gauche|g|left|lh)\b/i;
-  private static readonly DROITE_RE  = /\b(droite|droit|d|right|rh)\b/i;
-
   constructor(
     private sessionService: SessionService,
     private clarificationService: ClarificationService,
@@ -137,26 +134,22 @@ export class ChatOrchestratorService {
   }
 
 
+  // FIX 2026-09-20: single shared position reader (part-constraints.ts).
+  // The old regexes read "BOUGIE D'ALLUMAGE" as droite and mixed French and
+  // English text.
   private getPositionFlags(p: any): {
     hasAvant: boolean;
     hasArriere: boolean;
     hasGauche: boolean;
     hasDroite: boolean;
   } {
-    const frenchText   = (p.designation2 ?? p.designation_2 ?? '').toString();
-    const fallbackText = (p.designation ?? '').toString();
-
-    const frHasAvant   = ChatOrchestratorService.AVANT_RE.test(frenchText);
-    const frHasArriere = ChatOrchestratorService.ARRIERE_RE.test(frenchText);
-    const frHasGauche  = ChatOrchestratorService.GAUCHE_RE.test(frenchText);
-    const frHasDroite  = ChatOrchestratorService.DROITE_RE.test(frenchText);
-
-    const hasAvant   = (frHasAvant || frHasArriere) ? frHasAvant   : ChatOrchestratorService.AVANT_RE.test(fallbackText);
-    const hasArriere = (frHasAvant || frHasArriere) ? frHasArriere : ChatOrchestratorService.ARRIERE_RE.test(fallbackText);
-    const hasGauche  = (frHasGauche || frHasDroite) ? frHasGauche  : ChatOrchestratorService.GAUCHE_RE.test(fallbackText);
-    const hasDroite  = (frHasGauche || frHasDroite) ? frHasDroite  : ChatOrchestratorService.DROITE_RE.test(fallbackText);
-
-    return { hasAvant, hasArriere, hasGauche, hasDroite };
+    const actual = getCatalogPositions(p);
+    return {
+      hasAvant:   actual.axes.includes('AV'),
+      hasArriere: actual.axes.includes('AR'),
+      hasGauche:  actual.sides.includes('G'),
+      hasDroite:  actual.sides.includes('D'),
+    };
   }
 
   // ─────────────────────────────────────────────────────────────────
@@ -324,14 +317,12 @@ export class ChatOrchestratorService {
       const enrichedQuery    = `${pendingClarification.originalQuery} ${processedMessage}`.trim();
       this.logger.log(`Enriched query: "${enrichedQuery}"`);
 
-      let products: any[];
-
       if (pendingClarification.dimension === 'type') {
         this.logger.log(`TYPE clarification — re-searching clarified request: "${enrichedQuery}"`);
-        products = await this.searchService.search(enrichedQuery, vehicle);
-      } else {
-        products = await this.searchService.search(enrichedQuery, vehicle);
       }
+      const clarifiedSearch = await this.searchService.searchWithDiagnostics(enrichedQuery, vehicle);
+      let products: any[] = clarifiedSearch.products;
+      const clarifiedConstraint: ConstraintOutcome | null = clarifiedSearch.constraint;
 
       this.clarificationService.clearPending(session.id);
       this.contextService.setLastPart(session.id, partName);
@@ -417,7 +408,9 @@ export class ChatOrchestratorService {
           metadata:   { productsFound: products.length, conversationLength: conversationHistory.length, queryClarity: 10, duration: Date.now() - startTime },
         };
       } else {
-        const response = this.responseService.buildNoResultsResponse(enrichedQuery, vehicle);
+        const response = clarifiedConstraint?.noExactMatch
+          ? this.responseService.buildNoExactMatchResponse(clarifiedConstraint, vehicle)
+          : this.responseService.buildNoResultsResponse(enrichedQuery, vehicle);
         await this.sessionService.saveBotResponse(session.id, response, { intent: 'NO_RESULTS' });
         return {
           response,
@@ -549,7 +542,9 @@ export class ChatOrchestratorService {
 
     // 8. Main search
     const searchQuery = this.contextService.buildSearchQuery(processedMessage, context, vehicle);
-    let products      = await this.searchService.search(searchQuery, vehicle);
+    const mainSearch  = await this.searchService.searchWithDiagnostics(searchQuery, vehicle);
+    const mainConstraint: ConstraintOutcome | null = mainSearch.constraint;
+    let products      = mainSearch.products;
     products          = this.strictValidator.validateResults(products, searchQuery, context);
     products          = this.filterByVehicleModel(products, vehicle);
 
@@ -593,6 +588,8 @@ export class ChatOrchestratorService {
       );
     } else if (preFilteredProducts.length > 0) {
       response = this.responseService.buildProductResponse(preFilteredProducts, searchQuery, vehicle);
+    } else if (mainConstraint?.noExactMatch && products.length === 0) {
+      response = this.responseService.buildNoExactMatchResponse(mainConstraint, vehicle);
     } else {
       response = this.responseService.buildNoResultsResponse(searchQuery, vehicle);
     }

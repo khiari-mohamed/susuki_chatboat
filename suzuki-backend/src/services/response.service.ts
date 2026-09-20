@@ -26,6 +26,8 @@
 // ═══════════════════════════════════════════════════════════════════
 
 import { Injectable } from '@nestjs/common';
+import { formatCodeLabel, formatPositionLabel } from '../chat/part-constraints';
+import type { ConstraintOutcome } from '../chat/part-constraints';
 
 @Injectable()
 export class ResponseService {
@@ -346,6 +348,29 @@ export class ResponseService {
       ? ` pour votre ${vehicle.marque} ${vehicle.modele}`
       : '';
     return `Indisponible${vehicleInfo}.\n\nContactez CarPro au ☎️ 70 603 500.`;
+  }
+
+  // The customer asked for a part in a specific position and the catalog has
+  // no such row. Say so (and what DOES exist) instead of answering with a
+  // different part. The list of existing positions is only shown when the
+  // part's identity was verified (strict-head), otherwise it could mislead.
+  buildNoExactMatchResponse(constraint: ConstraintOutcome, vehicle: any): string {
+    const vehicleInfo = vehicle?.modele
+      ? ` pour votre ${vehicle.marque} ${vehicle.modele}`
+      : '';
+    const part   = constraint.requestedPart ?? 'cette pièce';
+    const wanted = formatPositionLabel(constraint.requestedPositions);
+    const existing =
+      constraint.identityMode === 'strict-head' && constraint.availablePositions.length > 0
+        ? `Positions existantes pour cette pièce : ${constraint.availablePositions
+            .map((code) => formatCodeLabel(code))
+            .join(', ')}.\n\n`
+        : '';
+    return (
+      `Je n'ai pas trouvé « ${part} » en position ${wanted}${vehicleInfo}.\n\n` +
+      existing +
+      `💡 Précisez une position existante ou contactez CarPro au ☎️ 70 603 500.`
+    );
   }
 
   buildModelMismatchResponse(vehicleModel: string, requestedModel: string): string {

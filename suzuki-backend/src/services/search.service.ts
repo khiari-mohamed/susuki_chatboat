@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { AdvancedSearchService } from '../chat/advanced-search.service';
 import { SearchValidatorService } from './search-validator.service';
 import { StrictValidatorService } from '../chat/strict-validator.service';
+import type { ConstraintOutcome } from '../chat/part-constraints';
 
 @Injectable()
 export class SearchService {
@@ -12,8 +13,18 @@ export class SearchService {
   ) {}
 
   async search(query: string, vehicle?: any): Promise<any[]> {
+    return (await this.searchWithDiagnostics(query, vehicle)).products;
+  }
+
+  // Same as search(), plus what the identity/position gate did — lets the
+  // orchestrator say "no exact match, this part only exists in AV / AR"
+  // instead of a generic "Indisponible".
+  async searchWithDiagnostics(
+    query: string,
+    vehicle?: any,
+  ): Promise<{ products: any[]; constraint: ConstraintOutcome | null }> {
     console.log(`🔍 SearchService.search called with: "${query}"`);
-    const products = await this.advancedSearch.searchParts(query, vehicle);
+    const { results: products, constraint } = await this.advancedSearch.searchPartsDetailed(query, vehicle);
     console.log(`📦 Found ${products.length} products`);
 
     // ── STRICT VALIDATION ──────────────────────────────────────
@@ -28,7 +39,7 @@ export class SearchService {
       console.error('❌ Validation error:', err);
     });
     
-    return this.filterAvailable(validated);
+    return { products: this.filterAvailable(validated), constraint };
   }
 
   isReferenceQuery(message: string): boolean {

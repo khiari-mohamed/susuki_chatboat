@@ -8,6 +8,16 @@ import {
   MAIN_PART_KEYWORDS,
 } from '../constants/part-classification.constants';
 import axios from 'axios';
+import {
+  applyCatalogConstraints,
+  buildIdentityKeys,
+  buildRequestedPartTokens,
+  extractRequestedPositions,
+  getCatalogPositions,
+  hasAnyPosition,
+  tokenizeName,
+} from './part-constraints';
+import type { ConstraintOutcome } from './part-constraints';
 
 interface PositionRequirements {
   avant: boolean;
@@ -106,6 +116,8 @@ export interface SearchDebugInfo {
   sourceBreakdown: { suzukiOem: number; carproParts: number };
   stockBreakdown: { disponible: number; indisponible: number };
   vehicleScope?: VehicleSearchScope;
+  // Result of the deterministic identity + position gate (see part-constraints.ts)
+  constraint?: ConstraintOutcome | null;
 }
 
 @Injectable()
@@ -198,16 +210,6 @@ export class AdvancedSearchService implements OnModuleInit {
   private static readonly SCORE_NUMERIC_EXACT = 50_000;
   private static readonly SCORE_FRENCH_FIELD_BONUS = 20_000;
 
-
-  private static readonly AVANT_TOKENS   = ['avant', 'av', 'avg', 'avd'];
-  private static readonly ARRIERE_TOKENS = ['arriere', 'ar', 'arg', 'ard'];
-  private static readonly GAUCHE_TOKENS  = ['gauche', 'g', 'conducteur', 'avg', 'arg'];
-  private static readonly DROITE_TOKENS  = ['droite', 'd', 'passager', 'droit', 'avd', 'ard'];
-
-  private static readonly AVANT_TOKENS_EN   = ['front', 'fr'];
-  private static readonly ARRIERE_TOKENS_EN = ['rear', 'rr'];
-  private static readonly GAUCHE_TOKENS_EN  = ['left', 'lh'];
-  private static readonly DROITE_TOKENS_EN  = ['right', 'rh'];
 
   private aiSegmentationAvailable = true;
   private aiSegmentationFailCount = 0;
@@ -571,9 +573,21 @@ export class AdvancedSearchService implements OnModuleInit {
   }
 
   // ─── MAIN SEARCH ────────────────────────────────────────────────
+  // Kept for every existing caller: same signature, same return type.
   async searchParts(query: string, vehicle?: any): Promise<PartResult[]> {
+    return (await this.searchPartsDetailed(query, vehicle)).results;
+  }
+
+  // Same search, but ALSO returns what the identity/position gate did, so the
+  // caller can say "no exact match — this part only exists in AV / AR" instead
+  // of silently answering with a different part. The outcome is returned (not
+  // stored on the singleton) so concurrent requests cannot read each other's.
+  async searchPartsDetailed(
+    query: string,
+    vehicle?: any,
+  ): Promise<{ results: PartResult[]; constraint: ConstraintOutcome | null }> {
     if (!query || query.trim().length < 2) {
-      return [];
+      return { results: [], constraint: null };
     }
     this.logger.log(`[SEARCH] Input query: "${query}"`);
 
@@ -596,7 +610,7 @@ export class AdvancedSearchService implements OnModuleInit {
           this.logger.log(`[SEARCH] Reference pattern detected: "${reference}"`);
           const refResults = await this.searchByReference(reference, vehicle);
           this.logger.log(`[SEARCH] Reference search returned ${refResults.length} results`);
-          return refResults;
+          return { results: refResults, constraint: null };
         }
       }
     }
@@ -633,7 +647,7 @@ export class AdvancedSearchService implements OnModuleInit {
 
     const expandedTerms = this.expandWithSynonymsContextual(rawTokens, normalized);
     this.logger.log(`[SEARCH] Expanded terms: [${expandedTerms.join(', ')}]`);
-    const positionInfo = this.detectPositionRequirements(allTokens, expandedTerms);
+    const positionInfo = this.detectPositionRequirements(searchQuery);
     const vehicleScope = await this.resolveVehicleScope(vehicle);
     if (vehicleScope.active) {
       this.logger.log(`[SEARCH] Vehicle compatibility scope: typeCodes=[${vehicleScope.typeCodes.join(', ')}] vin=${vehicleScope.vin ?? 'n/a'}`);
@@ -826,6 +840,39 @@ export class AdvancedSearchService implements OnModuleInit {
 
     this.logger.log(`[SEARCH] After scoring/filtering/dedup: ${results.length} qualified results`);
 
+    // ── Catalog constraint gate (deterministic) ──────────────────
+    // The DB query above is intentionally broad (recall). This is where
+    // precision is enforced, BEFORE the top-N cut so rejected rows cannot
+    // occupy a slot:
+    //   1. identity — "SUPPORT PARE CHOC AV G" is a support, not a bumper
+    //   2. position — a position the customer typed must really exist on
+    //      the part (French name first; English only if there is none)
+    // The LLM / query text may propose a part and a position; the catalog
+    // decides whether a row satisfies them.
+    const requestedPositions = this.requestedPositionsOf(searchQuery);
+    const identityIgnore = this.buildIdentityIgnoreSet();
+    const requestedPartTokens = buildRequestedPartTokens(allTokens, identityIgnore);
+    const expandedPartTokens = buildRequestedPartTokens(expandedTerms, identityIgnore);
+    const identityKeys = buildIdentityKeys(
+      [requestedPartTokens, expandedPartTokens.length <= 3 ? expandedPartTokens : []],
+      (phrase) => this.synonymVariantsOf(phrase),
+    );
+    const gate = applyCatalogConstraints(results, {
+      requestedPositions,
+      requestedPartTokens,
+      identityKeys,
+    });
+    if (gate.outcome.applied) {
+      this.logger.log(
+        `[SEARCH] Constraint gate: part="${gate.outcome.requestedPart ?? '-'}" ` +
+        `positions=[${hasAnyPosition(requestedPositions) ? JSON.stringify(requestedPositions) : '-'}] ` +
+        `identity=${gate.outcome.identityMode} ` +
+        `rejected(identity=${gate.outcome.rejectedByIdentity}, position=${gate.outcome.rejectedByPosition}) ` +
+        `kept=${gate.outcome.kept}`,
+      );
+    }
+    results = gate.kept;
+
     const TOP_N = Math.min(results.length, 10);
     const finalResults = results.slice(0, TOP_N);
 
@@ -852,9 +899,32 @@ export class AdvancedSearchService implements OnModuleInit {
       qualifiedCount:     results.length,
       finalCount:         mappedResults.length,
       vehicleScope,
+      constraint:         gate.outcome,
       ...this.computeSourceAndStockBreakdown(mappedResults),
     };
-    return mappedResults;
+    return { results: mappedResults, constraint: gate.outcome };
+  }
+
+  // Synonym variants of a typed phrase (DB synonyms table) — lets "phare"
+  // find rows whose head noun is "OPTIQUE"/"OPTIC" without hardcoding it.
+  private synonymVariantsOf(phrase: string): string[] {
+    const category = this.normalizedSynonymLookup[phrase];
+    if (!category) return [];
+    return [category, ...(this.synonymsMap[category] ?? [])];
+  }
+
+  // Tokens that are never part of a part's identity: DB stop-words, model
+  // names and the small conversational noise list used by the scoring layer.
+  private buildIdentityIgnoreSet(): Set<string> {
+    const ignore = new Set<string>();
+    for (const w of this.synonymsService.getStopWords()) ignore.add(w);
+    for (const model of this.vehicleModels.getAll()) {
+      for (const t of tokenizeName(model)) ignore.add(t);
+    }
+    for (const w of ['new', 'all', 'swift', 'celerio', 'baleno', 'vitara', 'ciaz', 'fronx',
+      'ignis', 'jimny', 'spresso', 'dzire', 'ertiga', 'kizashi', 'samurai', 'splash', 'swace',
+      'alto', 'apv', 'eeco', 'sx4']) ignore.add(w);
+    return ignore;
   }
 
   // ── FIX-2: Search conditions now include designation_2 ─────────
@@ -881,22 +951,22 @@ export class AdvancedSearchService implements OnModuleInit {
     ]);
   }
 
-  private detectPositionRequirements(allTokens: string[], expandedTerms: string[]): PositionRequirements {
-    const hasAvToken      = allTokens.some((t) => t === 'av');
-    const hasArToken      = allTokens.some((t) => t === 'ar');
-    const hasGToken       = allTokens.some((t) => t === 'g' && !allTokens.includes('gauche'));
-    const hasDToken       = allTokens.some((t) => t === 'd' && !allTokens.includes('droite') && !allTokens.includes('droit'));
-    const hasAvantWord    = allTokens.some((t) => t === 'avant');
-    const hasArriereWord  = allTokens.some((t) => t === 'arriere' || t === 'arrière');
-    const hasGaucheWord   = allTokens.some((t) => t === 'gauche');
-    const hasDroiteWord   = allTokens.some((t) => t === 'droite' || t === 'droit');
-
+  // FIX 2026-09-20: positions are read ONLY from the words the customer
+  // typed (raw query, French elisions removed so "filtre d'air" no longer
+  // means "droite"), through the shared vocabulary in part-constraints.ts.
+  // Positions can no longer be invented by synonym expansion.
+  private detectPositionRequirements(rawQuery: string): PositionRequirements {
+    const requested = this.requestedPositionsOf(rawQuery);
     return {
-      avant:   hasAvToken   || hasAvantWord   || this.hasPosition(expandedTerms, ['avant', 'av']),
-      arriere: hasArToken   || hasArriereWord  || this.hasPosition(expandedTerms, ['arriere', 'arrière', 'ar']),
-      gauche:  hasGToken    || hasGaucheWord   || this.hasPosition(expandedTerms, ['gauche', 'conducteur']),
-      droite:  hasDToken    || hasDroiteWord   || this.hasPosition(expandedTerms, ['droite', 'passager']),
+      avant:   requested.axes.includes('AV'),
+      arriere: requested.axes.includes('AR'),
+      gauche:  requested.sides.includes('G'),
+      droite:  requested.sides.includes('D'),
     };
+  }
+
+  private requestedPositionsOf(rawQuery: string) {
+    return extractRequestedPositions(rawQuery, (t) => this.normalizedSynonymLookup[t]);
   }
 
   // ─── SCORING ────────────────────────────────────────────────────
@@ -1176,65 +1246,20 @@ export class AdvancedSearchService implements OnModuleInit {
     score += 50000 - extraWords * 2000;
     return score;
   }
-  private computePositionFlags(frenchTokens: string[], fallbackTokens: string[]): {
-    hasAvant: boolean;
-    hasArriere: boolean;
-    hasGauche: boolean;
-    hasDroite: boolean;
-  } {
-    const frHasAvant   = this.hasAnyToken(frenchTokens, AdvancedSearchService.AVANT_TOKENS);
-    const frHasArriere = this.hasAnyToken(frenchTokens, AdvancedSearchService.ARRIERE_TOKENS);
-    const frHasGauche  = this.hasAnyToken(frenchTokens, AdvancedSearchService.GAUCHE_TOKENS);
-    const frHasDroite  = this.hasAnyToken(frenchTokens, AdvancedSearchService.DROITE_TOKENS);
-
-    const hasAvant   = (frHasAvant || frHasArriere)
-      ? frHasAvant
-      : this.hasAnyToken(fallbackTokens, [...AdvancedSearchService.AVANT_TOKENS, ...AdvancedSearchService.AVANT_TOKENS_EN]);
-    const hasArriere = (frHasAvant || frHasArriere)
-      ? frHasArriere
-      : this.hasAnyToken(fallbackTokens, [...AdvancedSearchService.ARRIERE_TOKENS, ...AdvancedSearchService.ARRIERE_TOKENS_EN]);
-    const hasGauche  = (frHasGauche || frHasDroite)
-      ? frHasGauche
-      : this.hasAnyToken(fallbackTokens, [...AdvancedSearchService.GAUCHE_TOKENS, ...AdvancedSearchService.GAUCHE_TOKENS_EN]);
-    const hasDroite  = (frHasGauche || frHasDroite)
-      ? frHasDroite
-      : this.hasAnyToken(fallbackTokens, [...AdvancedSearchService.DROITE_TOKENS, ...AdvancedSearchService.DROITE_TOKENS_EN]);
-
-    return { hasAvant, hasArriere, hasGauche, hasDroite };
-  }
-
+  // FIX 2026-09-20: position is no longer decided here. This used to reject
+  // (SCORE_REJECTION) using a French/English mix that could grant a side from
+  // the English OEM name, and it ran BEFORE the part's identity was known — so
+  // "no exact match" could never list the positions that DO exist for the
+  // part. The hard constraint now lives in applyCatalogConstraints()
+  // (part-constraints.ts); here a satisfied position is only a ranking bonus.
   private calculatePositionMatches(part: any, positionInfo: PositionRequirements): number {
+    const actual = getCatalogPositions(part);
     let score = 0;
-    // FIX-9: French (designation_2) and fallback (designation + searchDescription)
-    // tokenized SEPARATELY — never merged into one blob — so per-axis
-    // French-priority resolution actually works. See computePositionFlags().
-    const frenchTokens = this.normalize(part.designation2 || '').split(/[\s-]+/).filter(Boolean);
-    const fallbackTokens = this.normalize(
-      [part.designation || '', part.searchDescription || ''].join(' '),
-    ).split(/[\s-]+/).filter(Boolean);
-
-    const { hasAvant, hasArriere, hasGauche, hasDroite } = this.computePositionFlags(frenchTokens, fallbackTokens);
-
-    if (positionInfo.avant   && !hasAvant)   return AdvancedSearchService.SCORE_REJECTION;
-    if (positionInfo.arriere && !hasArriere) return AdvancedSearchService.SCORE_REJECTION;
-    if (positionInfo.gauche  && !hasGauche)  return AdvancedSearchService.SCORE_REJECTION;
-    if (positionInfo.droite  && !hasDroite)  return AdvancedSearchService.SCORE_REJECTION;
-
-    if (positionInfo.avant   && hasAvant  ) score += 500;
-    if (positionInfo.arriere && hasArriere) score += 500;
-    if (positionInfo.gauche  && hasGauche ) score += 500;
-    if (positionInfo.droite  && hasDroite ) score += 500;
-
-    if (positionInfo.avant   && hasArriere) score -= 100000;
-    if (positionInfo.arriere && hasAvant  ) score -= 100000;
-    if (positionInfo.gauche  && hasDroite ) score -= 100000;
-    if (positionInfo.droite  && hasGauche ) score -= 100000;
-
+    if (positionInfo.avant   && actual.axes.includes('AV')) score += 500;
+    if (positionInfo.arriere && actual.axes.includes('AR')) score += 500;
+    if (positionInfo.gauche  && actual.sides.includes('G')) score += 500;
+    if (positionInfo.droite  && actual.sides.includes('D')) score += 500;
     return score;
-  }
-
-  private hasAnyToken(tokens: string[], expected: string[]): boolean {
-    return expected.some((token) => tokens.includes(token));
   }
 
   private calculateBusinessScores(part: any, context: SearchContext, vehicleScope?: VehicleSearchScope): number {
@@ -1364,9 +1389,18 @@ export class AdvancedSearchService implements OnModuleInit {
     if (!text || text.trim().length === 0) return [];
 
     if (!text.includes(' ') && text.length > 6) {
-      const segmented = await this.segmentConcatenatedQuery(text);
-      if (segmented.length > 1) {
-        text = segmented.join(' ');
+      // FIX 2026-09-20: "parachoc"/"parechoc"/"parebrise"… are split
+      // deterministically. They used to be sent to an LLM whose answer varied
+      // ("pare choc" / "para choc" / "parachoc"), so the same request could
+      // retrieve different rows from one call to the next.
+      const pareCompound = text.match(/^par[ae](choc|brise|boue|soleil)s?$/);
+      if (pareCompound) {
+        text = `pare ${pareCompound[1]}`;
+      } else {
+        const segmented = await this.segmentConcatenatedQuery(text);
+        if (segmented.length > 1) {
+          text = segmented.join(' ');
+        }
       }
     }
 
@@ -1378,6 +1412,13 @@ export class AdvancedSearchService implements OnModuleInit {
     // strict-validator.service.ts already does this correctly with
     // split(/[\s-]+/) — this aligns tokenize() with that behaviour.
     let parts = text.split(/[\s-]+/).map((p) => p.trim()).filter(Boolean);
+    // FIX 2026-09-20: compact pare-* compounds are split PER TOKEN, so
+    // "parachoc g" is searched exactly like "pare choc g". Before, the split
+    // only ran when the whole query was a single word.
+    parts = parts.flatMap((p) => {
+      const compound = p.match(/^par[ae](choc|brise|boue|soleil)s?$/);
+      return compound ? ['pare', compound[1]] : [p];
+    });
     const stopWords = this.synonymsService.getStopWords();
     parts = parts.filter((token) => !stopWords.has(token));
 
@@ -1420,6 +1461,14 @@ Segmented:`;
       this.aiSegmentationAvailable = true;
       const segmented = response.data.choices?.[0]?.message?.content?.trim() || text;
       const words = segmented.split(/\s+/).filter(Boolean);
+      // FIX 2026-09-20: a segmentation may only insert spaces. If the model
+      // added/removed/changed a letter (e.g. appended "avant"), its output is
+      // discarded and the deterministic segmentation is used instead.
+      const letters = (v: string) => v.toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (letters(words.join('')) !== letters(text)) {
+        this.logger.warn(`[AI-SEGMENT] rejected "${segmented}" for "${text}" (letters changed)`);
+        return this.fallbackSegmentation(text);
+      }
       this.logger.log(`[AI-SEGMENT] "${text}" → [${words.join(', ')}]`);
       return words.length > 1 ? words : [text];
     } catch (error: any) {
@@ -1643,10 +1692,6 @@ Segmented:`;
       result = result.replace(regex, french);
     }
     return result !== query.toLowerCase() ? result : '';
-  }
-
-  private hasPosition(tokens: string[], positions: string[]): boolean {
-    return tokens.some((t) => positions.includes(t));
   }
 
   private normalize(text: string): string {
