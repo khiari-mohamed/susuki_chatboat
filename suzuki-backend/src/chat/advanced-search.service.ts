@@ -901,12 +901,19 @@ export class AdvancedSearchService implements OnModuleInit {
 
   // ─── SCORING ────────────────────────────────────────────────────
   private calculatePartScore(part: any, context: SearchContext, vehicleScope?: VehicleSearchScope): number {
-    let score = 0;
-    score += this.calculateExactMatches(part, context);
-    score += this.calculateContentMatches(part, context);
-    score += this.calculatePositionMatches(part, context.positionInfo);
-    score += this.calculateBusinessScores(part, context, vehicleScope);
-    return Math.max(0, score);
+    const exactScore = this.calculateExactMatches(part, context);
+    const contentScore = this.calculateContentMatches(part, context);
+    if (contentScore <= AdvancedSearchService.SCORE_REJECTION) {
+      return AdvancedSearchService.SCORE_REJECTION;
+    }
+
+    const positionScore = this.calculatePositionMatches(part, context.positionInfo);
+    if (positionScore <= AdvancedSearchService.SCORE_REJECTION) {
+      return AdvancedSearchService.SCORE_REJECTION;
+    }
+
+    const businessScore = this.calculateBusinessScores(part, context, vehicleScope);
+    return exactScore + contentScore + positionScore + businessScore;
   }
 
   private calculateExactMatches(part: any, context: SearchContext): number {
@@ -1208,10 +1215,10 @@ export class AdvancedSearchService implements OnModuleInit {
 
     const { hasAvant, hasArriere, hasGauche, hasDroite } = this.computePositionFlags(frenchTokens, fallbackTokens);
 
-    if (positionInfo.avant   && !hasAvant   && hasArriere) return -100000;
-    if (positionInfo.arriere && !hasArriere && hasAvant  ) return -100000;
-    if (positionInfo.gauche  && !hasGauche  && hasDroite ) return -100000;
-    if (positionInfo.droite  && !hasDroite  && hasGauche ) return -100000;
+    if (positionInfo.avant   && !hasAvant)   return AdvancedSearchService.SCORE_REJECTION;
+    if (positionInfo.arriere && !hasArriere) return AdvancedSearchService.SCORE_REJECTION;
+    if (positionInfo.gauche  && !hasGauche)  return AdvancedSearchService.SCORE_REJECTION;
+    if (positionInfo.droite  && !hasDroite)  return AdvancedSearchService.SCORE_REJECTION;
 
     if (positionInfo.avant   && hasAvant  ) score += 500;
     if (positionInfo.arriere && hasArriere) score += 500;
