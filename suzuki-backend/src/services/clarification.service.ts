@@ -194,12 +194,18 @@ export class ClarificationService {
     const dims = this.extractDimensions(candidates, queryTokens);
     const sideSensitivePart = this.isBilateralPart(candidates, queryTokens);
 
-    // "Pare choc" is an intentional broad category search. Return the best
-    // compatible result instead of forcing an unnecessary front/rear choice;
-    // an explicit "pare choc avant/arriere" query remains position-scoped.
+    // BUSINESS RULE (email CarPro 2026-09-18, anomaly #1): a bare "pare
+    // choc" query with no stated position used to silently return a
+    // single guessed side (observed in PROD test: always came back as
+    // "arrière" with no way for the customer to know that was a guess).
+    // That is exactly the "no approximate answer without disclosure"
+    // rule this project keeps re-stating. Bumpers still have no
+    // left/right variant in this catalog, so `bumperQuery` is still
+    // used below to correctly skip the SIDE question — only the
+    // POSITION bypass is removed, falling through to the same generic
+    // "ask when 2+ positions exist among the actual compatible
+    // candidates" rule every other part already uses.
     const bumperQuery = /\bpare\s*-?\s*choc\b/i.test(lower);
-    const broadBumperQuery = bumperQuery && !hasPos && !hasSide;
-    if (broadBumperQuery) return { needed: false, variants: [], dimension: '' };
 
     const windshieldQuery = /\bpare\s*-?\s*brise\b/i.test(lower);
     if (windshieldQuery) return { needed: false, variants: [], dimension: '' };

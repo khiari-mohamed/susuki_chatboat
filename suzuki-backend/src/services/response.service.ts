@@ -23,6 +23,26 @@
 //
 // FIX-5: buildPriceResponse() uses displayName and getPrice() for
 //         consistent formatting.
+//
+// FIX-6 (2026-09-20, email CarPro 2026-09-18 — "sécurisation des
+//         réponses"): the phone number changed from 70 603 500 to
+//         70 603 518 – 70 603 519, and the client gave an exact,
+//         official sentence for the specific case where the bot
+//         cannot confidently confirm a part/availability:
+//         "Veuillez contacter Car Pro – Comptoir Pièces de Rechange,
+//          Tél N° 70 603 518 – 70 603 519."
+//         That exact wording is now used ONLY where the bot is
+//         genuinely uncertain (no confident match, reference not
+//         found, no exact position match, filtered-to-nothing).
+//         Confident results (a part WAS found and priced/available)
+//         keep their original "contact to reserve" framing, just with
+//         the corrected number and the counter named explicitly —
+//         those aren't sécurisation cases, they're a normal next step.
+//         General, non-parts-identification messages (complaints,
+//         business-hours questions, technical/mechanical diagnosis
+//         redirects, generic system errors) also just get the number
+//         corrected, since the client did not indicate a separate line
+//         for those and leaving the old number there would be worse.
 // ═══════════════════════════════════════════════════════════════════
 
 import { Injectable } from '@nestjs/common';
@@ -32,6 +52,12 @@ import type { ConstraintOutcome } from '../chat/part-constraints';
 @Injectable()
 export class ResponseService {
   private static readonly RESPONSE_PRODUCT_LIMIT = 1;
+
+  // FIX-6: single source of truth for both phrasings, so the number
+  // is never typed out inconsistently again.
+  private static readonly PR_COUNTER_PHONE = '70 603 518 – 70 603 519';
+  private static readonly SECURISATION_MESSAGE =
+    `💡 Veuillez contacter Car Pro – Comptoir Pièces de Rechange, Tél N° ${ResponseService.PR_COUNTER_PHONE}.`;
 
   // ─────────────────────────────────────────────────────────────────
   // FIX-1: Always return French name (designation_2) first
@@ -147,7 +173,7 @@ export class ResponseService {
       return (
         `Pièces disponibles${vehicleInfo} :\n\n` +
         `${list}\n\n` +
-        `💡 Contactez CarPro au ☎️ 70 603 500 pour réserver.`
+        `💡 Contactez le Comptoir Pièces de Rechange CarPro au ☎️ ${ResponseService.PR_COUNTER_PHONE} pour réserver.`
       );
     }
 
@@ -167,11 +193,13 @@ export class ResponseService {
       return (
         `Pièces trouvées${vehicleInfo} :\n\n` +
         `${list}\n\n` +
-        `💡 Contactez CarPro au ☎️ 70 603 500 pour vérifier les délais.`
+        `💡 Contactez le Comptoir Pièces de Rechange CarPro au ☎️ ${ResponseService.PR_COUNTER_PHONE} pour vérifier les délais.`
       );
     }
 
-    return `Indisponible${vehicleInfo}.\n\nContactez CarPro au ☎️ 70 603 500.`;
+    // BUSINESS RULE (email CarPro 2026-09-18): "sécurisation des
+    // réponses" — nothing confidently found, official wording verbatim.
+    return `Indisponible${vehicleInfo}.\n\n${ResponseService.SECURISATION_MESSAGE}`;
   }
 
   // ─────────────────────────────────────────────────────────────────
@@ -198,10 +226,10 @@ export class ResponseService {
         return (
           `${name}${vehicleInfo}\n` +
           `Statut: Indisponible — prix non communiqué.\n\n` +
-          `💡 Contactez CarPro au ☎️ 70 603 500 pour les délais et tarifs.`
+          `${ResponseService.SECURISATION_MESSAGE}`
         );
       }
-      return `Indisponible${vehicleInfo}.\n\nContactez CarPro au ☎️ 70 603 500.`;
+      return `Indisponible${vehicleInfo}.\n\n${ResponseService.SECURISATION_MESSAGE}`;
     }
 
     const uniqueAvailable = this.dedupeProductsByReference(available);
@@ -218,7 +246,7 @@ export class ResponseService {
     return (
       `Prix${vehicleInfo} :\n\n` +
       `${list}\n\n` +
-      `💡 Contactez CarPro au ☎️ 70 603 500 pour réserver.`
+      `💡 Contactez le Comptoir Pièces de Rechange CarPro au ☎️ ${ResponseService.PR_COUNTER_PHONE} pour réserver.`
     );
   }
 
@@ -240,7 +268,7 @@ export class ResponseService {
       `Bonjour! Référence trouvée${vehicleInfo} :\n\n` +
       `• ${name}${source} (Réf: ${product.reference})${priceLine}\n` +
       `Statut: ${stockLine}\n\n` +
-      `💡 Contactez CarPro au ☎️ 70 603 500 pour réserver.`
+      `💡 Contactez le Comptoir Pièces de Rechange CarPro au ☎️ ${ResponseService.PR_COUNTER_PHONE} pour réserver.`
     );
   }
 
@@ -248,9 +276,11 @@ export class ResponseService {
     const vehicleInfo = vehicle?.modele
       ? ` pour votre ${vehicle.marque} ${vehicle.modele}`
       : '';
+    // BUSINESS RULE (email CarPro 2026-09-18): reference not found = the
+    // system cannot confirm identification → sécurisation wording.
     return (
       `Bonjour! Aucun produit trouvé pour la référence "${reference}"${vehicleInfo}.\n\n` +
-      `💡 Vérifiez l'orthographe ou contactez CarPro au ☎️ 70 603 500 pour assistance.`
+      `💡 Vérifiez l'orthographe ou veuillez contacter Car Pro – Comptoir Pièces de Rechange, Tél N° ${ResponseService.PR_COUNTER_PHONE}.`
     );
   }
 
@@ -269,7 +299,7 @@ export class ResponseService {
     if (available.length === 0) {
       return (
         `Aucun résultat disponible avec les filtres appliqués${vehicleInfo}.\n\n` +
-        `Contactez CarPro au ☎️ 70 603 500.`
+        `${ResponseService.SECURISATION_MESSAGE}`
       );
     }
 
@@ -287,7 +317,7 @@ export class ResponseService {
     return (
       `Résultats filtrés${vehicleInfo} :\n\n` +
       `${list}\n\n` +
-      `💡 Contactez CarPro au ☎️ 70 603 500 pour réserver.`
+      `💡 Contactez le Comptoir Pièces de Rechange CarPro au ☎️ ${ResponseService.PR_COUNTER_PHONE} pour réserver.`
     );
   }
 
@@ -306,7 +336,7 @@ export class ResponseService {
   buildComplaintResponse(): string {
     return (
       'Bonjour, je suis désolé pour ce désagrément. ' +
-      'Notre service client CarPro au ☎️ 70 603 500 pourra vous aider à résoudre ce problème rapidement.'
+      `Notre service client CarPro au ☎️ ${ResponseService.PR_COUNTER_PHONE} pourra vous aider à résoudre ce problème rapidement.`
     );
   }
 
@@ -314,7 +344,7 @@ export class ResponseService {
     return (
       'Bonjour ! Je suis spécialisé dans les pièces automobiles Suzuki. ' +
       'Pour les questions sur les horaires, livraisons, garanties ou notre localisation, ' +
-      'veuillez contacter CarPro au ☎️ 70 603 500. ' +
+      `veuillez contacter CarPro au ☎️ ${ResponseService.PR_COUNTER_PHONE}. ` +
       'Comment puis-je vous aider avec des pièces ?'
     );
   }
@@ -322,7 +352,7 @@ export class ResponseService {
   buildDiagnosticRedirectResponse(): string {
     return (
       `Bonjour! Pour tout problème technique ou diagnostic, contactez directement notre équipe d'experts CarPro.\n\n` +
-      `☎️ Téléphone: 70 603 500\n` +
+      `☎️ Téléphone: ${ResponseService.PR_COUNTER_PHONE}\n` +
       `🔹 Service disponible 7j/7\n` +
       `🔹 Diagnostic professionnel sur place\n\n` +
       `Pour rechercher des pièces de rechange, je reste à votre disposition!`
@@ -332,14 +362,14 @@ export class ResponseService {
   buildErrorResponse(message: string): string {
     return (
       `Bonjour! Je rencontre une difficulté technique temporaire.\n\n` +
-      `💡 Contactez CarPro au ☎️ 70 603 500 pour assistance immédiate.`
+      `💡 Contactez CarPro au ☎️ ${ResponseService.PR_COUNTER_PHONE} pour assistance immédiate.`
     );
   }
 
   buildNoContextFilterResponse(): string {
     return (
       `Aucune recherche précédente à filtrer. Veuillez d'abord rechercher une pièce.\n\n` +
-      `💡 Contactez CarPro au ☎️ 70 603 500 pour assistance.`
+      `💡 Contactez CarPro au ☎️ ${ResponseService.PR_COUNTER_PHONE} pour assistance.`
     );
   }
 
@@ -347,7 +377,9 @@ export class ResponseService {
     const vehicleInfo = vehicle?.modele
       ? ` pour votre ${vehicle.marque} ${vehicle.modele}`
       : '';
-    return `Indisponible${vehicleInfo}.\n\nContactez CarPro au ☎️ 70 603 500.`;
+    // BUSINESS RULE (email CarPro 2026-09-18): the canonical
+    // "sécurisation des réponses" case — official wording verbatim.
+    return `Indisponible${vehicleInfo}.\n\n${ResponseService.SECURISATION_MESSAGE}`;
   }
 
   // The customer asked for a part in a specific position and the catalog has
@@ -369,7 +401,7 @@ export class ResponseService {
     return (
       `Je n'ai pas trouvé « ${part} » en position ${wanted}${vehicleInfo}.\n\n` +
       existing +
-      `💡 Précisez une position existante ou contactez CarPro au ☎️ 70 603 500.`
+      `💡 Précisez une position existante ou contactez le Comptoir Pièces de Rechange CarPro au ☎️ ${ResponseService.PR_COUNTER_PHONE}.`
     );
   }
 

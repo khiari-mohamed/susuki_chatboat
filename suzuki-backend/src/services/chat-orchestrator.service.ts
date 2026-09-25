@@ -488,8 +488,8 @@ export class ChatOrchestratorService {
                 const priceLine = publicPrice != null ? ` — ${publicPrice} TND` : ' — prix non communiqué';
                 return `• ${this.getEffectiveText(p)}${priceLine}`;
               }).join('\n')
-            }\n\nContactez CarPro au ☎️ 70 603 500 pour réserver.`
-          : `Désolé, ${context.lastPart} n'est pas disponible actuellement${vehicleInfo}. Contactez CarPro au ☎️ 70 603 500.`;
+            }\n\nContactez le Comptoir Pièces de Rechange CarPro au ☎️ 70 603 518 – 70 603 519 pour réserver.`
+          : `Désolé, ${context.lastPart} n'est pas disponible actuellement${vehicleInfo}.\n\n💡 Veuillez contacter Car Pro – Comptoir Pièces de Rechange, Tél N° 70 603 518 – 70 603 519.`;
         await this.sessionService.saveBotResponse(session.id, response, { intent: 'STOCK_CHECK' });
         return {
           response,
