@@ -324,7 +324,7 @@ export class OpenAIService {
   private getGracefulFallback(): string {
     return (
       'Je rencontre actuellement des difficultés techniques. ' +
-      'Veuillez réessayer dans quelques instants ou contacter CarPro au ☎️ 70 603 500 pour une assistance immédiate.'
+      'Veuillez réessayer dans quelques instants ou contacter CarPro au ☎️ 70 603 518 – 70 603 519 pour une assistance immédiate.'
     );
   }
 

@@ -13,6 +13,7 @@ import { StrictValidatorService } from '../chat/strict-validator.service';
 import { SynonymsService } from '../synonyms/synonyms.service';
 import { getCatalogPositions } from '../chat/part-constraints';
 import type { ConstraintOutcome } from '../chat/part-constraints';
+import { evaluateResponseConfidence } from '../chat/confidence-gate';
 
 export interface ProcessMessageResponse {
   response: string;
@@ -392,19 +393,40 @@ export class ChatOrchestratorService {
       }
 
       if (products.length > 0) {
-        const response = this.responseService.buildProductResponse(products, enrichedQuery, vehicle);
-        await this.sessionService.saveBotResponse(session.id, response, { intent: 'PARTS_SEARCH', productsFound: products.length });
         // FIX-7: selectPrimaryProduct() instead of products.slice(0, 1) —
         // guarantees the card matches the product buildProductResponse()
-        // actually described in `response` above, not just whatever
+        // actually described in `response` below, not just whatever
         // happened to sort into index 0 of the raw array.
         const primaryProduct = this.responseService.selectPrimaryProduct(products);
+
+        // FIX (confidence gate, email CarPro 2026-09-25): a clarification
+        // answer narrows candidates but does not by itself guarantee
+        // vehicle compatibility or a resolved model code — re-check
+        // before committing to a confident answer here too.
+        const securisationCheck = evaluateResponseConfidence({
+          vehicle,
+          vehicleModelResolved:    !!this.vehicleModels.normalize(vehicle?.modele),
+          selectedProduct:         primaryProduct,
+          understandingConfidence: normalized.confidence,
+          unresolvedClarification: false,
+          constraintOutcome:       clarifiedConstraint,
+        });
+
+        const response = securisationCheck.secure
+          ? this.responseService.buildProductResponse(products, enrichedQuery, vehicle)
+          : this.responseService.buildSecurisationResponse(vehicle);
+        const resolvedIntent = securisationCheck.secure ? 'PARTS_SEARCH' : 'SECURISATION';
+        if (!securisationCheck.secure) {
+          this.logger.log(`[SECURISATION] Clarified answer withheld (${securisationCheck.reasons.join(', ')})`);
+        }
+
+        await this.sessionService.saveBotResponse(session.id, response, { intent: resolvedIntent, productsFound: products.length });
         return {
           response,
           sessionId:  session.id,
-          products:   primaryProduct ? [this.mapProductForResponse(primaryProduct)] : [],
-          confidence: 'HIGH',
-          intent:     'PARTS_SEARCH',
+          products:   securisationCheck.secure && primaryProduct ? [this.mapProductForResponse(primaryProduct)] : [],
+          confidence: securisationCheck.secure ? 'HIGH' : 'LOW',
+          intent:     resolvedIntent,
           metadata:   { productsFound: products.length, conversationLength: conversationHistory.length, queryClarity: 10, duration: Date.now() - startTime },
         };
       } else {
@@ -580,9 +602,33 @@ export class ChatOrchestratorService {
     this.logger.log(`[RESPONSE-BUILD] ${preFilteredProducts.length} products, intent: ${intent.type}`);
 
     let response: string;
-    const resolvedIntent = preFilteredProducts.length > 0 ? 'PARTS_SEARCH' : intent.type;
+    let resolvedIntent = preFilteredProducts.length > 0 ? 'PARTS_SEARCH' : intent.type;
+    const primaryProduct = this.responseService.selectPrimaryProduct(preFilteredProducts);
 
-    if (intent.type === 'PRICE_INQUIRY') {
+    // FIX (confidence gate, email CarPro 2026-09-25 — "sécurisation des
+    // réponses", 4-condition version): evaluate compatibility / model
+    // code / understanding / consistency BEFORE committing to a
+    // confident answer. This can override a found product — the rule
+    // is about confidence, not result count. See chat/confidence-gate.ts.
+    const securisationCheck = evaluateResponseConfidence({
+      vehicle,
+      vehicleModelResolved:    !!vehicleModel,
+      selectedProduct:         primaryProduct,
+      understandingConfidence: normalized.confidence,
+      unresolvedClarification: false,
+      constraintOutcome:       mainConstraint,
+    });
+    const hasAnswerToSecure =
+      !!primaryProduct || (intent.type === 'PRICE_INQUIRY' && preFilteredProducts.length > 0);
+
+    if (!securisationCheck.secure && hasAnswerToSecure) {
+      this.logger.log(
+        `[SECURISATION] Response withheld (${securisationCheck.reasons.join(', ')}) ` +
+        `for query "${safeLog(processedMessage)}"`,
+      );
+      response = this.responseService.buildSecurisationResponse(vehicle);
+      resolvedIntent = 'SECURISATION';
+    } else if (intent.type === 'PRICE_INQUIRY') {
       response = this.responseService.buildPriceResponse(
         preFilteredProducts, processedMessage, vehicle, context.lastTopic || 'général',
       );
@@ -609,14 +655,14 @@ export class ChatOrchestratorService {
       queryClarity,
     });
     const suggestions  = this.intelligenceService.generateSmartSuggestions(processedMessage, preFilteredProducts);
-    const primaryProduct = this.responseService.selectPrimaryProduct(preFilteredProducts);
+    const securedProduct = securisationCheck.secure ? primaryProduct : null;
 
     return {
       response,
       sessionId:      session.id,
-      products:       primaryProduct ? [this.mapProductForResponse(primaryProduct)] : [],
-      confidence:     confidence.level,
-      confidenceScore: confidence.score,
+      products:       securedProduct ? [this.mapProductForResponse(securedProduct)] : [],
+      confidence:     securisationCheck.secure ? confidence.level : 'LOW',
+      confidenceScore: securisationCheck.secure ? confidence.score : 0,
       suggestions:    [],
       intent:         resolvedIntent,
       metadata: {

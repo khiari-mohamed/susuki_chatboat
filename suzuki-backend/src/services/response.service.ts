@@ -43,6 +43,16 @@
 //         redirects, generic system errors) also just get the number
 //         corrected, since the client did not indicate a separate line
 //         for those and leaving the old number there would be worse.
+//
+// FIX-7 (2026-09-25, email CarPro — formal 4-condition "sécurisation"
+//         gate): buildSecurisationResponse() is the message used when
+//         chat/confidence-gate.ts decides a confident answer cannot be
+//         given — compatibility unconfirmed, VIN→model code missing,
+//         the request/part not reliably understood, or the proposed
+//         reference inconsistent with the vehicle. Unlike
+//         buildNoResultsResponse()/buildNoExactMatchResponse(), this
+//         can fire even when products WERE found — the rule is about
+//         confidence, not result count.
 // ═══════════════════════════════════════════════════════════════════
 
 import { Injectable } from '@nestjs/common';
@@ -402,6 +412,25 @@ export class ResponseService {
       `Je n'ai pas trouvé « ${part} » en position ${wanted}${vehicleInfo}.\n\n` +
       existing +
       `💡 Précisez une position existante ou contactez le Comptoir Pièces de Rechange CarPro au ☎️ ${ResponseService.PR_COUNTER_PHONE}.`
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────
+  // FIX-7: buildSecurisationResponse — the confidence-gate redirect.
+  // Fires when chat/confidence-gate.ts decides at least one of the 4
+  // conditions (compatibility confirmed / model code present / request
+  // understood / need-vehicle-reference consistent) is not met, even
+  // if candidate products exist. Deliberately does not name the
+  // specific product or say "Indisponible" — the part may well be
+  // available, we just cannot confirm it well enough to say so.
+  // ─────────────────────────────────────────────────────────────────
+  buildSecurisationResponse(vehicle?: any): string {
+    const vehicleInfo = vehicle?.modele
+      ? ` pour votre ${vehicle.marque} ${vehicle.modele}`
+      : '';
+    return (
+      `Je ne peux pas confirmer cette pièce avec un niveau de fiabilité suffisant${vehicleInfo}.\n\n` +
+      `${ResponseService.SECURISATION_MESSAGE}`
     );
   }
 

@@ -32,7 +32,7 @@
 //   ✅ Pricing ONLY when exactly ONE part, available, stockConsolide >= 2
 //   ✅ NEVER list multiple parts with prices
 //   ✅ NEVER infer or guess pricing
-//   ✅ Redirect problems to CarPro ☎️ 70 603 500
+//   ✅ Redirect problems to CarPro ☎️ 70 603 518 – 70 603 519
 //   ✅ Respond in FORMAL FRENCH only
 // ═══════════════════════════════════════════════════════════════════
 
@@ -148,7 +148,7 @@ EXAMPLE PART NAME (BAD): "MIRROR ASSY,OUT REAR VIEW,LH"
 - Use "Bonjour" not "Ahla" or "Salam"
 
 IMPORTANT: If user describes a problem or malfunction, do NOT search for parts based on symptoms.
-Redirect immediately to CarPro professional diagnosis: ☎️ 70 603 500
+Redirect immediately to CarPro professional diagnosis: ☎️ 70 603 518 – 70 603 519
 `;
 
 export const OCR_SYSTEM_PROMPT = `Tu es un expert en extraction de données de cartes grises tunisiennes et françaises.

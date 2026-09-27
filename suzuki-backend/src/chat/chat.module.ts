@@ -17,6 +17,7 @@ import { ChatOrchestratorService } from '../services/chat-orchestrator.service';
 import { SearchValidatorService } from '../services/search-validator.service';
 import { AIQueryNormalizerService } from '../services/ai-query-normalizer.service';
 import { StrictValidatorService } from './strict-validator.service';
+import { SearchLogService } from '../services/search-log.service';
 
 @Module({
   imports: [ConfigModule, ScheduleModule.forRoot()],
@@ -37,7 +38,8 @@ import { StrictValidatorService } from './strict-validator.service';
     SearchValidatorService,
     AIQueryNormalizerService,
     StrictValidatorService,
+    SearchLogService,
   ],
-  exports: [GeminiService, OpenAIService, AdvancedSearchService],
+  exports: [GeminiService, OpenAIService, AdvancedSearchService, SearchLogService],
 })
 export class ChatModule {}

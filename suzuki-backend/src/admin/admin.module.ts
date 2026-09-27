@@ -21,6 +21,7 @@ import { ExplorerController } from './explorer/explorer.controller';
 import { ExplorerService } from './explorer/explorer.service';
 import { DiagnosticsController } from './diagnostics/diagnostics.controller';
 import { DiagnosticsService } from './diagnostics/diagnostics.service';
+import { SearchLogsController } from './search-logs/search-logs.controller';
 import { ChatModule } from '../chat/chat.module';
 
 @Module({
@@ -51,6 +52,7 @@ import { ChatModule } from '../chat/chat.module';
     AdminSynonymsController,
     ExplorerController,
     DiagnosticsController,
+    SearchLogsController,
   ],
   providers: [AuthService, JwtStrategy, AdminUsersService, AdminGateway, ExplorerService, DiagnosticsService],
   exports: [AdminGateway],

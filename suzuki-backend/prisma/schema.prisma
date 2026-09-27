@@ -322,6 +322,43 @@ enum AdminRole {
   EDITOR
 }
 
+// BUSINESS RULE (email CarPro 2026-09-25 — "Historique des recherches
+// et accès aux logs"): one row per chatbot answer, queryable by VIN,
+// so the Comptoir PR can retrieve what a customer was told when they
+// call or walk in. Deliberately a flat, denormalized log table (not
+// derived from chat_messages) — every field below is named directly
+// in the email's field list, and log rows must survive independently
+// of chat_sessions/chat_messages retention/cleanup.
+model SearchLog {
+  id                       String   @id @default(uuid())
+  sessionId                String?  @map("session_id")
+  // "Le VIN recherché"
+  vin                      String?  @db.VarChar(25)
+  vehicleNo                String?  @map("vehicle_no") @db.VarChar(20)
+  // "Le code modèle utilisé"
+  modelCode                String?  @map("model_code") @db.VarChar(30)
+  // "La demande formulée par le client"
+  customerMessage          String   @map("customer_message") @db.Text
+  // "La pièce identifiée par le système"
+  identifiedPart           String?  @map("identified_part") @db.VarChar(200)
+  // "Les références proposées" — [{ reference, designation }, ...]
+  proposedReferences       Json?    @map("proposed_references")
+  // "Le résultat de compatibilité" — CONFIRMEE | NON_CONFORME | NON_VERIFIEE
+  compatibilityResult      String?  @map("compatibility_result") @db.VarChar(30)
+  // "Disponibilité communiquée" — DISPONIBLE | INDISPONIBLE | NON_COMMUNIQUEE
+  availabilityCommunicated String?  @map("availability_communicated") @db.VarChar(30)
+  // "Les éventuels messages de redirection vers le Comptoir PR"
+  redirectMessage          String?  @map("redirect_message") @db.Text
+  intent                   String?  @db.VarChar(40)
+  // "La date et l'heure de la recherche"
+  createdAt                DateTime @default(now()) @map("created_at")
+
+  @@map("search_logs")
+  @@index([vin])
+  @@index([sessionId])
+  @@index([createdAt])
+}
+
 model AdminUser {
   id           Int       @id @default(autoincrement())
   email        String    @unique @db.VarChar(150)

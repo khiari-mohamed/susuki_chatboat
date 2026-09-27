@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ChatOrchestratorService } from '../services/chat-orchestrator.service';
 import { ResponseService } from '../services/response.service';
 import { IntelligenceService } from './intelligence.service';
+import { SearchLogService } from '../services/search-log.service';
 // FIX-1: Removed `import { AnyMxRecord } from 'dns'` — was unused and caused compile warning
 
 export interface ProcessMessageResponse {
@@ -63,6 +64,7 @@ export class EnhancedChatService {
     private responseService: ResponseService,
     private prisma:          PrismaService,
     private intelligence:    IntelligenceService,
+    private searchLog:       SearchLogService,
   ) {}
   async processMessage(
     message:   string,
@@ -93,7 +95,16 @@ export class EnhancedChatService {
       }
 
       // FIX-2: delegate — orchestrator handles all product mapping
-      return await this.orchestrator.processMessage(message, vehicle, sessionId);
+      const result = await this.orchestrator.processMessage(message, vehicle, sessionId);
+
+      // BUSINESS RULE (email CarPro 2026-09-25 — "Historique des
+      // recherches et accès aux logs"): one row per answer, queryable
+      // by VIN. Single integration point — see search-log.service.ts.
+      // Fire-and-forget: logging failures must never delay/break the
+      // response already computed above.
+      void this.logSearch(message, vehicle, result);
+
+      return result;
     } catch (error: any) {
       this.logger.error('processMessage failed:', error);
       const response = this.responseService.buildErrorResponse(message);
@@ -219,6 +230,56 @@ export class EnhancedChatService {
       this.logger.log(`✅ Session ${sessionId} learning completed`);
     } catch (error) {
       this.logger.error(`❌ Session ${sessionId} learning failed:`, error);
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────
+  // BUSINESS RULE (email CarPro 2026-09-25): shape the orchestrator's
+  // already-computed response into the email's exact log field list.
+  // ─────────────────────────────────────────────────────────────────
+  private async logSearch(message: string, vehicle: any, result: ProcessMessageResponse): Promise<void> {
+    try {
+      const product = result.products?.[0];
+      const redirectIntents = new Set([
+        'SECURISATION', 'NO_RESULTS', 'MODEL_MISMATCH', 'FILTER_NO_CONTEXT',
+      ]);
+      const isRedirect =
+        redirectIntents.has(result.intent) ||
+        (typeof result.response === 'string' && result.response.includes('Comptoir Pièces de Rechange'));
+
+      let compatibilityResult: 'CONFIRMEE' | 'NON_CONFORME' | 'NON_VERIFIEE' | undefined;
+      if (result.intent === 'SECURISATION') {
+        compatibilityResult = 'NON_VERIFIEE';
+      } else if (result.intent === 'MODEL_MISMATCH') {
+        compatibilityResult = 'NON_CONFORME';
+      } else if (vehicle?.modele && product) {
+        compatibilityResult = 'CONFIRMEE';
+      }
+
+      let availabilityCommunicated: 'DISPONIBLE' | 'INDISPONIBLE' | 'NON_COMMUNIQUEE' | undefined;
+      const stockStatut = product?.stock?.statut;
+      if (stockStatut === 'Disponible') availabilityCommunicated = 'DISPONIBLE';
+      else if (stockStatut === 'Indisponible') availabilityCommunicated = 'INDISPONIBLE';
+      else availabilityCommunicated = 'NON_COMMUNIQUEE';
+
+      await this.searchLog.record({
+        sessionId:           result.sessionId,
+        vin:                 vehicle?.vin ?? null,
+        vehicleNo:           vehicle?.vehicleNo ?? null,
+        modelCode:           vehicle?.typeCode ?? vehicle?.modele ?? null,
+        customerMessage:     message,
+        identifiedPart:      product?.designation ?? null,
+        proposedReferences:  (result.products ?? [])
+          .filter((p: any) => p?.reference)
+          .map((p: any) => ({ reference: p.reference, designation: p.designation ?? '' })),
+        compatibilityResult,
+        availabilityCommunicated,
+        redirectMessage:     isRedirect ? result.response : null,
+        intent:              result.intent,
+      });
+    } catch (err: any) {
+      // Never let a shaping error here surface to the customer.
+      this.logger.error(`[SEARCH-LOG] logSearch failed: ${err?.message}`, err?.stack);
     }
   }
 
