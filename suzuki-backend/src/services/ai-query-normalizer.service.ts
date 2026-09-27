@@ -55,13 +55,52 @@ import { Injectable, Logger } from '@nestjs/common';
 import { OpenAIService } from '../chat/openai.service';
 import { SynonymsService } from '../synonyms/synonyms.service';
 import {
+  buildRequestedPartTokens,
   extractRequestedPositions,
   hasAnyPosition,
   isPositionToken,
+  normalizeForMatch,
   positionsToWords,
+  type PositionRequest,
   samePositions,
   tokenizeName,
 } from '../chat/part-constraints';
+
+interface ConversationMessage {
+  role: string;
+  content: string;
+}
+
+interface QueryContext {
+  recentMessages: ConversationMessage[];
+  vehicle?: { marque?: string | null; modele?: string | null; typeCode?: string | null };
+  useHistoryForInterpretation: boolean;
+}
+
+export type InterpretedIntent =
+  | 'SEARCH'
+  | 'PRICE_INQUIRY'
+  | 'STOCK_CHECK'
+  | 'GREETING'
+  | 'COMPLAINT'
+  | 'THANKS'
+  | 'SERVICE_QUESTION'
+  | 'CLARIFICATION_NEEDED'
+  | 'FILTER'
+  | 'DIAGNOSTIC'
+  | 'UNKNOWN';
+
+export interface StructuredQueryInterpretation {
+  normalized: string;
+  intent: InterpretedIntent;
+  catalogPart: string | null;
+  positions: PositionRequest;
+  qualifiers: string[];
+  confidence: number;
+  uncertainty: number;
+  isGreeting: boolean;
+  isThanks: boolean;
+}
 
 @Injectable()
 export class AIQueryNormalizerService {
@@ -234,20 +273,27 @@ export class AIQueryNormalizerService {
       laveglace:     'lave glace',
   };
 
-  async normalizeQuery(query: string): Promise<{
-    normalized: string;
-    isGreeting: boolean;
-    isThanks: boolean;
-    confidence: number;
-  }> {
+  async normalizeQuery(
+    query: string,
+    history: ConversationMessage[] = [],
+    vehicle?: QueryContext['vehicle'],
+  ): Promise<StructuredQueryInterpretation> {
     this.stats.totalCalls++;
-    const lowerQuery = query.toLowerCase();
+    const catalogQuery = query.replace(/\bl[eè]che[\s-]+vitre\b/gi, 'lecheur de vitre');
+    const lowerQuery = catalogQuery.toLowerCase();
+    const catalogCandidates = this.synonymsService.getInterpretationCandidates();
+    const hasUnknownPartTokens = this.hasUnknownPartTokens(catalogQuery);
 
     // FIX-6: dynamic, DB-backed check (was: local carPartNames array)
     const isCarPart = this.synonymsService.isKnownAutomotiveTerm(lowerQuery);
 
     const isServiceQuestion =
       /ouvrez|ouvert|heure|horaire|livraison|délai|garantie|situé|adresse|où|localisation/i.test(lowerQuery);
+
+    const isContextualFollowUp = this.isContextualFollowUp(query) && !isCarPart;
+    const conversationContext = history.length > 0 || vehicle
+      ? { recentMessages: history.slice(-6), vehicle, useHistoryForInterpretation: isContextualFollowUp }
+      : undefined;
 
     // Tunisian marker detection — unchanged
     const hasTunisianMarker =
@@ -257,15 +303,8 @@ export class AIQueryNormalizerService {
         new RegExp(`\\b${tn.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(lowerQuery),
       );
 
-    // Pure French/English car part query with no Tunisian — pass through unchanged
-    if (isCarPart && !hasTunisianMarker) {
-      this.stats.passthroughCarPart++;
-      return { normalized: query, isGreeting: false, isThanks: false, confidence: 0.9 };
-    }
-    if (isServiceQuestion && !hasTunisianMarker) {
-      this.stats.passthroughServiceQuestion++;
-      return { normalized: query, isGreeting: false, isThanks: false, confidence: 0.9 };
-    }
+    if (isCarPart && !hasTunisianMarker && !hasUnknownPartTokens) this.stats.passthroughCarPart++;
+    if (isServiceQuestion && !hasTunisianMarker) this.stats.passthroughServiceQuestion++;
 
     // FIX-7: DB typo rows (langue='typo') merged OVER the static seed map.
     // Same sort-by-length + apply loop as before, just a richer source.
@@ -278,7 +317,7 @@ export class AIQueryNormalizerService {
       ([a], [b]) => b.length - a.length,
     );
 
-    let correctedQuery = query;
+    let correctedQuery = catalogQuery;
     const appliedCorrections = new Set<string>();
 
     // In automotive French, "filtre climatiseur" means the cabin/pollen
@@ -319,44 +358,54 @@ export class AIQueryNormalizerService {
     }
     correctedQuery = rawTokens.join('');
 
-    // After both correction passes, re-check whether the query is now a
-    // recognized car part with no Tunisian marker — if so, skip the
-    // OpenAI round-trip entirely. This is where fuzzy correction pays
-    // for itself: an unseen typo that used to force an AI call now
-    // resolves for free.
+    // Track recognition after local correction for observability, but every
+    // turn still receives the structured OpenAI interpretation below.
     const correctedLower = correctedQuery.toLowerCase();
     const isCarPartAfterCorrection = this.synonymsService.isKnownAutomotiveTerm(correctedLower);
-    if (isCarPartAfterCorrection && !hasTunisianMarker) {
+    if (isCarPartAfterCorrection && !hasTunisianMarker && !this.hasUnknownPartTokens(correctedQuery)) {
       this.stats.passthroughAfterCorrection++;
-      return { normalized: correctedQuery, isGreeting: false, isThanks: false, confidence: 0.88 };
-    }
-
-    // FIX-8: circuit breaker — if the AI's own output has been getting
-    // rejected by the checks below more than 30% of the time over the
-    // last 100 calls, skip the OpenAI round-trip entirely and go
-    // straight to the DB Tunisian map. Cheaper, and we were going to
-    // reject the AI output most of the time anyway in this state.
-    if (this.isAiCircuitOpen()) {
-      this.stats.aiSkippedCircuitOpen++;
-      this.logger.warn(
-        `⚡ AI circuit open (rejection rate > ${AIQueryNormalizerService.AI_REJECTION_THRESHOLD * 100}% ` +
-        `over last ${this.aiOutcomes.length} calls) — skipping OpenAI, using DB Tunisian map`,
-      );
-      const fallbackNormalized = this.applyTunisianNormalization(correctedQuery);
-      return {
-        normalized: fallbackNormalized || correctedQuery,
-        isGreeting:
-          /^(bonjour|salut|hello|hi|salem|ahla|salam)\b/i.test(correctedQuery),
-        isThanks:
-          /\b(merci|thanks|3aychek|barcha|au revoir|bye|à bientôt|bonne journée|besslema|sahha|ciao|adieu)\b/i.test(
-            correctedQuery,
-          ),
-        confidence: 0.5,
-      };
     }
 
     try {
-      const aiResult = await this.normalizeWithAI(correctedQuery);
+      const aiResult = await this.normalizeWithAI(correctedQuery, conversationContext, catalogCandidates);
+      const requiresCatalogPart =
+        ['SEARCH', 'PRICE_INQUIRY', 'STOCK_CHECK'].includes(aiResult.intent) ||
+        isCarPart || isContextualFollowUp || isCarPartAfterCorrection;
+      const matchedCatalogPart = await this.validateCatalogPart(
+        correctedQuery,
+        aiResult.normalized,
+        aiResult.catalogPart,
+        catalogCandidates,
+        conversationContext,
+      );
+      if (requiresCatalogPart && !matchedCatalogPart) {
+        this.stats.aiRejectedWordChanged++;
+        this.recordAiOutcome(false);
+        this.logger.warn(`⚠️ AI interpretation was not grounded in catalog vocabulary: "${aiResult.catalogPart ?? ''}"`);
+        return {
+          ...aiResult,
+          normalized: correctedQuery,
+          catalogPart: null,
+          positions: extractRequestedPositions(correctedQuery),
+          confidence: 0.5,
+          uncertainty: 0.5,
+        };
+      }
+
+      const normalizedPositions = extractRequestedPositions(aiResult.normalized);
+      if (!samePositions(normalizedPositions, aiResult.positions)) {
+        this.recordAiOutcome(false);
+        this.logger.warn('[AI-INTERPRETATION] Structured positions do not match the normalized query; falling back conservatively');
+        return {
+          ...aiResult,
+          normalized: correctedQuery,
+          catalogPart: null,
+          positions: extractRequestedPositions(correctedQuery),
+          confidence: 0.5,
+          uncertainty: 0.5,
+        };
+      }
+
       const correctedWords = this.extractMeaningfulWords(correctedQuery);
       const resultWords    = this.extractMeaningfulWords(aiResult.normalized);
 
@@ -364,7 +413,7 @@ export class AIQueryNormalizerService {
         /[0-9]|^(n7eb|ch7al|bghit|famma|choufli|chouf|wach|mte3|ken|behi|barcha|ahla|salem|salam|yezzi|mouch|mech|3aychek|ta3|9ad|zeda|wri)$/i;
       const tunisianMap = this.synonymsService.getTunisianMap();
 
-      for (const qWord of correctedWords) {
+      for (const qWord of isContextualFollowUp || matchedCatalogPart ? [] : correctedWords) {
         if (tunisianPattern.test(qWord) || tunisianMap[qWord] !== undefined) continue;
 
         const hasExactMatch  = resultWords.some((rw) => rw === qWord);
@@ -380,10 +429,12 @@ export class AIQueryNormalizerService {
           this.recordAiOutcome(false);
           this.logger.warn(`⚠️ AI changed/removed word "${qWord}" — using corrected query instead`);
           return {
+            ...aiResult,
             normalized: correctedQuery,
-            isGreeting: aiResult.isGreeting,
-            isThanks:   aiResult.isThanks,
-            confidence: 0.7,
+            catalogPart: null,
+            positions: extractRequestedPositions(correctedQuery),
+            confidence: 0.5,
+            uncertainty: 0.5,
           };
         }
       }
@@ -395,10 +446,12 @@ export class AIQueryNormalizerService {
           this.recordAiOutcome(false);
           this.logger.warn(`⚠️ AI added triple letters "${rWord}" — rejecting AI result`);
           return {
+            ...aiResult,
             normalized: correctedQuery,
-            isGreeting: aiResult.isGreeting,
-            isThanks:   aiResult.isThanks,
-            confidence: 0.7,
+            catalogPart: null,
+            positions: extractRequestedPositions(correctedQuery),
+            confidence: 0.5,
+            uncertainty: 0.5,
           };
         }
         for (const cWord of correctedWords) {
@@ -407,10 +460,12 @@ export class AIQueryNormalizerService {
             this.recordAiOutcome(false);
             this.logger.warn(`⚠️ AI added prefix to "${cWord}" → "${rWord}" — rejecting AI result`);
             return {
+              ...aiResult,
               normalized: correctedQuery,
-              isGreeting: aiResult.isGreeting,
-              isThanks:   aiResult.isThanks,
-              confidence: 0.7,
+              catalogPart: null,
+              positions: extractRequestedPositions(correctedQuery),
+              confidence: 0.5,
+              uncertainty: 0.5,
             };
           }
         }
@@ -419,11 +474,18 @@ export class AIQueryNormalizerService {
       // FIX 2026-09-20: the model may fix words, but it may NOT add, drop or
       // change a position. Positions are decided by the customer's own
       // words (+ the DB Tunisian dictionary), never by the LLM.
-      const guarded = this.enforcePositionFidelity(correctedQuery, aiResult.normalized);
+      const guarded = isContextualFollowUp
+        ? aiResult.normalized.trim()
+        : this.enforcePositionFidelity(correctedQuery, aiResult.normalized);
+      const catalogQuery = this.canonicalizePositionWording(guarded);
       this.stats.aiAccepted++;
       this.recordAiOutcome(true);
-      this.logger.log(`✅ AI: "${query}" → "${guarded}" (${aiResult.confidence})`);
-      return { ...aiResult, normalized: guarded };
+      this.logger.log(`✅ AI: "${query}" → "${catalogQuery}" (${aiResult.confidence})`);
+      return {
+        ...aiResult,
+        normalized: catalogQuery,
+        positions: extractRequestedPositions(catalogQuery),
+      };
     } catch (error: any) {
       // Not recorded in the rejection-rate window on purpose — a network
       // timeout or API error says nothing about whether the AI's actual
@@ -432,17 +494,108 @@ export class AIQueryNormalizerService {
       this.logger.warn(`⚠️ AI failed: ${error.message}`);
       // FIX-5: Tunisian fallback preserves French part name tokens
       const fallbackNormalized = this.applyTunisianNormalization(correctedQuery);
-      return {
-        normalized: fallbackNormalized || correctedQuery,
-        isGreeting:
-          /^(bonjour|salut|hello|hi|salem|ahla|salam)\b/i.test(correctedQuery),
-        isThanks:
-          /\b(merci|thanks|3aychek|barcha|au revoir|bye|à bientôt|bonne journée|besslema|sahha|ciao|adieu)\b/i.test(
-            correctedQuery,
-          ),
-        confidence: 0.5,
-      };
+      return this.fallbackInterpretation(fallbackNormalized || correctedQuery, 0.5);
     }
+  }
+
+  private fallbackInterpretation(
+    normalized: string,
+    confidence: number,
+    intent: InterpretedIntent = 'UNKNOWN',
+  ): StructuredQueryInterpretation {
+    return {
+      normalized,
+      intent,
+      catalogPart: null,
+      positions: extractRequestedPositions(normalized),
+      qualifiers: [],
+      confidence,
+      uncertainty: 1 - confidence,
+      isGreeting: intent === 'GREETING' || /^(bonjour|salut|hello|hi|salem|ahla|salam)\b/i.test(normalized),
+      isThanks: intent === 'THANKS' || /\b(merci|thanks|3aychek|barcha|au revoir|bye|besslema|ciao|adieu)\b/i.test(normalized),
+    };
+  }
+
+  private isContextualFollowUp(query: string): boolean {
+    const words = query.trim().split(/\s+/).filter(Boolean);
+    if (words.length > 8 || query.length > 100) return false;
+
+    return /\b(?:l(?:['’]|\s+)autre|autre\s+c[oô]t[eé]|c[oô]t[eé]\s+oppos[eé]|pareil(?:le)?|idem|la\s+m[eê]me(?:\s+chose)?|le\s+m[eê]me(?:\s+chose)?|celle(?:-ci|-l[aà])?|celui(?:-ci|-l[aà])?|disponible|en\s+stock|famma|mawjoud|combien|ch7al|prix|tarif|co[uû]t)\b/i.test(query);
+  }
+
+  private hasUnknownPartTokens(query: string): boolean {
+    const requestedTokens = buildRequestedPartTokens(tokenizeName(query));
+    return requestedTokens.some((token) =>
+      !this.synonymsService.isKnownAutomotiveTerm(token) &&
+      !this.synonymsService.findClosestVocabularyWord(token),
+    );
+  }
+
+  private canonicalizePositionWording(query: string): string {
+    const positions = extractRequestedPositions(query);
+    if (!hasAnyPosition(positions)) return query;
+
+    const partWords = tokenizeName(query).filter((token) => !isPositionToken(token));
+    return [...partWords, ...positionsToWords(positions)].join(' ').trim();
+  }
+
+  private async validateCatalogPart(
+    source: string,
+    normalized: string,
+    requestedCanonical: string | null,
+    catalogCandidates: Record<string, string[]>,
+    context?: QueryContext,
+  ): Promise<{ canonical: string; variants: string[] } | null> {
+    if (!requestedCanonical) return null;
+    const normalizeTerm = (value: string) => normalizeForMatch(value).replace(/[/-]+/g, ' ').replace(/\s+/g, ' ').trim();
+    const requestedKey = normalizeTerm(requestedCanonical);
+    const entry = Object.entries(catalogCandidates).find(([canonical]) => normalizeTerm(canonical) === requestedKey);
+    if (!entry) return null;
+
+    const [canonical, variants] = entry;
+    const aliases = [...new Set([canonical, ...variants])];
+    const sourceText = context?.useHistoryForInterpretation
+      ? `${source} ${context.recentMessages.map((message) => message.content).join(' ')}`
+      : source;
+    const hasRelatedAlias = this.containsCatalogAlias(sourceText, aliases, normalizeTerm);
+    const normalizedHasAlias = this.containsCatalogAlias(normalized, aliases, normalizeTerm);
+
+    if (!hasRelatedAlias || !normalizedHasAlias) return null;
+    if (!await this.synonymsService.hasCatalogDesignationConcept(canonical, aliases)) return null;
+
+    return { canonical, variants };
+  }
+
+  private containsCatalogAlias(
+    text: string,
+    aliases: string[],
+    normalizeTerm: (value: string) => string,
+  ): boolean {
+    const source = normalizeTerm(text);
+    const sourceTokens = source.split(' ').filter(Boolean);
+
+    return aliases.some((alias) => {
+      const normalizedAlias = normalizeTerm(alias);
+      if (!normalizedAlias) return false;
+      if (` ${source} `.includes(` ${normalizedAlias} `)) return true;
+
+      const compactAlias = normalizedAlias.replace(/\s/g, '');
+      const aliasTokens = normalizedAlias.split(' ').filter(Boolean);
+      const windowSizes = aliasTokens.length === 1
+        ? [1]
+        : [aliasTokens.length - 1, aliasTokens.length, aliasTokens.length + 1].filter((size) => size > 0);
+
+      return windowSizes.some((size) => {
+        for (let start = 0; start + size <= sourceTokens.length; start++) {
+          const compactWindow = sourceTokens.slice(start, start + size).join('');
+          const maxDistance = Math.min(2, Math.floor(Math.min(compactAlias.length, compactWindow.length) * 0.25));
+          if (compactWindow === compactAlias || (maxDistance > 0 && this.levenshtein(compactWindow, compactAlias) <= maxDistance)) {
+            return true;
+          }
+        }
+        return false;
+      });
+    });
   }
 
 
@@ -585,17 +738,34 @@ export class AIQueryNormalizerService {
   //  - Explicitly forbid translating French names to English OEM
   //  - Add French body/lighting/interior examples
   // ─────────────────────────────────────────────────────────────────
-  private async normalizeWithAI(query: string): Promise<{
-    normalized: string;
-    isGreeting: boolean;
-    isThanks: boolean;
-    confidence: number;
-  }> {
-    // FIX 2026-09-20: rules go in the system message, the query alone in the
-    // user message, through completeJson() (no catalog persona, temperature 0).
+  private async normalizeWithAI(
+    query: string,
+    context: QueryContext | undefined,
+    catalogCandidates: Record<string, string[]>,
+  ): Promise<StructuredQueryInterpretation> {
+    const contextInstructions = context
+      ? `\nCONVERSATION CONTEXT RULES:\n- Interpret the current message using recent turns, but current explicit words always take priority over older topics.\n- Use history only to resolve references, short clarifications, and follow-up actions.\n- Use vehicle model/type code as scope, not as a part name. Never include a VIN in the normalized query.\n- If multiple antecedents are plausible, use intent CLARIFICATION_NEEDED and confidence below 0.6.\n- Do not turn a new explicit part request into a continuation of an older topic.\n`
+      : '';
+    const catalogVocabulary = Object.entries(catalogCandidates)
+      .map(([canonical, variants]) => `${canonical}: ${variants.slice(0, 5).join(', ')}`)
+      .join('\n');
     const systemPrompt = `You are a car parts query parser for a Suzuki parts catalog.
 The catalog uses FRENCH names as primary display names (designation_2 field).
 Your job is to normalize user queries into clean French search terms.
+
+CATALOG-GROUNDED INTERPRETATION:
+- The following canonical part concepts and aliases come from the live database synonym index.
+- For a car-part request, set catalogPart to exactly one canonical key from this list, or null if none fits.
+- Never invent a part concept outside this list. A selected part is only an interpretation proposal; the database search and deterministic validation decide whether it exists and fits.
+${catalogVocabulary}${contextInstructions}
+
+INTENT, PART, POSITION, QUALIFIERS, UNCERTAINTY:
+- Classify every message as exactly one of SEARCH, PRICE_INQUIRY, STOCK_CHECK, GREETING, COMPLAINT, THANKS, SERVICE_QUESTION, CLARIFICATION_NEEDED, FILTER, DIAGNOSTIC, UNKNOWN.
+- For SEARCH, PRICE_INQUIRY, and STOCK_CHECK, identify the requested catalogPart from the canonical list.
+- Return positions as arrays using axes AV/AR, sides G/D, levels SUP/INF. These must match the position meaning preserved in normalized.
+- Return qualifiers as short customer-stated variants only (e.g. type, color, engine); do not invent missing qualifiers.
+- confidence is confidence that the request was understood. uncertainty is its inverse, both 0..1.
+- Do not decide fitment, stock, price, reference, or whether a database row is valid.
 
 CRITICAL RULES:
 1. PRESERVE ORIGINAL WORDS — only expand abbreviations and fix spacing/typos.
@@ -629,9 +799,26 @@ EXAMPLES:
 - "ch7al retroviseur" → "prix retroviseur"
 
 Respond with ONLY valid JSON, no markdown:
-{"normalized":"clean French query","isGreeting":true/false,"isThanks":true/false,"confidence":0.0-1.0}`;
+{"normalized":"standalone clean French query","intent":"one allowed intent","catalogPart":"exact canonical key from catalog list or null","positions":{"axes":[],"sides":[],"levels":[]},"qualifiers":[],"isGreeting":true/false,"isThanks":true/false,"confidence":0.0-1.0,"uncertainty":0.0-1.0}`;
 
-    const response  = await this.openaiService.completeJson(systemPrompt, `QUERY: "${query}"`);
+    const recentConversation = context
+      ? context.recentMessages
+          .filter((message) => message.role === 'user' || message.role === 'bot' || message.role === 'assistant')
+          .slice(-4)
+          .map((message) => {
+            const role = message.role === 'user' ? 'Client' : 'Assistant';
+            const content = message.content
+              .replace(/\b[A-HJ-NPR-Z0-9]{17}\b/gi, '[VIN]')
+              .replace(/[\r\n\t]+/g, ' ')
+              .slice(0, 300);
+            return `${role}: ${content}`;
+          })
+          .join('\n')
+      : '';
+    const userPrompt = context
+      ? `RECENT CONVERSATION:\n${recentConversation || '(none)'}\nVEHICLE: ${[context.vehicle?.marque, context.vehicle?.modele, context.vehicle?.typeCode].filter(Boolean).join(' ') || '(unknown)'}\nCURRENT MESSAGE: "${query}"`
+      : `QUERY: "${query}"`;
+    const response  = await this.openaiService.completeJson(systemPrompt, userPrompt, 400);
     let jsonText = response.trim();
     if (!jsonText.startsWith('{')) {
       const jsonMatch = response.match(/\{[^}]+\}/);
@@ -640,11 +827,34 @@ Respond with ONLY valid JSON, no markdown:
     }
 
     const result = JSON.parse(jsonText);
+    const intents: InterpretedIntent[] = [
+      'SEARCH', 'PRICE_INQUIRY', 'STOCK_CHECK', 'GREETING', 'COMPLAINT',
+      'THANKS', 'SERVICE_QUESTION', 'CLARIFICATION_NEEDED', 'FILTER', 'DIAGNOSTIC', 'UNKNOWN',
+    ];
+    const intent = intents.includes(result.intent) ? result.intent as InterpretedIntent : 'UNKNOWN';
+    const rawPositions = result.positions && typeof result.positions === 'object' ? result.positions : {};
+    const positionValues = [rawPositions.axes, rawPositions.sides, rawPositions.levels]
+      .flatMap((value: unknown) => Array.isArray(value) ? value : typeof value === 'string' ? [value] : [])
+      .filter((value: unknown): value is string => typeof value === 'string');
+    const positions: PositionRequest = extractRequestedPositions(positionValues.join(' '));
+    const rawConfidence = Number(result.confidence);
+    const confidence = Number.isFinite(rawConfidence) ? Math.max(0, Math.min(1, rawConfidence)) : 0.5;
+    const rawUncertainty = Number(result.uncertainty);
+    const uncertainty = Number.isFinite(rawUncertainty)
+      ? Math.max(0, Math.min(1, rawUncertainty))
+      : 1 - confidence;
     return {
       normalized: result.normalized || query,
-      isGreeting: !!result.isGreeting,
-      isThanks:   !!result.isThanks,
-      confidence: result.confidence || 0.9,
+      intent,
+      catalogPart: typeof result.catalogPart === 'string' ? result.catalogPart.trim() : null,
+      positions,
+      qualifiers: Array.isArray(result.qualifiers)
+        ? result.qualifiers.filter((value: unknown): value is string => typeof value === 'string').map((value: string) => value.trim()).filter(Boolean).slice(0, 8)
+        : [],
+      isGreeting: intent === 'GREETING' || !!result.isGreeting,
+      isThanks: intent === 'THANKS' || !!result.isThanks,
+      confidence: Math.min(confidence, 1 - uncertainty),
+      uncertainty,
     };
   }
 }

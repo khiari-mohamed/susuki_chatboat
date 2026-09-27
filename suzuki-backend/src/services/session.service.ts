@@ -86,11 +86,11 @@ export class SessionService {
   ): Promise<{ role: string; content: string; metadata?: any }[]> {
     const messages = await this.prisma.chatMessage.findMany({
       where:   { sessionId },
-      orderBy: { timestamp: 'asc' },
+      orderBy: { timestamp: 'desc' },
       take:    limit,
     });
 
-    return messages.map((m) => ({
+    return messages.reverse().map((m) => ({
       role:     m.sender,
       content:  m.message,
       // FIX-2: pass through metadata so orchestrator can read

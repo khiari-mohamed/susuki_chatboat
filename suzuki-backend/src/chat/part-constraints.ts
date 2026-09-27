@@ -120,7 +120,7 @@ const REQUEST_WORDS = new Set([
   'plait', 'pour', 'avec', 'sans', 'sur', 'ce', 'cet', 'cette', 'ces', 'mon', 'ma', 'mes',
   'ton', 'ta', 'tes', 'votre', 'notre', 'que', 'qui', 'quoi', 'ou',
   'prix', 'combien', 'cout', 'tarif', 'disponible', 'dispo', 'stock',
-  'piece', 'pieces', 'voiture', 'auto', 'suzuki',
+  'piece', 'pieces', 'voiture', 'auto', 'vehicule', 'vehicle', 'vin', 'associe', 'associee', 'associated', 'suzuki',
   'bonjour', 'salut', 'bonsoir', 'merci', 'hello',
   'position', 'cote', 'cotes', 'type', 'modele', 'model', 'reference', 'ref',
 ]);
@@ -190,6 +190,47 @@ const POSITION_TOKENS: Record<string, PositionAtom> = {
   inf: { level: 'INF' }, inferieur: { level: 'INF' },
 };
 
+const FUZZY_POSITION_TOKENS: Record<string, PositionAtom> = {
+  avant: { axis: 'AV' },
+  arriere: { axis: 'AR' },
+  gauche: { side: 'G' },
+  droite: { side: 'D' },
+  superieur: { level: 'SUP' },
+  inferieur: { level: 'INF' },
+};
+
+function fuzzyPositionAtom(token: string): PositionAtom | undefined {
+  if (token.length < 4) return undefined;
+
+  let bestDistance = Number.POSITIVE_INFINITY;
+  let secondDistance = Number.POSITIVE_INFINITY;
+  let bestAtom: PositionAtom | undefined;
+
+  for (const [position, atom] of Object.entries(FUZZY_POSITION_TOKENS)) {
+    let sharedPrefix = 0;
+    while (sharedPrefix < token.length && sharedPrefix < position.length && token[sharedPrefix] === position[sharedPrefix]) {
+      sharedPrefix++;
+    }
+    if (sharedPrefix < 2) continue;
+
+    const distance = levenshtein(token, position);
+    if (distance < bestDistance) {
+      secondDistance = bestDistance;
+      bestDistance = distance;
+      bestAtom = atom;
+    } else if (distance < secondDistance) {
+      secondDistance = distance;
+    }
+  }
+
+  const matchedPosition = Object.entries(FUZZY_POSITION_TOKENS)
+    .find(([position, atom]) => atom === bestAtom && levenshtein(token, position) === bestDistance)?.[0];
+  const maximumDistance = matchedPosition ? Math.floor(matchedPosition.length * 0.45) : 0;
+  return bestDistance <= maximumDistance && bestDistance < secondDistance
+    ? bestAtom
+    : undefined;
+}
+
 export function isPositionToken(token: string): boolean {
   return Object.prototype.hasOwnProperty.call(POSITION_TOKENS, token);
 }
@@ -219,8 +260,12 @@ export function extractRequestedPositions(
   canonicalOf?: (token: string) => string | undefined,
 ): PositionRequest {
   const result = emptyRequest();
-  for (const token of tokenizeName(text)) {
-    let atom = POSITION_TOKENS[token];
+  const tokens = tokenizeName(text);
+  for (const [index, token] of tokens.entries()) {
+    let atom: PositionAtom | undefined = POSITION_TOKENS[token];
+    if (!atom && index === tokens.length - 1 && index > 0) {
+      atom = fuzzyPositionAtom(token);
+    }
     if (!atom && canonicalOf) {
       const canonical = canonicalOf(token);
       if (canonical) atom = POSITION_TOKENS[normalizeForMatch(canonical)];
@@ -368,15 +413,15 @@ export function buildRequestedPartTokens(
   ignore: ReadonlySet<string> = new Set(),
 ): string[] {
   const out: string[] = [];
-  for (const raw of tokens) {
-    for (const token of tokenizeName(raw)) {
-      if (token.length < 2) continue;
-      if (isPositionToken(token)) continue;
-      if (FUNCTION_WORDS.has(token) || REQUEST_WORDS.has(token)) continue;
-      if (ignore.has(token)) continue;
-      if (/\d/.test(token)) continue;
-      out.push(token);
-    }
+  const normalizedTokens = tokens.flatMap((raw) => tokenizeName(raw));
+  for (const [index, token] of normalizedTokens.entries()) {
+    if (token.length < 2) continue;
+    if (isPositionToken(token)) continue;
+    if (index === normalizedTokens.length - 1 && index > 0 && fuzzyPositionAtom(token)) continue;
+    if (FUNCTION_WORDS.has(token) || REQUEST_WORDS.has(token)) continue;
+    if (ignore.has(token)) continue;
+    if (/\d/.test(token)) continue;
+    out.push(token);
   }
   return out;
 }

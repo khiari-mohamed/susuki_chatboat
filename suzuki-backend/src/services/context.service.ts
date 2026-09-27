@@ -307,7 +307,7 @@ export class ContextService {
         message,
       );
 
-    if (isFollowUp && context.lastPart) {
+    if (isFollowUp && context.lastPart && !hasSpecificPart) {
       const posMatch = message.match(
         /\b(avant|arrière|arriere|gauche|droite|av|ar|g|d)\b/i,
       );

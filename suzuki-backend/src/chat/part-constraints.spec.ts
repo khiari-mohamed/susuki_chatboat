@@ -28,6 +28,11 @@ describe('position parsing', () => {
     expect(extractRequestedPositions('pare choc ar')).toEqual({ axes: ['AR'], sides: [], levels: [] });
   });
 
+  it('repairs a uniquely close typo of a long position word', () => {
+    expect(extractRequestedPositions('pare choc arir')).toEqual({ axes: ['AR'], sides: [], levels: [] });
+    expect(extractRequestedPositions('filtre a air').sides).toEqual([]);
+  });
+
   it('never reads a French elision as "droite"', () => {
     expect(extractRequestedPositions("filtre d'air").sides).toEqual([]);
     expect(extractRequestedPositions("bougie d'allumage").sides).toEqual([]);
@@ -91,6 +96,12 @@ describe('identity + position gate', () => {
     const r = run('bougie droite', [part("BOUGIE D'ALLUMAGE")]);
     expect(r.kept).toHaveLength(0);
     expect(r.outcome.noExactMatch).toBe(true);
+  });
+
+  it('does not treat vehicle/VIN context words as part identity tokens', () => {
+    expect(
+      buildRequestedPartTokens('Pour le véhicule associé à ce VIN, cherche un amortisseur avant'.split(/\s+/)),
+    ).toEqual(['amortisseur']);
   });
 
   it('door: keeps the door in the requested position, drops lock/seal/handle', () => {

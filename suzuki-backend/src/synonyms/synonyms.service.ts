@@ -53,6 +53,10 @@ export class SynonymsService implements OnModuleInit {
   // normalized. Built in loadFromDatabase(). See isKnownAutomotiveTerm's
   // sibling below, findClosestVocabularyWord().
   private vocabularyWords: Set<string> = new Set();
+  private catalogDesignationSnapshot: string[] = [];
+  private catalogDesignationSnapshotAt = 0;
+  private catalogDesignationLoad: Promise<string[]> | null = null;
+  private static readonly CATALOG_DESIGNATION_CACHE_MS = 60_000;
 
   // ─────────────────────────────────────────────────────────────────
   // Safety-net vocabulary used by isKnownAutomotiveTerm() ONLY when the
@@ -91,7 +95,7 @@ export class SynonymsService implements OnModuleInit {
     'catadioptre', 'lampe', 'ampoule',
     'siege', 'sièges', 'ceinture', 'tableau', 'tapis', 'airbag',
     'retroviseur', 'rétroviseur', 'retro',
-    'essuie', 'balai', 'leve', 'monte',
+    'essuie', 'balai', 'leve', 'monte', 'lecheur',
     'agrafe', 'agraffe', 'agraphe', 'agrafes', 'agraffes', 'agraphes',
     'valve', 'cache', 'support', 'clip', 'vis', 'boulon',
     'ecrou', 'rondelle', 'cric', 'antenne', 'klaxon',
@@ -224,6 +228,65 @@ export class SynonymsService implements OnModuleInit {
   /** canonical → list of variant mots */
   getCategoryVariants(): Record<string, string[]> {
     return this.categoryVariants;
+  }
+
+  /** Canonical part vocabulary plus aliases, derived from DB synonyms and the static fallback. */
+  getInterpretationCandidates(): Record<string, string[]> {
+    const candidates = Object.fromEntries(
+      Object.entries(this.categoryVariants).map(([canonical, variants]) => [
+        canonical,
+        [...new Set([canonical, ...variants])],
+      ]),
+    );
+
+    for (const term of SynonymsService.STATIC_FALLBACK_PART_TERMS) {
+      if (!candidates[term]) candidates[term] = [term];
+    }
+
+    return candidates;
+  }
+
+  async hasCatalogDesignationConcept(canonical: string, variants: string[]): Promise<boolean> {
+    const designations = await this.getCatalogDesignationSnapshot();
+    const candidates = [...new Set([canonical, ...variants])]
+      .map((value) => this.normalize(value))
+      .filter(Boolean);
+
+    return designations.some((designation) => {
+      const paddedDesignation = ` ${designation} `;
+      const compactDesignation = designation.replace(/\s/g, '');
+      return candidates.some((candidate) => {
+        if (paddedDesignation.includes(` ${candidate} `)) return true;
+        const compactCandidate = candidate.replace(/\s/g, '');
+        return compactCandidate.length >= 4 && compactDesignation.includes(compactCandidate);
+      });
+    });
+  }
+
+  private async getCatalogDesignationSnapshot(): Promise<string[]> {
+    const now = Date.now();
+    if (
+      this.catalogDesignationSnapshotAt > 0 &&
+      now - this.catalogDesignationSnapshotAt < SynonymsService.CATALOG_DESIGNATION_CACHE_MS
+    ) {
+      return this.catalogDesignationSnapshot;
+    }
+    if (this.catalogDesignationLoad) return this.catalogDesignationLoad;
+
+    this.catalogDesignationLoad = this.prisma.part.findMany({
+      select: { designation: true, designation2: true },
+    }).then((parts) => {
+      this.catalogDesignationSnapshot = parts
+        .flatMap((part) => [part.designation2, part.designation])
+        .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+        .map((value) => this.normalize(value));
+      this.catalogDesignationSnapshotAt = Date.now();
+      return this.catalogDesignationSnapshot;
+    }).finally(() => {
+      this.catalogDesignationLoad = null;
+    });
+
+    return this.catalogDesignationLoad;
   }
 
   /** Tunisian mot → French word */

@@ -11,9 +11,10 @@ import { AdvancedSearchService } from '../chat/advanced-search.service';
 import { VehicleModelsService } from '../constants/vehicle-models.service';
 import { StrictValidatorService } from '../chat/strict-validator.service';
 import { SynonymsService } from '../synonyms/synonyms.service';
-import { getCatalogPositions } from '../chat/part-constraints';
+import { getCatalogPositions, normalizeForMatch } from '../chat/part-constraints';
 import type { ConstraintOutcome } from '../chat/part-constraints';
 import { evaluateResponseConfidence } from '../chat/confidence-gate';
+import type { StructuredQueryInterpretation } from './ai-query-normalizer.service';
 
 export interface ProcessMessageResponse {
   response: string;
@@ -196,6 +197,119 @@ export class ChatOrchestratorService {
     });
   }
 
+  private async verifyCatalogResponse(
+    userMessage: string,
+    interpretation: StructuredQueryInterpretation,
+    vehicle: any,
+    response: string,
+    products: any[],
+  ): Promise<boolean> {
+    const candidates = [...new Map(
+      (products ?? [])
+        .filter((product) => typeof product?.reference === 'string' && product.reference.trim())
+        .map((product) => [product.reference.trim().toUpperCase(), product]),
+    ).values()];
+    if (candidates.length === 0 || interpretation.confidence < 0.6) return false;
+
+    const candidateReferences = candidates.map((product) => product.reference.trim().toUpperCase());
+    const vehicleScope = this.advancedSearch.getLastSearchDebug()?.vehicleScope;
+    const compatibleTypeCodes: string[] = vehicleScope?.typeCodes ?? [];
+    if ((vehicle?.vin || vehicle?.modele) && compatibleTypeCodes.length === 0) return false;
+    const evidence = candidates.map((product) => {
+      const rawPrice = product.prixTtc ?? product.prix_ttc;
+      const stock = Number(product.stock?.stockConsolide ?? product.stock?.stock_consolide ?? 0);
+      const frenchName = product.designation2 ?? product.designation_2 ?? null;
+      const fitmentTypeCodes: string[] = (product.fitments ?? [])
+        .map((fitment: any) => fitment.typeCode)
+        .filter(Boolean);
+      const universal = fitmentTypeCodes.length === 0;
+      const fitmentCompatible = universal || fitmentTypeCodes.some((code) => compatibleTypeCodes.includes(code));
+      const priceDisplayForms = rawPrice == null || !Number.isFinite(Number(rawPrice))
+        ? []
+        : [...new Set([String(rawPrice), `${Number(rawPrice).toFixed(3)} TND`])];
+      return {
+        reference: product.reference,
+        frenchName,
+        englishName: product.designation ?? null,
+        publicPriceTtcRaw: rawPrice == null ? null : String(rawPrice),
+        publicPriceTtcDisplayed: rawPrice == null || !Number.isFinite(Number(rawPrice))
+          ? null
+          : `${Number(rawPrice).toFixed(3)} TND`,
+        priceDisplayForms,
+        consolidatedStock: stock,
+        availableByBusinessRule: stock >= 2,
+        fitmentTypeCodes,
+        fitmentCompatibleWithVehicle: fitmentCompatible,
+        universalByExistingCatalogRule: universal,
+        expectedCustomerName: frenchName ?? product.designation ?? null,
+      };
+    });
+
+    const normalizedResponse = normalizeForMatch(response);
+    for (const item of evidence) {
+      const expectedName = normalizeForMatch(item.expectedCustomerName ?? '');
+      if (expectedName && !normalizedResponse.includes(expectedName)) return false;
+
+      const saysAvailable = /\bdisponibles?\b/.test(normalizedResponse);
+      const saysUnavailable = /\bindisponibles?\b/.test(normalizedResponse);
+      if (item.availableByBusinessRule ? !saysAvailable || saysUnavailable : !saysUnavailable) return false;
+
+      const displayedPrice = item.priceDisplayForms.some((price: string) =>
+        normalizedResponse.includes(normalizeForMatch(price)),
+      );
+      if (item.availableByBusinessRule && item.publicPriceTtcRaw != null && !displayedPrice) return false;
+      if (!item.availableByBusinessRule && displayedPrice) return false;
+      if (!item.fitmentCompatibleWithVehicle) return false;
+    }
+
+    const systemPrompt = `You are a read-only semantic cross-checker for a Suzuki parts chatbot. The database rows supplied by the application are the only source of truth. You must never invent, substitute, or select a reference.
+Your narrow task is to verify that the selected DB designation represents the part concept requested by the customer, is not merely a related accessory/subcomponent, and matches the requested position/qualifiers. Compare the current request and structured interpretation to the actual French/English designation fields and structured position evidence.
+Do NOT judge or require customer-facing prose to mention internal fitment codes, explain compatibility, stock quantities, price arithmetic, or improve wording. The application has already checked those deterministic facts and response fields. Never reject solely because the response does not print internal codes. If the part identity or requested position cannot be confirmed from the supplied designation evidence, set consistent=false. Do not rewrite the response.
+Return only JSON: {"consistent":true|false,"confirmedReferences":["..."],"issues":["..."]}. confirmedReferences may contain only references present in the supplied DB evidence.`;
+    const userPayload = {
+      customerMessage: userMessage,
+      interpretation: {
+        normalized: interpretation.normalized,
+        intent: interpretation.intent,
+        catalogPart: interpretation.catalogPart,
+        positions: interpretation.positions,
+        qualifiers: interpretation.qualifiers,
+        confidence: interpretation.confidence,
+        uncertainty: interpretation.uncertainty,
+      },
+      vehicle: {
+        marque: vehicle?.marque ?? null,
+        modele: vehicle?.modele ?? null,
+        typeCode: vehicle?.typeCode ?? null,
+        compatibleTypeCodes,
+      },
+      databaseEvidence: evidence,
+      proposedResponse: response,
+    };
+
+    try {
+      const raw = await this.openaiService.completeJson(
+        systemPrompt,
+        JSON.stringify(userPayload),
+        180,
+      );
+      const audit = JSON.parse(raw);
+      const confirmed = Array.isArray(audit.confirmedReferences)
+        ? audit.confirmedReferences.map((reference: unknown) => String(reference).trim().toUpperCase())
+        : [];
+      const onlyDatabaseReferences = confirmed.every((reference: string) => candidateReferences.includes(reference));
+      const allCandidatesConfirmed = candidateReferences.every((reference) => confirmed.includes(reference));
+      const accepted = audit.consistent === true && onlyDatabaseReferences && allCandidatesConfirmed;
+      if (!accepted) {
+        this.logger.warn(`[AI-ANSWER-AUDIT] Rejected DB-backed answer: ${JSON.stringify(audit.issues ?? [])}`);
+      }
+      return accepted;
+    } catch (error: any) {
+      this.logger.error(`[AI-ANSWER-AUDIT] Audit failed; withholding catalog answer: ${error?.message}`);
+      return false;
+    }
+  }
+
   // ─────────────────────────────────────────────────────────────────
   // MAIN processMessage
   // ─────────────────────────────────────────────────────────────────
@@ -206,14 +320,18 @@ export class ChatOrchestratorService {
   ): Promise<ProcessMessageResponse> {
     const startTime = Date.now();
 
-    // 0. AI-powered normalization
-    const normalized       = await this.aiNormalizer.normalizeQuery(message);
+    // 0. Load the latest conversation turns before normalization so the
+    // AI can resolve short elliptical follow-ups without guessing from
+    // stale or unrelated session state.
+    const session = await this.sessionService.getOrCreate(sessionId, vehicle);
+    const previousHistory = await this.sessionService.getHistory(session.id);
+
+    // 1. AI-powered normalization (context is used only for clear elliptical follow-ups)
+    const normalized = await this.aiNormalizer.normalizeQuery(message, previousHistory, vehicle);
     const processedMessage = normalized.normalized;
     const safeLog = (s: string) => s.replace(/[\r\n\t]/g, ' ').slice(0, 200);
     this.logger.log(`Original: "${safeLog(message)}" → Normalized: "${safeLog(processedMessage)}"`);
 
-    // 1. Get / create session
-    const session       = await this.sessionService.getOrCreate(sessionId, vehicle);
     const userMessageId = await this.sessionService.saveUserMessage(session.id, message);
     this.contextService.invalidateCache(session.id);
 
@@ -267,7 +385,7 @@ export class ChatOrchestratorService {
     }
 
     // 3. Filter operation check
-    if (this.isFilterOperation(processedMessage)) {
+    if (this.isFilterOperation(processedMessage) || (normalized.intent === 'FILTER' && normalized.confidence >= 0.6)) {
       const lastQuery = this.contextService.getLastQuery(session.id);
       if (!lastQuery) {
         const response = this.responseService.buildNoContextFilterResponse();
@@ -292,25 +410,42 @@ export class ChatOrchestratorService {
       const activeFilters     = this.contextService.getActiveFilters(session.id);
       const filteredProducts  = this.applyFilters(products, activeFilters);
 
-      const response = this.responseService.buildFilteredResponse(filteredProducts, lastQuery, vehicle);
+      let response = this.responseService.buildFilteredResponse(filteredProducts, lastQuery, vehicle);
+      const selectedProduct = this.responseService.selectPrimaryProduct(filteredProducts);
+      let productsToReturn = selectedProduct ? [this.mapProductForResponse(selectedProduct)] : [];
+      let filterIntent = 'FILTER_APPLIED';
+      if (
+        selectedProduct &&
+        !await this.verifyCatalogResponse(message, normalized, vehicle, response, [selectedProduct])
+      ) {
+        response = this.responseService.buildSecurisationResponse(vehicle);
+        productsToReturn = [];
+        filterIntent = 'SECURISATION';
+      }
       await this.sessionService.saveBotResponse(session.id, response, {
-        intent: 'FILTER_APPLIED',
-        productsFound: filteredProducts.length,
+        intent: filterIntent,
+        productsFound: productsToReturn.length,
       });
       return {
         response,
         sessionId:  session.id,
-        // FIX-6: use mapProductForResponse
-        products:   filteredProducts.slice(0, 1).map((p) => this.mapProductForResponse(p)),
+        products:   productsToReturn,
         confidence: 'HIGH',
-        intent:     'FILTER_APPLIED',
+        intent:     filterIntent,
         metadata:   { productsFound: filteredProducts.length, conversationLength: conversationHistory.length, queryClarity: 0 },
       };
     }
 
     // 4. Clarification answer handling
     const pendingClarification = this.clarificationService.getPending(session.id);
-    if (pendingClarification && this.clarificationService.isAnswer(processedMessage, pendingClarification)) {
+    const isPendingClarificationAnswer =
+      !!pendingClarification && this.clarificationService.isAnswer(processedMessage, pendingClarification);
+    if (pendingClarification && !isPendingClarificationAnswer) {
+      this.clarificationService.clearPending(session.id);
+      this.logger.log('New request received; cleared the previous pending clarification');
+    }
+
+    if (pendingClarification && isPendingClarificationAnswer) {
       const partName = this.clarificationService.extractPartName(pendingClarification.originalQuery);
       this.logger.log(`Clarification answer: "${processedMessage}" for original: "${pendingClarification.originalQuery}"`);
 
@@ -412,20 +547,30 @@ export class ChatOrchestratorService {
           constraintOutcome:       clarifiedConstraint,
         });
 
-        const response = securisationCheck.secure
+        let response = securisationCheck.secure
           ? this.responseService.buildProductResponse(products, enrichedQuery, vehicle)
           : this.responseService.buildSecurisationResponse(vehicle);
-        const resolvedIntent = securisationCheck.secure ? 'PARTS_SEARCH' : 'SECURISATION';
+        let resolvedIntent = securisationCheck.secure ? 'PARTS_SEARCH' : 'SECURISATION';
+        let productToReturn = securisationCheck.secure && primaryProduct ? this.mapProductForResponse(primaryProduct) : null;
+        if (
+          securisationCheck.secure &&
+          primaryProduct &&
+          !await this.verifyCatalogResponse(message, normalized, vehicle, response, [primaryProduct])
+        ) {
+          response = this.responseService.buildSecurisationResponse(vehicle);
+          resolvedIntent = 'SECURISATION';
+          productToReturn = null;
+        }
         if (!securisationCheck.secure) {
           this.logger.log(`[SECURISATION] Clarified answer withheld (${securisationCheck.reasons.join(', ')})`);
         }
 
-        await this.sessionService.saveBotResponse(session.id, response, { intent: resolvedIntent, productsFound: products.length });
+        await this.sessionService.saveBotResponse(session.id, response, { intent: resolvedIntent, productsFound: productToReturn ? 1 : 0 });
         return {
           response,
           sessionId:  session.id,
-          products:   securisationCheck.secure && primaryProduct ? [this.mapProductForResponse(primaryProduct)] : [],
-          confidence: securisationCheck.secure ? 'HIGH' : 'LOW',
+          products:   productToReturn ? [productToReturn] : [],
+          confidence: productToReturn ? 'HIGH' : 'LOW',
           intent:     resolvedIntent,
           metadata:   { productsFound: products.length, conversationLength: conversationHistory.length, queryClarity: 10, duration: Date.now() - startTime },
         };
@@ -446,11 +591,14 @@ export class ChatOrchestratorService {
     }
 
     // 5. Detect intent
-    const intent = await this.intelligenceService.detectIntentWithAI(
+    const fallbackIntent = await this.intelligenceService.detectIntentWithAI(
       processedMessage,
       conversationHistory,
-      !!pendingClarification,
+      isPendingClarificationAnswer,
     );
+    const intent = normalized.intent !== 'UNKNOWN' && normalized.confidence >= 0.6
+      ? { ...fallbackIntent, type: normalized.intent }
+      : fallbackIntent;
 
     const partName = this.extractPartName(processedMessage);
     if (partName) this.contextService.setLastPart(session.id, partName);
@@ -476,7 +624,7 @@ export class ChatOrchestratorService {
     }
 
     // Diagnostic redirect
-    const isDiagnostic = /\b(ne\s+d[eé]marre\s+pas|ne\s+fonctionne\s+pas|bruit|fuite|probleme|problème|panne|defectueux|cass[eé]|voyant|vibration|surchauffe|entretien|maintenance|bizarre|t9allek|ralenti|saccade|perte.*puissance|voiture.*mort|moteur.*fum[eé]e|démarre|démarre pas|démarrer|ne démarre|ne part pas|ne s'allume|caler|cale)\b/i.test(processedMessage);
+    const isDiagnostic = normalized.intent === 'DIAGNOSTIC' || /\b(ne\s+d[eé]marre\s+pas|ne\s+fonctionne\s+pas|bruit|fuite|probleme|problème|panne|defectueux|cass[eé]|voyant|vibration|surchauffe|entretien|maintenance|bizarre|t9allek|ralenti|saccade|perte.*puissance|voiture.*mort|moteur.*fum[eé]e|démarre|démarre pas|démarrer|ne démarre|ne part pas|ne s'allume|caler|cale)\b/i.test(processedMessage);
     if (isDiagnostic) {
       const response = this.responseService.buildDiagnosticRedirectResponse();
       await this.sessionService.saveBotResponse(session.id, response, { intent: 'DIAGNOSTIC_REDIRECT' });
@@ -503,7 +651,7 @@ export class ChatOrchestratorService {
         );
         const vehicleInfo = vehicle?.modele ? ` pour votre ${vehicle.marque} ${vehicle.modele}` : '';
         // FIX-1: use French name in stock response
-        const response    = available.length > 0
+        let response    = available.length > 0
           ? `Oui, ${context.lastPart} est disponible${vehicleInfo}.\n\nPRODUITS DISPONIBLES:\n${
               available.slice(0, 1).map((p) => {
                 const publicPrice = p.prixTtc ?? p.prix_ttc;
@@ -512,15 +660,25 @@ export class ChatOrchestratorService {
               }).join('\n')
             }\n\nContactez le Comptoir Pièces de Rechange CarPro au ☎️ 70 603 518 – 70 603 519 pour réserver.`
           : `Désolé, ${context.lastPart} n'est pas disponible actuellement${vehicleInfo}.\n\n💡 Veuillez contacter Car Pro – Comptoir Pièces de Rechange, Tél N° 70 603 518 – 70 603 519.`;
-        await this.sessionService.saveBotResponse(session.id, response, { intent: 'STOCK_CHECK' });
+        const productToAudit = available[0] ?? stockProducts[0];
+        let stockProductsToReturn = available.slice(0, 1).map((p) => this.mapProductForResponse(p));
+        let stockIntent = 'STOCK_CHECK';
+        if (
+          productToAudit &&
+          !await this.verifyCatalogResponse(message, normalized, vehicle, response, [productToAudit])
+        ) {
+          response = this.responseService.buildSecurisationResponse(vehicle);
+          stockProductsToReturn = [];
+          stockIntent = 'SECURISATION';
+        }
+        await this.sessionService.saveBotResponse(session.id, response, { intent: stockIntent });
         return {
           response,
           sessionId:  session.id,
-          // FIX-6
-          products:   available.slice(0, 1).map((p) => this.mapProductForResponse(p)),
-          confidence: 'HIGH',
-          intent:     'STOCK_CHECK',
-          metadata:   { productsFound: available.length, conversationLength: conversationHistory.length, queryClarity: 0 },
+          products:   stockProductsToReturn,
+          confidence: stockIntent === 'STOCK_CHECK' ? 'HIGH' : 'LOW',
+          intent:     stockIntent,
+          metadata:   { productsFound: stockProductsToReturn.length, conversationLength: conversationHistory.length, queryClarity: 0 },
         };
       }
     }
@@ -544,16 +702,22 @@ export class ChatOrchestratorService {
       refProducts      = this.filterByVehicleModel(refProducts, vehicle);
 
       if (refProducts.length > 0) {
-        const response = this.responseService.buildReferenceResponse(reference, refProducts[0], vehicle);
-        await this.sessionService.saveBotResponse(session.id, response, { intent: 'PARTS_SEARCH', productsFound: refProducts.length });
+        let response = this.responseService.buildReferenceResponse(reference, refProducts[0], vehicle);
+        let referenceProduct = this.mapProductForResponse(refProducts[0]);
+        let referenceIntent = 'PARTS_SEARCH';
+        if (!await this.verifyCatalogResponse(message, normalized, vehicle, response, [refProducts[0]])) {
+          response = this.responseService.buildSecurisationResponse(vehicle);
+          referenceProduct = null;
+          referenceIntent = 'SECURISATION';
+        }
+        await this.sessionService.saveBotResponse(session.id, response, { intent: referenceIntent, productsFound: referenceProduct ? 1 : 0 });
         return {
           response,
           sessionId:  session.id,
-          // FIX-6
-          products:   refProducts.slice(0, 1).map((p) => this.mapProductForResponse(p)),
-          confidence: 'HIGH',
-          intent:     'PARTS_SEARCH',
-          metadata:   { productsFound: refProducts.length, conversationLength: conversationHistory.length, queryClarity: 10 },
+          products:   referenceProduct ? [referenceProduct] : [],
+          confidence: referenceIntent === 'PARTS_SEARCH' ? 'HIGH' : 'LOW',
+          intent:     referenceIntent,
+          metadata:   { productsFound: referenceProduct ? 1 : 0, conversationLength: conversationHistory.length, queryClarity: 10 },
         };
       } else {
         const response = this.responseService.buildReferenceNotFoundResponse(reference, vehicle);
@@ -640,9 +804,25 @@ export class ChatOrchestratorService {
       response = this.responseService.buildNoResultsResponse(searchQuery, vehicle);
     }
 
+    let securedProduct = securisationCheck.secure ? primaryProduct : null;
+    if (securisationCheck.secure && hasAnswerToSecure && primaryProduct) {
+      const auditPassed = await this.verifyCatalogResponse(
+        message,
+        normalized,
+        vehicle,
+        response,
+        [primaryProduct],
+      );
+      if (!auditPassed) {
+        response = this.responseService.buildSecurisationResponse(vehicle);
+        resolvedIntent = 'SECURISATION';
+        securedProduct = null;
+      }
+    }
+
     await this.sessionService.saveBotResponse(session.id, response, {
       intent: resolvedIntent,
-      productsFound: preFilteredProducts.length,
+      productsFound: securedProduct ? 1 : 0,
     });
 
     // 12. Confidence + suggestions
@@ -655,14 +835,13 @@ export class ChatOrchestratorService {
       queryClarity,
     });
     const suggestions  = this.intelligenceService.generateSmartSuggestions(processedMessage, preFilteredProducts);
-    const securedProduct = securisationCheck.secure ? primaryProduct : null;
 
     return {
       response,
       sessionId:      session.id,
       products:       securedProduct ? [this.mapProductForResponse(securedProduct)] : [],
-      confidence:     securisationCheck.secure ? confidence.level : 'LOW',
-      confidenceScore: securisationCheck.secure ? confidence.score : 0,
+      confidence:     securedProduct ? confidence.level : 'LOW',
+      confidenceScore: securedProduct ? confidence.score : 0,
       suggestions:    [],
       intent:         resolvedIntent,
       metadata: {
