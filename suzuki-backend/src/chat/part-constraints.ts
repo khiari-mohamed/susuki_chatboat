@@ -199,8 +199,14 @@ const FUZZY_POSITION_TOKENS: Record<string, PositionAtom> = {
   inferieur: { level: 'INF' },
 };
 
+// Real catalog / French words that are one or two edits away from a position
+// word but are NOT a position ("feu ARRET" = brake light, not ARrière).
+const NOT_A_POSITION_TYPO = new Set(['arret', 'arrete', 'arrets', 'avance', 'avancee', 'avances', 'arrive']);
+
 function fuzzyPositionAtom(token: string): PositionAtom | undefined {
   if (token.length < 4) return undefined;
+  if (NOT_A_POSITION_TYPO.has(token)) return undefined;
+
 
   let bestDistance = Number.POSITIVE_INFINITY;
   let secondDistance = Number.POSITIVE_INFINITY;

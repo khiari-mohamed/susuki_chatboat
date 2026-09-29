@@ -144,6 +144,10 @@ export class SynonymsService implements OnModuleInit {
 
         // French synonym rows (langue = 'fr')
         const normalizedMot = this.normalize(row.mot);
+        const normalizedCanonical = this.normalize(row.canonical);
+        if (normalizedMot === 'palier' && normalizedCanonical === 'tablier') {
+          continue;
+        }
 
         // First-wins for normalized lookup
         if (!this.normalizedLookup[normalizedMot]) {
@@ -153,7 +157,6 @@ export class SynonymsService implements OnModuleInit {
         // FIX-1: Also index the canonical itself so French part names
         // that ARE the canonical (e.g. mot="retroviseur", canonical="retroviseur")
         // are recognized as known categories when a user types them directly.
-        const normalizedCanonical = this.normalize(row.canonical);
         if (!this.normalizedLookup[normalizedCanonical]) {
           this.normalizedLookup[normalizedCanonical] = row.canonical;
         }
@@ -273,7 +276,7 @@ export class SynonymsService implements OnModuleInit {
     }
     if (this.catalogDesignationLoad) return this.catalogDesignationLoad;
 
-    this.catalogDesignationLoad = this.prisma.part.findMany({
+    const load: Promise<string[]> = this.prisma.part.findMany({
       select: { designation: true, designation2: true },
     }).then((parts) => {
       this.catalogDesignationSnapshot = parts
@@ -286,7 +289,8 @@ export class SynonymsService implements OnModuleInit {
       this.catalogDesignationLoad = null;
     });
 
-    return this.catalogDesignationLoad;
+    this.catalogDesignationLoad = load;
+    return load;
   }
 
   /** Tunisian mot → French word */

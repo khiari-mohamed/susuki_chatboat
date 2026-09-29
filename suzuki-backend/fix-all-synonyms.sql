@@ -10,6 +10,7 @@ DELETE FROM synonyms WHERE mot = 'sol' AND canonical = 'stop';
 DELETE FROM synonyms WHERE mot = 'barre' AND canonical = 'pare';
 DELETE FROM synonyms WHERE mot = 'bobine' AND canonical = 'bougie';
 DELETE FROM synonyms WHERE mot = 'suspension' AND canonical = 'amortisseur';
+DELETE FROM synonyms WHERE mot = 'palier' AND canonical = 'tablier';
 
 -- 3. Ensure correct canonical mappings exist for key car parts
 INSERT INTO synonyms (mot, canonical, langue) VALUES
@@ -17,6 +18,7 @@ INSERT INTO synonyms (mot, canonical, langue) VALUES
   ('bobine', 'bobine', 'fr'),
   ('clignotant', 'clignotant', 'fr'),
   ('suspension', 'suspension', 'fr'),
+  ('palier', 'palier', 'fr'),
   ('cardan', 'cardan', 'fr'),
   ('tambour', 'tambour', 'fr'),
   ('etrier', 'etrier', 'fr'),
@@ -48,5 +50,8 @@ SELECT 'Verification Results:' as status;
 SELECT COUNT(*) as fixed_mappings FROM synonyms 
 WHERE mot IN ('barre', 'bobine', 'clignotant', 'suspension', 'cardan', 'tambour', 'etrier', 'distribution')
   AND canonical = mot;
+
+SELECT mot, canonical, langue FROM synonyms
+WHERE mot = 'palier' AND langue = 'fr';
 
 -- Expected result: 8 rows (all parts now map to themselves correctly)

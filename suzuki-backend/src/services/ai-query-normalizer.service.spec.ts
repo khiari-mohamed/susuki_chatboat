@@ -43,6 +43,50 @@ function createNormalizer(
 }
 
 describe('AIQueryNormalizerService conversation context', () => {
+  it('does not call OpenAI for a pure greeting or thanks', async () => {
+    const { service, completeJson } = createNormalizer(() => false);
+
+    await expect(service.normalizeQuery('Bonjour !')).resolves.toMatchObject({
+      intent: 'GREETING',
+      isGreeting: true,
+      confidence: 1,
+    });
+    await expect(service.normalizeQuery('Merci beaucoup')).resolves.toMatchObject({
+      intent: 'THANKS',
+      isThanks: true,
+      confidence: 1,
+    });
+    expect(completeJson).not.toHaveBeenCalled();
+  });
+
+  it('still interprets a part request that includes courtesy thanks', async () => {
+    const { service, completeJson } = createNormalizer(() => false);
+
+    await service.normalizeQuery('Merci beaucoup, filtre à air');
+
+    expect(completeJson).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not call OpenAI for a pure service question', async () => {
+    const { service, completeJson } = createNormalizer(() => false);
+
+    await expect(service.normalizeQuery('Quels sont vos horaires ?')).resolves.toMatchObject({
+      intent: 'SERVICE_QUESTION',
+      confidence: 1,
+    });
+    expect(completeJson).not.toHaveBeenCalled();
+  });
+
+  it('routes a broader unrelated service question without OpenAI', async () => {
+    const { service, completeJson } = createNormalizer(() => false);
+
+    await expect(service.normalizeQuery('Bonjour, vous êtes ouverts aujourd’hui ?')).resolves.toMatchObject({
+      intent: 'SERVICE_QUESTION',
+      confidence: 1,
+    });
+    expect(completeJson).not.toHaveBeenCalled();
+  });
+
   it('sends recent turns to OpenAI for a short elliptical follow-up', async () => {
     const { service, completeJson } = createNormalizer(() => false);
     const history = [
@@ -154,6 +198,40 @@ describe('AIQueryNormalizerService conversation context', () => {
     expect(result.qualifiers).toEqual(['air']);
     expect(completeJson).toHaveBeenCalledTimes(1);
     expect(completeJson.mock.calls[0][1]).toContain('CURRENT MESSAGE: "Filtre à air"');
+  });
+
+  it('returns only DB-grounded aliases for accepted OpenAI part interpretations', async () => {
+    const { service } = createNormalizer(() => true);
+
+    await expect(service.normalizeQuery('retroviseur droit')).resolves.toMatchObject({
+      catalogPart: 'retroviseur',
+      catalogAliases: ['retroviseur', 'miroir'],
+      source: 'ai',
+    });
+  });
+
+  it('keeps a DB-known part usable when OpenAI is unavailable', async () => {
+    const { service, completeJson } = createNormalizer((text) => /retroviseur/.test(text));
+    completeJson.mockRejectedValue(new Error('OpenAI unavailable'));
+
+    await expect(service.normalizeQuery('retroviseur droit')).resolves.toMatchObject({
+      intent: 'SEARCH',
+      catalogPart: 'retroviseur',
+      catalogAliases: ['retroviseur', 'miroir'],
+      confidence: 0.75,
+      source: 'deterministic',
+    });
+  });
+
+  it('keeps unknown queries below the answer confidence gate when OpenAI is unavailable', async () => {
+    const { service, completeJson } = createNormalizer(() => false);
+    completeJson.mockRejectedValue(new Error('OpenAI unavailable'));
+
+    await expect(service.normalizeQuery('zorglub truc')).resolves.toMatchObject({
+      confidence: 0.5,
+      source: 'deterministic',
+      catalogPart: null,
+    });
   });
 
   it('normalizes the catalog term lèche-vitre without fuzzy-changing it to lève-vitre', async () => {

@@ -14,4 +14,20 @@ describe('SynonymsService catalog designation validation', () => {
     await expect(service.hasCatalogDesignationConcept('filtre carburant', ['fuel filter'])).resolves.toBe(false);
     expect(findMany).toHaveBeenCalledTimes(1);
   });
+
+  it('ignores the invalid French palier-to-tablier mapping', async () => {
+    const findMany = jest.fn().mockResolvedValue([
+      { mot: 'palier', canonical: 'tablier', langue: 'fr' },
+      { mot: 'tablier', canonical: 'tablier', langue: 'fr' },
+    ]);
+    const service = new SynonymsService({
+      synonym: { findMany },
+    } as unknown as PrismaService);
+
+    await service.onModuleInit();
+
+    expect(service.findCanonical('palier')).toBeNull();
+    expect(service.findCanonical('tablier')).toBe('tablier');
+    expect(service.getCategoryVariants().tablier).not.toContain('palier');
+  });
 });

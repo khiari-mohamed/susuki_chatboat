@@ -21,6 +21,10 @@ export interface ProcessMessageResponse {
     duration?: number;
     userMessageId?: string;
     error?: string;
+    verification?: {
+      compatibility: 'CONFIRMEE' | 'NON_CONFORME' | 'NON_VERIFIEE';
+      [key: string]: any;
+    };
   };
 }
 
@@ -248,12 +252,12 @@ export class EnhancedChatService {
         (typeof result.response === 'string' && result.response.includes('Comptoir Pièces de Rechange'));
 
       let compatibilityResult: 'CONFIRMEE' | 'NON_CONFORME' | 'NON_VERIFIEE' | undefined;
-      if (result.intent === 'SECURISATION') {
-        compatibilityResult = 'NON_VERIFIEE';
-      } else if (result.intent === 'MODEL_MISMATCH') {
+      if (result.intent === 'MODEL_MISMATCH') {
         compatibilityResult = 'NON_CONFORME';
-      } else if (vehicle?.modele && product) {
-        compatibilityResult = 'CONFIRMEE';
+      } else if (result.metadata?.verification) {
+        compatibilityResult = result.metadata.verification.compatibility;
+      } else if (product || result.intent === 'SECURISATION') {
+        compatibilityResult = 'NON_VERIFIEE';
       }
 
       let availabilityCommunicated: 'DISPONIBLE' | 'INDISPONIBLE' | 'NON_COMMUNIQUEE' | undefined;

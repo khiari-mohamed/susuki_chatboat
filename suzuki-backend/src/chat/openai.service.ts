@@ -155,7 +155,12 @@ export class OpenAIService {
   // persona (whose own schema is {humanReadable, products…}), which
   // contradicted the normalizer's {normalized…} schema. Here: no persona,
   // temperature 0, JSON mode, small budget.
-  async completeJson(systemPrompt: string, userPrompt: string, maxTokens = 200): Promise<string> {
+  async completeJson(
+    systemPrompt: string,
+    userPrompt: string,
+    maxTokens = 200,
+    maxInputChars = 4000,
+  ): Promise<string> {
     this.metrics.totalCalls++;
     const cacheKey = `json::${systemPrompt.length}::${userPrompt}`;
     const cached = this.getCachedResponse(cacheKey);
@@ -173,7 +178,7 @@ export class OpenAIService {
             model:           this.model,
             messages:        [
               { role: 'system', content: systemPrompt },
-              { role: 'user',   content: String(userPrompt).slice(0, 4000) },
+              { role: 'user',   content: String(userPrompt).slice(0, maxInputChars) },
             ],
             temperature:     0,
             max_tokens:      maxTokens,

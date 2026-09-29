@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
 import { SynonymsService } from '../synonyms/synonyms.service';
 import { VehicleModelsService } from '../constants/vehicle-models.service';
+import { OpenAIService } from './openai.service';
 import {
   ACCESSORY_KEYWORDS,
   MAIN_PART_KEYWORDS,
@@ -223,6 +224,12 @@ export class AdvancedSearchService implements OnModuleInit {
     return this.lastSearchDebug;
   }
 
+  /** Resolve vehicle compatibility codes without reading shared last-search state. */
+  async resolveVehicleTypeCodes(vehicle?: any): Promise<string[]> {
+    const scope = await this.resolveVehicleScope(vehicle);
+    return scope.active ? [...scope.typeCodes] : [];
+  }
+
   private computeSourceAndStockBreakdown(results: PartResult[]): {
     sourceBreakdown: { suzukiOem: number; carproParts: number };
     stockBreakdown: { disponible: number; indisponible: number };
@@ -243,6 +250,7 @@ export class AdvancedSearchService implements OnModuleInit {
     private config: ConfigService,
     private synonymsService: SynonymsService,
     private vehicleModels: VehicleModelsService,
+    private openaiService: OpenAIService,
   ) {
     this.openaiKey = this.config.get<string>('OPENAI_API_KEY') || '';
   }
@@ -738,22 +746,7 @@ export class AdvancedSearchService implements OnModuleInit {
       forcedMainPartType = 'appareil';
     }
 
-    const filteredQueryWords = expandedTerms.filter((w) => {
-      if (w.length < 3) return false;
-      // Drop conversational/filler words and model name tokens from scoring words
-      const noiseWords = ['bonjour', 'cherche', 'pour', 'new', 'all', 'swift', 'celerio', 'baleno',
-        'vitara', 'ciaz', 'fronx', 'ignis', 'jimny', 'spresso', 'dzire', 'ertiga', 'kizashi',
-        'samurai', 'splash', 'swace', 'alto', 'apv', 'eeco', 'merci', 'salut', 'bonsoir',
-        'une', 'besoin', 'veux', 'voudrais', 'chercher', 'trouver', 'avoir', 'besoin',
-        'elle', 'est', 'disponible', 'dispo', 'ils', 'elles', 'vous', 'nous', 'ils'];
-      if (noiseWords.includes(w)) return false;
-      for (const [category, syns] of Object.entries(this.synonymsMap)) {
-        if (syns.includes(w) && expandedTerms.includes(category) && w !== category) {
-          return false;
-        }
-      }
-      return true;
-    });
+    const filteredQueryWords = this.filterScoringQueryWords(expandedTerms);
     if (/\btraverse\b/i.test(normalized) && /\b(arriere|arrière|ar|rear|rr)\b/i.test(normalized)) {
       parts = parts.filter((part: any) => {
         const text = this.normalize([
@@ -949,6 +942,24 @@ export class AdvancedSearchService implements OnModuleInit {
       { fournisseurCode:     { contains: term, mode: 'insensitive' } },
       { itemReferences:      { some: { referenceNo: { contains: term, mode: 'insensitive' } } } },
     ]);
+  }
+
+  private filterScoringQueryWords(expandedTerms: string[]): string[] {
+    const noiseWords = ['bonjour', 'cherche', 'pour', 'new', 'all', 'swift', 'celerio', 'baleno',
+      'vitara', 'ciaz', 'fronx', 'ignis', 'jimny', 'spresso', 'dzire', 'ertiga', 'kizashi',
+      'samurai', 'splash', 'swace', 'alto', 'apv', 'eeco', 'merci', 'salut', 'bonsoir', 'avez',
+      'une', 'besoin', 'veux', 'voudrais', 'chercher', 'trouver', 'avoir', 'besoin',
+      'elle', 'est', 'disponible', 'dispo', 'ils', 'elles', 'vous', 'nous', 'ils'];
+
+    return expandedTerms.filter((word) => {
+      if (word.length < 3 || noiseWords.includes(word)) return false;
+      for (const [category, synonyms] of Object.entries(this.synonymsMap)) {
+        if (synonyms.includes(word) && expandedTerms.includes(category) && word !== category) {
+          return false;
+        }
+      }
+      return true;
+    });
   }
 
   // FIX 2026-09-20: positions are read ONLY from the words the customer

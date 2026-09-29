@@ -100,6 +100,8 @@ export interface StructuredQueryInterpretation {
   uncertainty: number;
   isGreeting: boolean;
   isThanks: boolean;
+  catalogAliases?: string[];
+  source?: 'ai' | 'deterministic';
 }
 
 @Injectable()
@@ -286,13 +288,34 @@ export class AIQueryNormalizerService {
 
     // FIX-6: dynamic, DB-backed check (was: local carPartNames array)
     const isCarPart = this.synonymsService.isKnownAutomotiveTerm(lowerQuery);
-
+    const isContextualFollowUp = this.isContextualFollowUp(query);
+    const cleanQuery = query.trim();
     const isServiceQuestion =
       /ouvrez|ouvert|heure|horaire|livraison|délai|garantie|situé|adresse|où|localisation/i.test(lowerQuery);
 
-    const isContextualFollowUp = this.isContextualFollowUp(query) && !isCarPart;
+    if (/^(bonjour|bonsoir|salut|hello|hi|salem|ahla|salam)\s*[!?.]*$/i.test(cleanQuery)) {
+      return this.fallbackInterpretation(cleanQuery, 1, 'GREETING');
+    }
+    const thanksWords = new Set([
+      'merci', 'thanks', '3aychek', 'barcha', 'au', 'revoir', 'bye', 'besslema', 'ciao', 'adieu',
+      'beaucoup', 'bien', 'infiniment', 'mille', 'fois', 'bonne', 'journee', 'soiree', 'bientot', 'tres',
+    ]);
+    if (
+      !isCarPart &&
+      !isContextualFollowUp &&
+      cleanQuery.split(/\s+/).length <= 6 &&
+      /\b(merci|thanks|3aychek|barcha|au revoir|bye|besslema|ciao|adieu)\b/i.test(cleanQuery) &&
+      !this.hasUnknownPartTokens(cleanQuery, thanksWords)
+    ) {
+      return this.fallbackInterpretation(cleanQuery, 1, 'THANKS');
+    }
+    if (!isCarPart && !isContextualFollowUp && isServiceQuestion) {
+      this.stats.passthroughServiceQuestion++;
+      return this.fallbackInterpretation(cleanQuery, 1, 'SERVICE_QUESTION');
+    }
+
     const conversationContext = history.length > 0 || vehicle
-      ? { recentMessages: history.slice(-6), vehicle, useHistoryForInterpretation: isContextualFollowUp }
+      ? { recentMessages: history.slice(-6), vehicle, useHistoryForInterpretation: isContextualFollowUp && !isCarPart }
       : undefined;
 
     // Tunisian marker detection — unchanged
@@ -366,6 +389,13 @@ export class AIQueryNormalizerService {
       this.stats.passthroughAfterCorrection++;
     }
 
+    const localCatalogPart = await this.findCatalogPartInText(
+      correctedQuery,
+      catalogCandidates,
+      conversationContext,
+    );
+    const deterministicConfidence = localCatalogPart && !this.hasUnknownPartTokens(correctedQuery) ? 0.75 : 0.5;
+
     try {
       const aiResult = await this.normalizeWithAI(correctedQuery, conversationContext, catalogCandidates);
       const requiresCatalogPart =
@@ -385,10 +415,13 @@ export class AIQueryNormalizerService {
         return {
           ...aiResult,
           normalized: correctedQuery,
-          catalogPart: null,
+          catalogPart: localCatalogPart?.canonical ?? null,
+          catalogAliases: localCatalogPart?.variants ?? [],
+          source: 'deterministic',
           positions: extractRequestedPositions(correctedQuery),
-          confidence: 0.5,
-          uncertainty: 0.5,
+          confidence: deterministicConfidence,
+          uncertainty: 1 - deterministicConfidence,
+          intent: this.inferDeterministicIntent(query, !!localCatalogPart),
         };
       }
 
@@ -399,10 +432,13 @@ export class AIQueryNormalizerService {
         return {
           ...aiResult,
           normalized: correctedQuery,
-          catalogPart: null,
+          catalogPart: localCatalogPart?.canonical ?? null,
+          catalogAliases: localCatalogPart?.variants ?? [],
+          source: 'deterministic',
           positions: extractRequestedPositions(correctedQuery),
-          confidence: 0.5,
-          uncertainty: 0.5,
+          confidence: deterministicConfidence,
+          uncertainty: 1 - deterministicConfidence,
+          intent: this.inferDeterministicIntent(query, !!localCatalogPart),
         };
       }
 
@@ -431,10 +467,13 @@ export class AIQueryNormalizerService {
           return {
             ...aiResult,
             normalized: correctedQuery,
-            catalogPart: null,
+            catalogPart: localCatalogPart?.canonical ?? null,
+            catalogAliases: localCatalogPart?.variants ?? [],
+            source: 'deterministic',
             positions: extractRequestedPositions(correctedQuery),
-            confidence: 0.5,
-            uncertainty: 0.5,
+            confidence: deterministicConfidence,
+            uncertainty: 1 - deterministicConfidence,
+            intent: this.inferDeterministicIntent(query, !!localCatalogPart),
           };
         }
       }
@@ -448,10 +487,13 @@ export class AIQueryNormalizerService {
           return {
             ...aiResult,
             normalized: correctedQuery,
-            catalogPart: null,
+            catalogPart: localCatalogPart?.canonical ?? null,
+            catalogAliases: localCatalogPart?.variants ?? [],
+            source: 'deterministic',
             positions: extractRequestedPositions(correctedQuery),
-            confidence: 0.5,
-            uncertainty: 0.5,
+            confidence: deterministicConfidence,
+            uncertainty: 1 - deterministicConfidence,
+            intent: this.inferDeterministicIntent(query, !!localCatalogPart),
           };
         }
         for (const cWord of correctedWords) {
@@ -462,10 +504,13 @@ export class AIQueryNormalizerService {
             return {
               ...aiResult,
               normalized: correctedQuery,
-              catalogPart: null,
+              catalogPart: localCatalogPart?.canonical ?? null,
+              catalogAliases: localCatalogPart?.variants ?? [],
+              source: 'deterministic',
               positions: extractRequestedPositions(correctedQuery),
-              confidence: 0.5,
-              uncertainty: 0.5,
+              confidence: deterministicConfidence,
+              uncertainty: 1 - deterministicConfidence,
+              intent: this.inferDeterministicIntent(query, !!localCatalogPart),
             };
           }
         }
@@ -484,6 +529,9 @@ export class AIQueryNormalizerService {
       return {
         ...aiResult,
         normalized: catalogQuery,
+        catalogPart: matchedCatalogPart?.canonical ?? null,
+        catalogAliases: matchedCatalogPart?.variants ?? [],
+        source: 'ai',
         positions: extractRequestedPositions(catalogQuery),
       };
     } catch (error: any) {
@@ -494,7 +542,14 @@ export class AIQueryNormalizerService {
       this.logger.warn(`⚠️ AI failed: ${error.message}`);
       // FIX-5: Tunisian fallback preserves French part name tokens
       const fallbackNormalized = this.applyTunisianNormalization(correctedQuery);
-      return this.fallbackInterpretation(fallbackNormalized || correctedQuery, 0.5);
+      const normalizedFallback = fallbackNormalized || correctedQuery;
+      return {
+        ...this.fallbackInterpretation(normalizedFallback, deterministicConfidence),
+        intent: this.inferDeterministicIntent(query, !!localCatalogPart),
+        catalogPart: localCatalogPart?.canonical ?? null,
+        catalogAliases: localCatalogPart?.variants ?? [],
+        source: 'deterministic',
+      };
     }
   }
 
@@ -513,6 +568,8 @@ export class AIQueryNormalizerService {
       uncertainty: 1 - confidence,
       isGreeting: intent === 'GREETING' || /^(bonjour|salut|hello|hi|salem|ahla|salam)\b/i.test(normalized),
       isThanks: intent === 'THANKS' || /\b(merci|thanks|3aychek|barcha|au revoir|bye|besslema|ciao|adieu)\b/i.test(normalized),
+      catalogAliases: [],
+      source: 'deterministic',
     };
   }
 
@@ -523,12 +580,46 @@ export class AIQueryNormalizerService {
     return /\b(?:l(?:['’]|\s+)autre|autre\s+c[oô]t[eé]|c[oô]t[eé]\s+oppos[eé]|pareil(?:le)?|idem|la\s+m[eê]me(?:\s+chose)?|le\s+m[eê]me(?:\s+chose)?|celle(?:-ci|-l[aà])?|celui(?:-ci|-l[aà])?|disponible|en\s+stock|famma|mawjoud|combien|ch7al|prix|tarif|co[uû]t)\b/i.test(query);
   }
 
-  private hasUnknownPartTokens(query: string): boolean {
-    const requestedTokens = buildRequestedPartTokens(tokenizeName(query));
+  private hasUnknownPartTokens(query: string, ignore: ReadonlySet<string> = new Set()): boolean {
+    const requestedTokens = buildRequestedPartTokens(tokenizeName(query), ignore);
     return requestedTokens.some((token) =>
       !this.synonymsService.isKnownAutomotiveTerm(token) &&
       !this.synonymsService.findClosestVocabularyWord(token),
     );
+  }
+
+  private inferDeterministicIntent(query: string, hasCatalogPart: boolean): InterpretedIntent {
+    const normalized = this.normalizeForComparison(query);
+    if (/\b(prix|price|ch7al|combien|cout|tarif|cost)\b/.test(normalized)) return 'PRICE_INQUIRY';
+    if (/\b(stock|disponible|dispo|famma|mawjoud|avoir)\b/.test(normalized)) return 'STOCK_CHECK';
+    return hasCatalogPart ? 'SEARCH' : 'UNKNOWN';
+  }
+
+  private async findCatalogPartInText(
+    query: string,
+    catalogCandidates: Record<string, string[]>,
+    context?: QueryContext,
+  ): Promise<{ canonical: string; variants: string[] } | null> {
+    const sourceText = context?.useHistoryForInterpretation
+      ? `${query} ${context.recentMessages.map((message) => message.content).join(' ')}`
+      : query;
+    const normalizeTerm = (value: string) => normalizeForMatch(value).replace(/[/-]+/g, ' ').replace(/\s+/g, ' ').trim();
+    const source = normalizeTerm(sourceText);
+    for (const [canonical, variants] of Object.entries(catalogCandidates)) {
+      const aliases = [...new Set([canonical, ...variants])];
+      const found = aliases.some((alias) => {
+        const normalizedAlias = normalizeTerm(alias);
+        if (!normalizedAlias) return false;
+        if (` ${source} `.includes(` ${normalizedAlias} `)) return true;
+        const compactAlias = normalizedAlias.replace(/\s/g, '');
+        const compactSource = source.replace(/\s/g, '');
+        return compactAlias.length >= 4 && compactSource.includes(compactAlias);
+      });
+      if (found && await this.synonymsService.hasCatalogDesignationConcept(canonical, aliases)) {
+        return { canonical, variants };
+      }
+    }
+    return null;
   }
 
   private canonicalizePositionWording(query: string): string {
