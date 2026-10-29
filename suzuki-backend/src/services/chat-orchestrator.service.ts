@@ -296,6 +296,7 @@ export class ChatOrchestratorService implements OnModuleDestroy {
         `[VERIFY] Answer withheld: ${reasons.join(' | ') || 'unspecified'} || ` +
         `catalogPart=${interpretation.catalogPart ?? 'null'} source=${interpretation.source ?? '?'} ` +
         `confidence=${interpretation.confidence} normalized="${String(interpretation.normalized).slice(0, 120)}" ` +
+        `qualifiers=${JSON.stringify(interpretation.qualifiers ?? [])} ` +
         `requestedPart="${options.constraint?.requestedPart ?? ''}" identityMode=${options.constraint?.identityMode ?? 'none'} ` +
         `candidates=${options.products?.length ?? 0}`,
       );
@@ -341,6 +342,17 @@ export class ChatOrchestratorService implements OnModuleDestroy {
     const scope = { scoped: vehicleScoped, compatibleTypeCodes };
     const constrainedPart = options.constraint?.requestedPart?.trim() ?? '';
     const constrainedPartHead = constrainedPart.split(/\s+/)[0] || null;
+    const vehicleWords = new Set(
+      [
+        vehicle?.marque,
+        vehicle?.modele,
+        vehicle?.model,
+        vehicle?.modeleDescription,
+        vehicle?.modelDescription,
+      ]
+        .filter((value): value is string => typeof value === 'string')
+        .flatMap((value) => tokenizeName(value)),
+    );
     const verifierInterpretation: VerifierInterpretation = {
       catalogPart: interpretation.catalogPart || constrainedPartHead,
       catalogAliases: [...new Set([
@@ -349,7 +361,20 @@ export class ChatOrchestratorService implements OnModuleDestroy {
         ...(constrainedPartHead ? [constrainedPartHead] : []),
       ])],
       positions: this.toPositionRequest(interpretation.positions),
-      qualifiers: interpretation.qualifiers ?? [],
+      // Qualifiers only matter for words the identity phrase does not already cover.
+      qualifiers: (interpretation.qualifiers ?? []).filter((qualifier) => {
+        const typed = new Set(tokenizeName(options.message));
+        const coveredWords = tokenizeName(constrainedPart).filter((word) =>
+          !isFillerToken(word) && !isColorToken(word));
+        const covered = new Set(coveredWords);
+        const coveredText = coveredWords.join('');
+        const words = tokenizeName(qualifier).filter((word) =>
+          !isFillerToken(word) && !isColorToken(word) && !vehicleWords.has(word));
+        const isCovered = words.every((word) => covered.has(word)) ||
+          coveredText.includes(words.join(''));
+        if (words.length === 0 || isCovered) return false;
+        return words.length > 0 && words.every((word) => typed.has(word));
+      }),
       identityMode: options.constraint?.identityMode ?? options.identityMode,
     };
     const checked = candidates.map((product) => ({

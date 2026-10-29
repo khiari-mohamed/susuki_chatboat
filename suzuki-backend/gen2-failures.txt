@@ -1,3 +1,46 @@
+=== Case 12 (FLAKY) variant=dialect part="BUTEE LATERALE TABLETTE AR"
+--- run 3
+│ intent            : SECURISATION
+│ originalQuery     : butee laterale tablette arriere
+│ identityMode      : strict-head
+│ requestedPart     : butee laterale tablette
+│ withheld reason   : AI QUALIFIER (88914M68K00): customer request includes 'tablet arriere' but DB reference is 'tablette ar'
+[04] ✘ Intent is not a refusal/error
+Expected: resolved parts intent
+Got     : SECURISATION
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 8891
+Got     : —
+[19] ✘ Product reference exact
+Expected: 88914M68K00
+Got     : —
+[20] ✘ French designation exact
+Expected: BUTEE LATERALE TABLETTE AR
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: BUTEE LATERALE TABLETTE AR
+Got     : —
+[22] ✘ OEM designation exact
+Expected: CUSHION,REAR PARCEL SIDE
+Got     : —
+[23] ✘ Search description exact
+Expected: BUTEE LATERALE TABLETTE AR ; CUSHION,REAR PARCEL SIDE
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: PR
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —
+[27] ✘ Supplier code exact
+Expected: CAR PRO PARTS
+
 === Case 41 (FAIL) variant=twoturn part="METTRE CYLINDRE"
 --- run 1
 │ intent            : PARTS_SEARCH
@@ -41,7 +84,6 @@ Got     : —
 [27] ✘ Supplier code exact
 Expected: CAR PRO PARTS
 --- run 2
-[RATE LIMIT] VIN validation is throttled; waiting 61 seconds, then retrying once.
 │ intent            : PARTS_SEARCH
 │ originalQuery     : vous avez mettre cylindre pour une spresso
 │ identityMode      : strict-head
@@ -81,14 +123,14 @@ Got     : —
 Expected: SUZUKI
 Got     : —
 [27] ✘ Supplier code exact
+Expected: CAR PRO PARTS
 --- run 3
-[RATE LIMIT] VIN validation is throttled; waiting 61 seconds, then retrying once.
 │ intent            : PARTS_SEARCH
-│ originalQuery     : mettre cylindre
+│ originalQuery     : vous avez mettre cylindre pour une spresso
 │ identityMode      : strict-head
 │ requestedPart     : mettre cylindre
 │ intent            : CLARIFICATION_NEEDED
-│ originalQuery     : mettre cylindre
+│ originalQuery     : vous avez mettre cylindre pour une spresso
 │ identityMode      : strict-head
 │ requestedPart     : mettre cylindre
 [05] ✘ Exactly one expected product is returned
@@ -122,6 +164,7 @@ Got     : —
 Expected: SUZUKI
 Got     : —
 [27] ✘ Supplier code exact
+Expected: CAR PRO PARTS
 
 === Case 58 (FAIL) variant=typo part="SWITCHE MALLE AR"
 --- run 1
@@ -167,7 +210,7 @@ Expected: 2
 Got     : 0
 --- run 2
 │ intent            : PARTS_SEARCH
-│ originalQuery     : bonjour vous avez malle arriere
+│ originalQuery     : bonjour vous avez malle pour ma vitara arriere
 │ identityMode      : strict-head
 │ requestedPart     : malle
 [18] ✘ Product DB id exact
@@ -249,7 +292,7 @@ Expected: 2
 Got     : 0
 
 === Case 61 (FLAKY) variant=price part="DURITE RENIFLARD BOITE DE VITESSES"
---- run 2
+--- run 1
 │ intent            : SECURISATION
 │ originalQuery     : prix durite reniflard boite de vitesses
 │ identityMode      : strict-head
@@ -582,8 +625,90 @@ Got     : —
 Expected: CAR PRO PARTS
 Got     : —
 
-=== Case 173 (FLAKY) variant=price part="RING SYNCHRONISEUR DE VITESSE"
+=== Case 173 (FAIL) variant=price part="RING SYNCHRONISEUR DE VITESSE"
+--- run 1
+│ intent            : SECURISATION
+│ originalQuery     : prix ring synchroniseur de vitesse
+│ identityMode      : strict-head
+│ requestedPart     : ring synchroniseur vitesse
+│ withheld reason   : qualifiers unverified by the catalog: redirect instead of guessing
+[04] ✘ Intent is not a refusal/error
+Expected: resolved parts intent
+Got     : SECURISATION
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 1819
+Got     : —
+[19] ✘ Product reference exact
+Expected: 24433M76M00
+Got     : —
+[20] ✘ French designation exact
+Expected: RING SYNCHRONISEUR DE VITESSE
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: RING SYNCHRONISEUR DE VITESSE
+Got     : —
+[22] ✘ OEM designation exact
+Expected: RING,HIGH SPEED GEAR SYNC
+Got     : —
+[23] ✘ Search description exact
+Expected: RING SYNCHRONISEUR DE VITESSE ; RING,HIGH SPEED GEAR SYNC
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: MÉCANIQUE
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —
+[27] ✘ Supplier code exact
+Expected: CAR PRO PARTS
 --- run 2
+│ intent            : SECURISATION
+│ originalQuery     : prix ring synchroniseur de vitesse
+│ identityMode      : strict-head
+│ requestedPart     : ring synchroniseur vitesse
+│ withheld reason   : qualifiers unverified by the catalog: redirect instead of guessing
+[04] ✘ Intent is not a refusal/error
+Expected: resolved parts intent
+Got     : SECURISATION
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 1819
+Got     : —
+[19] ✘ Product reference exact
+Expected: 24433M76M00
+Got     : —
+[20] ✘ French designation exact
+Expected: RING SYNCHRONISEUR DE VITESSE
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: RING SYNCHRONISEUR DE VITESSE
+Got     : —
+[22] ✘ OEM designation exact
+Expected: RING,HIGH SPEED GEAR SYNC
+Got     : —
+[23] ✘ Search description exact
+Expected: RING SYNCHRONISEUR DE VITESSE ; RING,HIGH SPEED GEAR SYNC
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: MÉCANIQUE
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —
+[27] ✘ Supplier code exact
+Expected: CAR PRO PARTS
+--- run 3
 │ intent            : SECURISATION
 │ originalQuery     : prix ring synchroniseur de vitesse
 │ identityMode      : strict-head

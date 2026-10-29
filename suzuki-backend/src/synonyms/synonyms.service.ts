@@ -304,7 +304,12 @@ export class SynonymsService implements OnModuleInit {
     try {
       const parts = await this.prisma.part.findMany({ select: { designation: true, designation2: true } });
       const designations = new Set<string>();
+      const frenchDesignations = new Set<string>();
       for (const part of parts) {
+        if (typeof part.designation2 === 'string' && part.designation2.trim()) {
+          const french = this.normalize(part.designation2);
+          if (french) frenchDesignations.add(french);
+        }
         for (const raw of [part.designation2, part.designation]) {
           if (typeof raw !== 'string') continue;
           const normalized = this.normalize(raw);
@@ -313,7 +318,7 @@ export class SynonymsService implements OnModuleInit {
       }
       const list = [...designations];
       const freq = new Map<string, number>();
-      for (const designation of list) {
+      for (const designation of frenchDesignations) {
         for (const word of new Set(designation.split(/[\s-]+/))) {
           if (word.length >= 4 && /^[a-z]+$/.test(word)) freq.set(word, (freq.get(word) ?? 0) + 1);
         }
@@ -448,7 +453,8 @@ export class SynonymsService implements OnModuleInit {
       const top = found[0];
       const rival = found.find((candidate, index) =>
         index > 0 && candidate.dist === top.dist && candidate.freq * 3 > top.freq);
-      if (top.freq >= 2 && !rival) result = top.word;
+      // One edit away on a long word with no rival is safe even for a rare catalog word.
+      if ((top.freq >= 2 || (top.dist === 1 && w.length >= 7)) && !rival) result = top.word;
     }
     this.catalogWordCache.set(w, result);
     return result;

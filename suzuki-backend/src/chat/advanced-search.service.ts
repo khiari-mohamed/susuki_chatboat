@@ -25,15 +25,6 @@ import {
 } from './part-constraints';
 import type { ConstraintOutcome } from './part-constraints';
 
-// ═══════════════════════════════════════════════════════════════════
-// Retrieval design
-//   1. RECALL  — DB query: every requested word (or one of its synonyms /
-//                corrections) must occur in a designation. If that finds
-//                nothing, fall back to "any word".
-//   2. RANK    — relevance orders candidates. It never accepts or rejects.
-//   3. PRECISION — applyCatalogConstraints (identity head noun + position),
-//                then the catalog verifier and AdaptiveDecisionEngine.
-// ═══════════════════════════════════════════════════════════════════
 
 interface PositionRequirements {
   avant: boolean;
@@ -50,11 +41,6 @@ export interface VehicleSearchScope {
   modelDescription: string | null;
   typeCodes: string[]; // all compatible type codes (broad scope)
   primaryTypeCodes: string[]; // type codes for the exact identified model
-  /**
-   * Where the type codes came from. 'model-map' means the VIN/vehicle row had
-   * no model code and the codes were inferred from the model NAME: weaker
-   * evidence than a real model code (CarPro email 2026-09-18).
-   */
   typeCodeSource: 'explicit' | 'vehicle-row' | 'model-map' | 'none';
 }
 
@@ -132,15 +118,6 @@ const MAX_TERM_VARIANTS = 12;
 const MAX_SEGMENT_TOKEN_LENGTH = 40;
 const AI_SEGMENT_FAIL_THRESHOLD = 3;
 const AI_SEGMENT_COOLDOWN_MS = 60_000;
-
-/**
- * Ranking tiers. Order of importance:
- *   full coverage of the requested words  >  in stock + vehicle fit  >  tie-breakers.
- * FULL_COVERAGE_BONUS is larger than STOCK + best vehicle fit, so an out-of-stock
- * row that matches every word still beats a partial match that happens to be in
- * stock, while among equally relevant compatible rows the in-stock one wins
- * (CarPro rule: "privilégier la référence disponible en stock").
- */
 const RANK = {
   REFERENCE_EXACT: 200_000,
   REFERENCE_CONTAINS: 40_000,
@@ -179,14 +156,6 @@ const VEHICLE_SELECT = {
 } as const;
 
 const VIN_SHAPE = /^[A-HJ-NPR-Z0-9]{17}$/i;
-
-/**
- * Single reference detector shared by the search and the orchestrator
- * (SearchService.isReferenceQuery delegates here). A reference is a
- * ≥ 8 character alphanumeric token containing a digit, hyphens allowed
- * ("09482-30010"). A bare 17-character VIN is not a part reference.
- * "référence XXXXX" is accepted from 5 characters.
- */
 export function extractReferenceCandidate(text: string): string | null {
   const input = String(text ?? '');
 
@@ -495,13 +464,6 @@ export class AdvancedSearchService {
   async searchParts(query: string, vehicle?: any): Promise<PartResult[]> {
     return (await this.searchPartsDetailed(query, vehicle)).results;
   }
-
-  /**
-   * Same search, but also returns what the identity/position gate did so the
-   * caller can say "no exact match: this part only exists in AV / AR". The
-   * outcome is returned (not stored on the singleton) so concurrent requests
-   * cannot read each other's.
-   */
   async searchPartsDetailed(
     query: string,
     vehicle?: any,
