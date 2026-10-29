@@ -1,51 +1,104 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { GeminiService } from '../chat/gemini.service';
-import { OpenAIService } from '../chat/openai.service';
+import { COMPTOIR_REDIRECT_MESSAGE } from '../constants/business-rules.constants';
+import { normalizeVinText, pickBestVehicleRow, vinLookupVariants } from '../chat/chat/vehicle-lookup';
+
+export interface UploadedDocument {
+  buffer: Buffer;
+  mimetype: string;
+  size: number;
+}
+
+const OCR_SOURCE_LABEL = 'Gemini 2.5-flash';
+const RATE_WINDOW_DAYS = 15;
+const RATE_WINDOW_MS = RATE_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+const VIN_LOOKUP_WINDOW_MS = 60_000;
+const VIN_LOOKUP_PRUNE_THRESHOLD = 5_000;
+const DEFAULT_VIN_LOOKUPS_PER_MINUTE = 20;
+const VIN_PATTERN = /^[A-Z0-9]{17}$/;
+
+const GENERIC_ERROR = 'Erreur lors de la vérification. Veuillez réessayer.';
+const OCR_ERROR_MESSAGES = new Map<string, string>([
+  ['INVALID_BRAND', 'Seules les cartes grises Suzuki sont acceptées.'],
+  ['OCR_FAILED', 'Impossible de lire le document. Veuillez utiliser une image plus claire.'],
+  ['GEMINI_AUTH_FAILED', 'Le service de vérification est mal configuré. Contactez l’administrateur.'],
+  ['GEMINI_QUOTA_EXCEEDED', 'Le service de vérification est temporairement indisponible. Veuillez réessayer plus tard.'],
+]);
+
+const VEHICLE_SELECT = {
+  id: true,
+  vin: true,
+  vehicleNo: true,
+  marque: true,
+  modele: true,
+  modeleDescription: true,
+  typeCode: true,
+  immatriculation: true,
+} as const;
+
+function readNonNegativeInt(value: unknown, fallback: number): number {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : fallback;
+}
 
 @Injectable()
 export class VerificationService {
+  private readonly logger = new Logger(VerificationService.name);
+  private readonly vinLookups = new Map<string, { count: number; resetAt: number }>();
+
+  /** 0 = limit disabled. Set in production (the previous hard-coded value was 3). */
+  private readonly ipUploadLimit: number;
+  private readonly carteGriseLimit: number;
+  private readonly vinLookupsPerMinute: number;
+  private readonly showDebug: boolean;
+
   constructor(
-    private prisma: PrismaService,
-    private gemini: GeminiService,
-    private openai: OpenAIService,  // reserved for future cross-validation
-  ) {}
+    private readonly prisma: PrismaService,
+    private readonly gemini: GeminiService,
+    config: ConfigService,
+  ) {
+    this.ipUploadLimit = readNonNegativeInt(config.get('UPLOAD_LIMIT_PER_15_DAYS'), 0);
+    this.carteGriseLimit = readNonNegativeInt(config.get('CARTE_GRISE_LIMIT_PER_15_DAYS'), 0);
+    this.vinLookupsPerMinute = readNonNegativeInt(config.get('VIN_LOOKUPS_PER_MINUTE'), DEFAULT_VIN_LOOKUPS_PER_MINUTE);
+    this.showDebug = config.get('NODE_ENV') !== 'production';
+  }
 
-  async verifyVin(rawVin: string) {
-    const vin = rawVin.trim().replace(/[\s-]/g, '').toUpperCase();
+  // ─────────────────────────────────────────────────────────────────
+  // Manual VIN entry
+  // ─────────────────────────────────────────────────────────────────
+  async verifyVin(rawVin: string, userIp?: string) {
+    if (userIp && !this.allowVinLookup(userIp)) {
+      return {
+        success: false,
+        limitReached: true,
+        message: 'Trop de tentatives. Veuillez patienter une minute avant de réessayer.',
+      };
+    }
 
-    if (!/^[A-Z0-9]{17}$/.test(vin)) {
+    const vin = normalizeVinText(rawVin);
+    if (!VIN_PATTERN.test(vin)) {
       return {
         success: false,
         message: 'Le VIN doit contenir exactement 17 caractères alphanumériques.',
       };
     }
 
-    // FIX 2026-09-13: same duplicate-VIN issue found in the other two
-    // VIN-lookup call sites (advanced-search.service.ts,
-    // search-validator.service.ts) — findFirst() with no orderBy was
-    // non-deterministic when a VIN matches more than one vehicle (109
-    // confirmed cases, source-data issue). Prefer the duplicate with a
-    // non-null modele (more useful to show the customer), else the
-    // most recently created row.
-    const vinMatches = await this.prisma.vehicle.findMany({
-      where: { vin: { equals: vin, mode: 'insensitive' } },
-      select: {
-        vin: true,
-        vehicleNo: true,
-        marque: true,
-        modele: true,
-        modeleDescription: true,
-        immatriculation: true,
-      },
-      orderBy: { id: 'desc' },
-    });
-    const vehicle = vinMatches.find((v) => v.modele) ?? vinMatches[0] ?? null;
-
+    const vehicle = await this.findVehicleByVin(vin);
     if (!vehicle) {
       return {
         success: false,
         message: 'Ce VIN ne correspond pas à un véhicule Suzuki enregistré.',
+      };
+    }
+
+    const typeCode = String(vehicle.typeCode ?? '').trim();
+    if (!typeCode) {
+      return {
+        success: false,
+        message: `Le VIN est reconnu, mais le code modèle associé n'est pas renseigné. ${COMPTOIR_REDIRECT_MESSAGE}.`,
+        vehicleInfo: { vin: vehicle.vin ?? vin, vehicleNo: vehicle.vehicleNo, marque: vehicle.marque ?? 'SUZUKI', modele: vehicle.modele ?? vehicle.modeleDescription ?? '', typeCode: null },
       };
     }
 
@@ -57,6 +110,8 @@ export class VerificationService {
         marque: vehicle.marque ?? 'SUZUKI',
         modele: vehicle.modele ?? vehicle.modeleDescription ?? '',
         modeleDescription: vehicle.modeleDescription ?? '',
+        // Same shape as the carte grise flow: the model code comes from the same DB row.
+        typeCode,
         immatriculation: vehicle.immatriculation ?? '',
         vinValidated: true,
         source: 'VIN direct',
@@ -64,238 +119,189 @@ export class VerificationService {
     };
   }
 
-  async verifyDocument(file: any, userIp?: string) {
-    const startTime = Date.now();
-    const fileHash = Buffer.from(file.buffer.slice(0, 100)).toString('base64').substring(0, 20);
-    console.log(`📝 Processing file - Hash: ${fileHash}, Size: ${file.size}, Type: ${file.mimetype}`);
-    
+  // ─────────────────────────────────────────────────────────────────
+  // Carte grise upload (OCR)
+  // ─────────────────────────────────────────────────────────────────
+  async verifyDocument(file: UploadedDocument, userIp?: string) {
+    const startedAt = Date.now();
+    this.logger.log(`Processing upload — ${file.mimetype}, ${(file.size / 1024).toFixed(1)} KB`);
+
     try {
-      // ========== RATE LIMITING - IP (TEMPORARILY DISABLED FOR TESTING) ==========
-      // TODO: UNCOMMENT FOR PRODUCTION
-      // Check upload limit for this IP (every 15 days)
-      const ipUploadCount = userIp ? await this.get15DayUploadCount(userIp) : 0;
+      const uploadCount = userIp ? await this.countRecentUploads(userIp) : 0;
+      if (userIp && this.ipUploadLimit > 0 && uploadCount >= this.ipUploadLimit) {
+        return {
+          success: false,
+          message: `Limite atteinte. Vous avez déjà téléchargé ${this.ipUploadLimit} cartes grises ces ${RATE_WINDOW_DAYS} derniers jours.`,
+          uploadCount,
+          limitReached: true,
+        };
+      }
 
-      // if (userIp && ipUploadCount >= 3) {
-      //   return {
-      //     success: false,
-      //     message: 'Limite atteinte. Vous avez déjà téléchargé 3 cartes grises ces 15 derniers jours.',
-      //     uploadCount: ipUploadCount,
-      //     limitReached: true
-      //   };
-      // }
-      // ========== END RATE LIMITING - IP ==========
-
-      // Prepare image for OCR
       const imageBase64 = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
+      const extracted = await this.gemini.extractVehicleInfo(imageBase64, file.mimetype);
 
-      // OCR extraction
-      const geminiResult = await this.gemini.extractVehicleInfo(imageBase64, file.mimetype);
-      // Preserve any confidence set by Gemini; default to HIGH only if not provided.
-      const vehicleInfo = {
-        ...geminiResult,
-        confidence: geminiResult.confidence ?? 'HIGH',
-        source: geminiResult.source ?? 'Gemini 2.5-flash',
+      const vehicleInfo: Record<string, any> = {
+        ...extracted,
+        source: OCR_SOURCE_LABEL,
       };
-      
-      // Validate VIN against database (if VIN was extracted)
-      if (vehicleInfo.vin) {
-        const dbVehicle = await this.prisma.vehicle.findFirst({
-          where: { vin: vehicleInfo.vin },
-          select: {
-            vin: true,
-            marque: true,
-            modele: true,
-            modeleDescription: true,
-            typeCode: true,
-            vehicleNo: true,
-          },
-        });
-        
-        if (dbVehicle) {
-          // VIN found in database - enrich vehicleInfo with DB data
-          vehicleInfo.marque = dbVehicle.marque || vehicleInfo.marque;
-          vehicleInfo.modele = dbVehicle.modele || vehicleInfo.modele;
-          vehicleInfo.modeleDescription = dbVehicle.modeleDescription || vehicleInfo.modeleDescription;
-          vehicleInfo.typeCode = dbVehicle.typeCode;
-          vehicleInfo.vehicleNo = dbVehicle.vehicleNo;
-          vehicleInfo.vinValidated = true;
-          console.log(`✅ VIN ${vehicleInfo.vin} validated against database`);
-        } else {
-          // VIN not found - still allow (might be a new vehicle)
-          vehicleInfo.vinValidated = false;
-          console.log(`⚠️ VIN ${vehicleInfo.vin} not found in database (new vehicle?)`);
-        }
+
+      await this.enrichFromVin(vehicleInfo);
+
+      if (!vehicleInfo.vin) {
+        return {
+          success: false,
+          message: `Le VIN n'a pas pu être lu sur la carte grise. ${COMPTOIR_REDIRECT_MESSAGE}.`,
+          uploadCount,
+        };
       }
-      
-      // ========== RATE LIMITING - CARTE GRISE (TEMPORARILY DISABLED FOR TESTING) ==========
-      // TODO: UNCOMMENT FOR PRODUCTION
-      // Check carte grise limit (every 15 days)
-      // if (vehicleInfo.immatriculation) {
-      //   const carteGriseCount = await this.get15DayCarteGriseUploadCount(vehicleInfo.immatriculation);
-      //   if (carteGriseCount >= 3) {
-      //     return {
-      //       success: false,
-      //       message: `Cette carte grise (${vehicleInfo.immatriculation}) a déjà été téléchargée 3 fois ces 15 derniers jours.`,
-      //       uploadCount: carteGriseCount,
-      //       limitReached: true,
-      //       limitType: 'carte_grise'
-      //     };
-      //   }
-      // }
-      // ========== END RATE LIMITING - CARTE GRISE ==========
-      
-      // Track upload (non-blocking) - still track IP for analytics
-      if (userIp && vehicleInfo.immatriculation) {
-        this.trackUpload(userIp, vehicleInfo).catch(() => {});
+      if (!vehicleInfo.vinValidated) {
+        return {
+          success: false,
+          message: `Le VIN lu n'est pas enregistré dans la base véhicules. ${COMPTOIR_REDIRECT_MESSAGE}.`,
+          uploadCount,
+          vehicleInfo,
+        };
       }
-      
-      const processingTime = Date.now() - startTime;
-      
+      vehicleInfo.typeCode = String(vehicleInfo.typeCode ?? '').trim();
+      if (!vehicleInfo.typeCode) {
+        return {
+          success: false,
+          message: `Le VIN est reconnu, mais le code modèle associé n'est pas renseigné. ${COMPTOIR_REDIRECT_MESSAGE}.`,
+          uploadCount,
+          vehicleInfo,
+        };
+      }
+
+      if (
+        vehicleInfo.immatriculation &&
+        this.carteGriseLimit > 0 &&
+        (await this.countRecentCarteGriseUploads(vehicleInfo.immatriculation)) >= this.carteGriseLimit
+      ) {
+        return {
+          success: false,
+          message: `Cette carte grise (${vehicleInfo.immatriculation}) a déjà été téléchargée ${this.carteGriseLimit} fois ces ${RATE_WINDOW_DAYS} derniers jours.`,
+          uploadCount,
+          limitReached: true,
+          limitType: 'carte_grise',
+        };
+      }
+
+      // Non-blocking: every successful upload counts toward the per-IP limit.
+      if (userIp) void this.trackUpload(userIp, vehicleInfo);
+
       return {
         success: true,
         vehicleInfo,
-        uploadCount: ipUploadCount,
-        debug: {
-          processingTime: `${processingTime}ms`,
-          fileSize: `${(file.size / 1024).toFixed(2)} KB`,
-          confidence: vehicleInfo.confidence,
-          model: 'Gemini 2.5-flash'
-        }
+        uploadCount,
+        ...(this.showDebug
+          ? {
+              debug: {
+                processingTime: `${Date.now() - startedAt}ms`,
+                fileSize: `${(file.size / 1024).toFixed(2)} KB`,
+                confidence: vehicleInfo.confidence,
+                model: OCR_SOURCE_LABEL,
+              },
+            }
+          : {}),
       };
-      
     } catch (error: any) {
+      this.logger.warn(`Carte grise verification failed: ${error?.message ?? error}`);
       return {
         success: false,
-        message: error.message === 'INVALID_BRAND' 
-          ? 'Seules les cartes grises Suzuki sont acceptées.'
-          : error.message === 'OCR_FAILED'
-          ? 'Impossible de lire le document. Veuillez utiliser une image plus claire.'
-            : error.message === 'GEMINI_AUTH_FAILED'
-            ? 'Le service de vérification est mal configuré. Contactez l’administrateur.'
-            : error.message === 'GEMINI_QUOTA_EXCEEDED'
-            ? 'Le service de vérification est temporairement indisponible. Veuillez réessayer plus tard.'
-          : 'Erreur lors de la vérification. Veuillez réessayer.'
+        message: OCR_ERROR_MESSAGES.get(error?.message) ?? GENERIC_ERROR,
       };
     }
   }
 
+  // ─────────────────────────────────────────────────────────────────
+  // Helpers
+  // ─────────────────────────────────────────────────────────────────
+
   /**
-   * @deprecated Not currently wired — preserved for future dual-AI cross-validation.
-   * To activate: replace the single gemini.extractVehicleInfo call in verifyDocument
-   * with a Promise.all([gemini, openai]) and pass both results here.
+   * One VIN lookup for both flows: case-insensitive, tolerant to the usual OCR
+   * confusions, and deterministic when several rows share the VIN.
    */
-  private crossValidateResults(geminiResult: any, openaiResult: any): any {
-    // If Gemini failed, use OpenAI only with HIGH confidence
-    if (!geminiResult && openaiResult) {
-      console.log('🔍 Cross-validation: Using OpenAI only (Gemini failed) - HIGH confidence');
-      return { ...openaiResult, confidence: 'HIGH', source: 'OpenAI' };
-    }
-
-    // If OpenAI failed, return Gemini result with MEDIUM confidence
-    if (geminiResult && !openaiResult) {
-      console.log('🔍 Cross-validation: Using Gemini only (OpenAI unavailable) - MEDIUM confidence');
-      return { ...geminiResult, confidence: 'MEDIUM', source: 'Gemini' };
-    }
-
-    // If both failed, throw error
-    if (!geminiResult && !openaiResult) {
-      throw new Error('OCR_FAILED');
-    }
-
-    // Both succeeded - Compare key fields
-    const marqueMatch = geminiResult.marque === openaiResult.marque;
-    const modeleMatch = geminiResult.modele === openaiResult.modele;
-    const anneeMatch = geminiResult.annee === openaiResult.annee;
-
-    console.log('🔍 Cross-validation results:');
-    console.log(`  • Marque: ${marqueMatch ? '✅' : '❌'} (Gemini: ${geminiResult.marque}, OpenAI: ${openaiResult.marque})`);
-    console.log(`  • Modèle: ${modeleMatch ? '✅' : '❌'} (Gemini: ${geminiResult.modele}, OpenAI: ${openaiResult.modele})`);
-    console.log(`  • Année: ${anneeMatch ? '✅' : '❌'} (Gemini: ${geminiResult.annee}, OpenAI: ${openaiResult.annee})`);
-
-    // Calculate confidence based on matches
-    const matchCount = [marqueMatch, modeleMatch, anneeMatch].filter(Boolean).length;
-    let confidence: string;
-    
-    if (matchCount === 3) {
-      confidence = 'VERY_HIGH';
-      console.log('✅ Perfect match! Both AI models agree 100%');
-    } else if (matchCount === 2) {
-      confidence = 'HIGH';
-      console.log('✅ Good match! Both AI models mostly agree');
-    } else {
-      confidence = 'MEDIUM';
-      console.log('⚠️  Partial match. Using Gemini as primary source');
-    }
-
-    // Return Gemini result with enhanced confidence
-    return {
-      ...geminiResult,
-      confidence,
-      source: 'Gemini + OpenAI',
-      verification: {
-        openaiMarque: openaiResult.marque,
-        openaiModele: openaiResult.modele,
-        openaiAnnee: openaiResult.annee,
-        matchScore: `${matchCount}/3`
-      }
-    };
+  private async findVehicleByVin(vin: string) {
+    const rows = await this.prisma.vehicle.findMany({
+      where: { OR: vinLookupVariants(vin).map((variant) => ({ vin: { equals: variant, mode: 'insensitive' as const } })) },
+      select: VEHICLE_SELECT,
+    });
+    return pickBestVehicleRow(rows);
   }
 
-  private async get15DayUploadCount(userIp: string): Promise<number> {
+  /** Completes the OCR result with the database row of the read VIN (model code, plate number, canonical VIN). */
+  private async enrichFromVin(vehicleInfo: Record<string, any>): Promise<void> {
+    const ocrVin = normalizeVinText(vehicleInfo.vin);
+    if (!ocrVin) return;
+
+    const dbVehicle = await this.findVehicleByVin(ocrVin);
+    if (!dbVehicle) {
+      // Not found: still allowed (new vehicle?), but the search will not get a real model code.
+      vehicleInfo.vin = ocrVin;
+      vehicleInfo.vinValidated = false;
+      this.logger.log('VIN read by OCR is not in the vehicles table');
+      return;
+    }
+
+    vehicleInfo.vin = dbVehicle.vin ?? ocrVin;
+    vehicleInfo.marque = dbVehicle.marque || vehicleInfo.marque;
+    vehicleInfo.modele = dbVehicle.modele || vehicleInfo.modele;
+    vehicleInfo.modeleDescription = dbVehicle.modeleDescription || vehicleInfo.modeleDescription;
+    vehicleInfo.typeCode = dbVehicle.typeCode;
+    vehicleInfo.vehicleNo = dbVehicle.vehicleNo;
+    vehicleInfo.vinValidated = true;
+  }
+
+  /** Per-IP throttle on manual VIN entry: the endpoint must not become a VIN → plate oracle. */
+  private allowVinLookup(ip: string): boolean {
+    if (this.vinLookupsPerMinute === 0) return true;
+    const now = Date.now();
+    if (this.vinLookups.size > VIN_LOOKUP_PRUNE_THRESHOLD) {
+      for (const [key, entry] of this.vinLookups) if (now > entry.resetAt) this.vinLookups.delete(key);
+    }
+
+    const entry = this.vinLookups.get(ip);
+    if (!entry || now > entry.resetAt) {
+      this.vinLookups.set(ip, { count: 1, resetAt: now + VIN_LOOKUP_WINDOW_MS });
+      return true;
+    }
+    if (entry.count >= this.vinLookupsPerMinute) return false;
+    entry.count++;
+    return true;
+  }
+
+  private async countRecentUploads(userIp: string): Promise<number> {
     try {
-      const now = new Date();
-      const fifteenDaysAgo = new Date(now.getTime() - 15 * 24 * 60 * 60 * 1000);
-
-      const count = await this.prisma.uploadTracking.count({
-        where: {
-          userIp,
-          uploadedAt: {
-            gte: fifteenDaysAgo,
-          },
-          success: true,
-        },
+      return await this.prisma.uploadTracking.count({
+        where: { userIp, uploadedAt: { gte: new Date(Date.now() - RATE_WINDOW_MS) }, success: true },
       });
-
-      return count;
-    } catch (error) {
-      console.error('[VerificationService] Failed to get 15-day upload count:', error);
+    } catch (error: any) {
+      this.logger.error(`Failed to count recent uploads: ${error?.message}`);
       return 0;
     }
   }
 
-  private async get15DayCarteGriseUploadCount(immatriculation: string): Promise<number> {
-    const now = new Date();
-    const fifteenDaysAgo = new Date(now.getTime() - 15 * 24 * 60 * 60 * 1000);
-    
-    const count = await this.prisma.uploadTracking.count({
-      where: {
-        vehicleInfo: {
-          path: ['immatriculation'],
-          equals: immatriculation
-        },
-        uploadedAt: {
-          gte: fifteenDaysAgo
-        },
-        success: true
-      }
-    });
-    
-    return count;
-  }
-
-  private async trackUpload(userIp: string, vehicleInfo: any): Promise<void> {
+  private async countRecentCarteGriseUploads(immatriculation: string): Promise<number> {
     try {
-      await this.prisma.uploadTracking.create({
-        data: {
-          userIp,
+      return await this.prisma.uploadTracking.count({
+        where: {
+          vehicleInfo: { path: ['immatriculation'], equals: immatriculation },
+          uploadedAt: { gte: new Date(Date.now() - RATE_WINDOW_MS) },
           success: true,
-          vehicleInfo,
         },
       });
-    } catch (error) {
-      // Non-fatal: tracking failure must never block the user response.
-      // Log with enough detail for ops to investigate if uploads are consistently lost.
-      console.error('[VerificationService] Failed to track upload for IP', userIp, ':', error);
+    } catch (error: any) {
+      this.logger.error(`Failed to count carte grise uploads: ${error?.message}`);
+      return 0;
+    }
+  }
+
+  /** Never throws: tracking must not block the customer. */
+  private async trackUpload(userIp: string, vehicleInfo: Record<string, any>): Promise<void> {
+    try {
+      await this.prisma.uploadTracking.create({ data: { userIp, success: true, vehicleInfo } });
+    } catch (error: any) {
+      this.logger.error(`Failed to track upload: ${error?.message}`);
     }
   }
 }

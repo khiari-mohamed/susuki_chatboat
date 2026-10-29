@@ -1,0 +1,876 @@
+=== Case 41 (FAIL) variant=twoturn part="METTRE CYLINDRE"
+--- run 1
+│ intent            : PARTS_SEARCH
+│ originalQuery     : vous avez mettre cylindre pour une spresso
+│ identityMode      : strict-head
+│ requestedPart     : mettre cylindre
+│ intent            : CLARIFICATION_NEEDED
+│ originalQuery     : vous avez mettre cylindre pour une spresso
+│ identityMode      : strict-head
+│ requestedPart     : mettre cylindre
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 4175
+Got     : —
+[19] ✘ Product reference exact
+Expected: 51000M62S10
+Got     : —
+[20] ✘ French designation exact
+Expected: METTRE CYLINDRE
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: METTRE CYLINDRE
+Got     : —
+[22] ✘ OEM designation exact
+Expected: BOOSTER MASTER CYLINDER ASSY
+Got     : —
+[23] ✘ Search description exact
+Expected: METTRE CYLINDRE ; BOOSTER MASTER CYLINDER ASSY
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: MÉCANIQUE
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —
+[27] ✘ Supplier code exact
+Expected: CAR PRO PARTS
+--- run 2
+[RATE LIMIT] VIN validation is throttled; waiting 61 seconds, then retrying once.
+│ intent            : PARTS_SEARCH
+│ originalQuery     : vous avez mettre cylindre pour une spresso
+│ identityMode      : strict-head
+│ requestedPart     : mettre cylindre
+│ intent            : CLARIFICATION_NEEDED
+│ originalQuery     : vous avez mettre cylindre pour une spresso
+│ identityMode      : strict-head
+│ requestedPart     : mettre cylindre
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 4175
+Got     : —
+[19] ✘ Product reference exact
+Expected: 51000M62S10
+Got     : —
+[20] ✘ French designation exact
+Expected: METTRE CYLINDRE
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: METTRE CYLINDRE
+Got     : —
+[22] ✘ OEM designation exact
+Expected: BOOSTER MASTER CYLINDER ASSY
+Got     : —
+[23] ✘ Search description exact
+Expected: METTRE CYLINDRE ; BOOSTER MASTER CYLINDER ASSY
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: MÉCANIQUE
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —
+[27] ✘ Supplier code exact
+--- run 3
+[RATE LIMIT] VIN validation is throttled; waiting 61 seconds, then retrying once.
+│ intent            : PARTS_SEARCH
+│ originalQuery     : mettre cylindre
+│ identityMode      : strict-head
+│ requestedPart     : mettre cylindre
+│ intent            : CLARIFICATION_NEEDED
+│ originalQuery     : mettre cylindre
+│ identityMode      : strict-head
+│ requestedPart     : mettre cylindre
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 4175
+Got     : —
+[19] ✘ Product reference exact
+Expected: 51000M62S10
+Got     : —
+[20] ✘ French designation exact
+Expected: METTRE CYLINDRE
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: METTRE CYLINDRE
+Got     : —
+[22] ✘ OEM designation exact
+Expected: BOOSTER MASTER CYLINDER ASSY
+Got     : —
+[23] ✘ Search description exact
+Expected: METTRE CYLINDRE ; BOOSTER MASTER CYLINDER ASSY
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: MÉCANIQUE
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —
+[27] ✘ Supplier code exact
+
+=== Case 58 (FAIL) variant=typo part="SWITCHE MALLE AR"
+--- run 1
+│ intent            : PARTS_SEARCH
+│ originalQuery     : bonjour vous avez malle arriere
+│ identityMode      : strict-head
+│ requestedPart     : malle
+[18] ✘ Product DB id exact
+Expected: 2796
+Got     : 5646
+[19] ✘ Product reference exact
+Expected: 37179-61M00-000
+Got     : 69100-54P01-000
+[20] ✘ French designation exact
+Expected: SWITCHE MALLE AR
+Got     : MALLE AR
+[21] ✘ Display name exact French designation
+Expected: SWITCHE MALLE AR
+Got     : MALLE AR
+[22] ✘ OEM designation exact
+Expected: SWITCH, BACK DOOR AKK416
+Got     : PANEL ASSY, BK DR
+[23] ✘ Search description exact
+Expected: SWITCHE MALLE AR ; SWITCH, BACK DOOR AKK416
+Got     : MALLE AR ; PANEL ASSY, BK DR
+[25] ✘ Category exact
+Expected: ELECTRIQUE
+Got     : CARROSSERIE
+[29] ✘ Public TTC exact DB value
+Expected: 286.4687
+Got     : 1386.02516
+[30] ✘ Wholesale HT exact DB value
+Expected: 240.73
+Got     : 1164.727029375
+[31] ✘ Stock totalQuantity exact
+Expected: 2
+Got     : 0
+[32] ✘ Stock stockDisponible exact
+Expected: 2
+Got     : 0
+[33] ✘ Stock stockConsolide exact
+Expected: 2
+Got     : 0
+--- run 2
+│ intent            : PARTS_SEARCH
+│ originalQuery     : bonjour vous avez malle arriere
+│ identityMode      : strict-head
+│ requestedPart     : malle
+[18] ✘ Product DB id exact
+Expected: 2796
+Got     : 5646
+[19] ✘ Product reference exact
+Expected: 37179-61M00-000
+Got     : 69100-54P01-000
+[20] ✘ French designation exact
+Expected: SWITCHE MALLE AR
+Got     : MALLE AR
+[21] ✘ Display name exact French designation
+Expected: SWITCHE MALLE AR
+Got     : MALLE AR
+[22] ✘ OEM designation exact
+Expected: SWITCH, BACK DOOR AKK416
+Got     : PANEL ASSY, BK DR
+[23] ✘ Search description exact
+Expected: SWITCHE MALLE AR ; SWITCH, BACK DOOR AKK416
+Got     : MALLE AR ; PANEL ASSY, BK DR
+[25] ✘ Category exact
+Expected: ELECTRIQUE
+Got     : CARROSSERIE
+[29] ✘ Public TTC exact DB value
+Expected: 286.4687
+Got     : 1386.02516
+[30] ✘ Wholesale HT exact DB value
+Expected: 240.73
+Got     : 1164.727029375
+[31] ✘ Stock totalQuantity exact
+Expected: 2
+Got     : 0
+[32] ✘ Stock stockDisponible exact
+Expected: 2
+Got     : 0
+[33] ✘ Stock stockConsolide exact
+Expected: 2
+Got     : 0
+--- run 3
+│ intent            : PARTS_SEARCH
+│ originalQuery     : bonjour vous avez malle arriere
+│ identityMode      : strict-head
+│ requestedPart     : malle
+[18] ✘ Product DB id exact
+Expected: 2796
+Got     : 5646
+[19] ✘ Product reference exact
+Expected: 37179-61M00-000
+Got     : 69100-54P01-000
+[20] ✘ French designation exact
+Expected: SWITCHE MALLE AR
+Got     : MALLE AR
+[21] ✘ Display name exact French designation
+Expected: SWITCHE MALLE AR
+Got     : MALLE AR
+[22] ✘ OEM designation exact
+Expected: SWITCH, BACK DOOR AKK416
+Got     : PANEL ASSY, BK DR
+[23] ✘ Search description exact
+Expected: SWITCHE MALLE AR ; SWITCH, BACK DOOR AKK416
+Got     : MALLE AR ; PANEL ASSY, BK DR
+[25] ✘ Category exact
+Expected: ELECTRIQUE
+Got     : CARROSSERIE
+[29] ✘ Public TTC exact DB value
+Expected: 286.4687
+Got     : 1386.02516
+[30] ✘ Wholesale HT exact DB value
+Expected: 240.73
+Got     : 1164.727029375
+[31] ✘ Stock totalQuantity exact
+Expected: 2
+Got     : 0
+[32] ✘ Stock stockDisponible exact
+Expected: 2
+Got     : 0
+[33] ✘ Stock stockConsolide exact
+Expected: 2
+Got     : 0
+
+=== Case 61 (FLAKY) variant=price part="DURITE RENIFLARD BOITE DE VITESSES"
+--- run 2
+│ intent            : SECURISATION
+│ originalQuery     : prix durite reniflard boite de vitesses
+│ identityMode      : strict-head
+│ requestedPart     : durite reniflard boite vitesses
+│ withheld reason   : qualifiers unverified by the catalog: redirect instead of guessing
+[04] ✘ Intent is not a refusal/error
+Expected: resolved parts intent
+Got     : SECURISATION
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 1855
+Got     : —
+[19] ✘ Product reference exact
+Expected: 24825M74LA0
+Got     : —
+[20] ✘ French designation exact
+Expected: DURITE RENIFLARD BOITE DE VITESSES
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: DURITE RENIFLARD BOITE DE VITESSES
+Got     : —
+[22] ✘ OEM designation exact
+Expected: HOSE, BREATHER
+Got     : —
+[23] ✘ Search description exact
+Expected: DURITE RENIFLARD BOITE DE VITESSES ; HOSE, BREATHER
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: MÉCANIQUE
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —
+[27] ✘ Supplier code exact
+Expected: CAR PRO PARTS
+--- run 3
+│ intent            : SECURISATION
+│ originalQuery     : prix durite reniflard boite de vitesses
+│ identityMode      : strict-head
+│ requestedPart     : durite reniflard boite vitesses
+│ withheld reason   : qualifiers unverified by the catalog: redirect instead of guessing
+[04] ✘ Intent is not a refusal/error
+Expected: resolved parts intent
+Got     : SECURISATION
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 1855
+Got     : —
+[19] ✘ Product reference exact
+Expected: 24825M74LA0
+Got     : —
+[20] ✘ French designation exact
+Expected: DURITE RENIFLARD BOITE DE VITESSES
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: DURITE RENIFLARD BOITE DE VITESSES
+Got     : —
+[22] ✘ OEM designation exact
+Expected: HOSE, BREATHER
+Got     : —
+[23] ✘ Search description exact
+Expected: DURITE RENIFLARD BOITE DE VITESSES ; HOSE, BREATHER
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: MÉCANIQUE
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —
+[27] ✘ Supplier code exact
+Expected: CAR PRO PARTS
+
+=== Case 89 (FAIL) variant=price part="ENSEMBLE MOTEUR POMPE A HUILE"
+--- run 1
+│ intent            : SECURISATION
+│ originalQuery     : prix ensemble moteur pompe a huile
+│ identityMode      : strict-head
+│ requestedPart     : ensemble moteur pompe huile
+│ withheld reason   : qualifiers unverified by the catalog: redirect instead of guessing
+[04] ✘ Intent is not a refusal/error
+Expected: resolved parts intent
+Got     : SECURISATION
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 1645
+Got     : —
+[19] ✘ Product reference exact
+Expected: 2280TM76ME0
+Got     : —
+[20] ✘ French designation exact
+Expected: ENSEMBLE MOTEUR POMPE A HUILE
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: ENSEMBLE MOTEUR POMPE A HUILE
+Got     : —
+[22] ✘ OEM designation exact
+Expected: MOTOR SET, OIL PUMP
+Got     : —
+[23] ✘ Search description exact
+Expected: ENSEMBLE MOTEUR POMPE A HUILE ; MOTOR SET, OIL PUMP
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: MÉCANIQUE
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —
+[27] ✘ Supplier code exact
+Expected: CAR PRO PARTS
+--- run 2
+│ intent            : SECURISATION
+│ originalQuery     : prix ensemble moteur pompe a huile
+│ identityMode      : strict-head
+│ requestedPart     : ensemble moteur pompe huile
+│ withheld reason   : qualifiers unverified by the catalog: redirect instead of guessing
+[04] ✘ Intent is not a refusal/error
+Expected: resolved parts intent
+Got     : SECURISATION
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 1645
+Got     : —
+[19] ✘ Product reference exact
+Expected: 2280TM76ME0
+Got     : —
+[20] ✘ French designation exact
+Expected: ENSEMBLE MOTEUR POMPE A HUILE
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: ENSEMBLE MOTEUR POMPE A HUILE
+Got     : —
+[22] ✘ OEM designation exact
+Expected: MOTOR SET, OIL PUMP
+Got     : —
+[23] ✘ Search description exact
+Expected: ENSEMBLE MOTEUR POMPE A HUILE ; MOTOR SET, OIL PUMP
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: MÉCANIQUE
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —
+[27] ✘ Supplier code exact
+Expected: CAR PRO PARTS
+--- run 3
+│ intent            : SECURISATION
+│ originalQuery     : prix ensemble moteur pompe a huile
+│ identityMode      : strict-head
+│ requestedPart     : ensemble moteur pompe huile
+│ withheld reason   : qualifiers unverified by the catalog: redirect instead of guessing
+[04] ✘ Intent is not a refusal/error
+Expected: resolved parts intent
+Got     : SECURISATION
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 1645
+Got     : —
+[19] ✘ Product reference exact
+Expected: 2280TM76ME0
+Got     : —
+[20] ✘ French designation exact
+Expected: ENSEMBLE MOTEUR POMPE A HUILE
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: ENSEMBLE MOTEUR POMPE A HUILE
+Got     : —
+[22] ✘ OEM designation exact
+Expected: MOTOR SET, OIL PUMP
+Got     : —
+[23] ✘ Search description exact
+Expected: ENSEMBLE MOTEUR POMPE A HUILE ; MOTOR SET, OIL PUMP
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: MÉCANIQUE
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —
+[27] ✘ Supplier code exact
+Expected: CAR PRO PARTS
+
+=== Case 163 (FAIL) variant=lowercase part="BALAIS ESSUI GLASS AR"
+--- run 1
+│ intent            : NO_RESULTS
+│ originalQuery     : vous avez balais essui glass ar pour fronx ? prix ?
+│ identityMode      : inactive-no-standalone-form
+│ requestedPart     : verre
+[04] ✘ Intent is not a refusal/error
+Expected: resolved parts intent
+Got     : NO_RESULTS
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 3234
+Got     : —
+[19] ✘ Product reference exact
+Expected: 38823M55T00
+Got     : —
+[20] ✘ French designation exact
+Expected: BALAIS ESSUI GLASS AR
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: BALAIS ESSUI GLASS AR
+Got     : —
+[22] ✘ OEM designation exact
+Expected: BLADE ASSY,REAR WIPER
+Got     : —
+[23] ✘ Search description exact
+Expected: BALAIS ESSUI GLASS AR ; BLADE ASSY,REAR WIPER
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: CARROSSERIE
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —
+[27] ✘ Supplier code exact
+Expected: CAR PRO PARTS
+Got     : —
+--- run 2
+│ intent            : NO_RESULTS
+│ originalQuery     : vous avez balais essui glass ar pour fronx ? prix ?
+│ identityMode      : inactive-no-standalone-form
+│ requestedPart     : verre
+[04] ✘ Intent is not a refusal/error
+Expected: resolved parts intent
+Got     : NO_RESULTS
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 3234
+Got     : —
+[19] ✘ Product reference exact
+Expected: 38823M55T00
+Got     : —
+[20] ✘ French designation exact
+Expected: BALAIS ESSUI GLASS AR
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: BALAIS ESSUI GLASS AR
+Got     : —
+[22] ✘ OEM designation exact
+Expected: BLADE ASSY,REAR WIPER
+Got     : —
+[23] ✘ Search description exact
+Expected: BALAIS ESSUI GLASS AR ; BLADE ASSY,REAR WIPER
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: CARROSSERIE
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —
+[27] ✘ Supplier code exact
+Expected: CAR PRO PARTS
+Got     : —
+--- run 3
+│ intent            : NO_RESULTS
+│ originalQuery     : vous avez balais essui glass ar pour fronx ? prix ?
+│ identityMode      : inactive-no-standalone-form
+│ requestedPart     : verre
+[04] ✘ Intent is not a refusal/error
+Expected: resolved parts intent
+Got     : NO_RESULTS
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 3234
+Got     : —
+[19] ✘ Product reference exact
+Expected: 38823M55T00
+Got     : —
+[20] ✘ French designation exact
+Expected: BALAIS ESSUI GLASS AR
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: BALAIS ESSUI GLASS AR
+Got     : —
+[22] ✘ OEM designation exact
+Expected: BLADE ASSY,REAR WIPER
+Got     : —
+[23] ✘ Search description exact
+Expected: BALAIS ESSUI GLASS AR ; BLADE ASSY,REAR WIPER
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: CARROSSERIE
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —
+[27] ✘ Supplier code exact
+Expected: CAR PRO PARTS
+Got     : —
+
+=== Case 173 (FLAKY) variant=price part="RING SYNCHRONISEUR DE VITESSE"
+--- run 2
+│ intent            : SECURISATION
+│ originalQuery     : prix ring synchroniseur de vitesse
+│ identityMode      : strict-head
+│ requestedPart     : ring synchroniseur vitesse
+│ withheld reason   : qualifiers unverified by the catalog: redirect instead of guessing
+[04] ✘ Intent is not a refusal/error
+Expected: resolved parts intent
+Got     : SECURISATION
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 1819
+Got     : —
+[19] ✘ Product reference exact
+Expected: 24433M76M00
+Got     : —
+[20] ✘ French designation exact
+Expected: RING SYNCHRONISEUR DE VITESSE
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: RING SYNCHRONISEUR DE VITESSE
+Got     : —
+[22] ✘ OEM designation exact
+Expected: RING,HIGH SPEED GEAR SYNC
+Got     : —
+[23] ✘ Search description exact
+Expected: RING SYNCHRONISEUR DE VITESSE ; RING,HIGH SPEED GEAR SYNC
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: MÉCANIQUE
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —
+[27] ✘ Supplier code exact
+Expected: CAR PRO PARTS
+
+=== Case 182 (FAIL) variant=exact part="TABLEAU INF"
+--- run 1
+│ intent            : PARTS_SEARCH
+│ originalQuery     : Je cherche TABLEAU INF pour ma DZIRE. C'est disponible ?
+│ identityMode      : strict-head
+│ requestedPart     : tableau bord
+[18] ✘ Product DB id exact
+Expected: 6664
+Got     : 4842
+[19] ✘ Product reference exact
+Expected: 73121M56R60-5PK
+Got     : 58725M68P00
+[20] ✘ French designation exact
+Expected: TABLEAU INF
+Got     : INF DU TABLEAU DE BORD G
+[21] ✘ Display name exact French designation
+Expected: TABLEAU INF
+Got     : INF DU TABLEAU DE BORD G
+[22] ✘ OEM designation exact
+Expected: PANEL,INSTRUMENT MAIN LOWER
+Got     : EXTENSION,DASH LOWER INNER,L
+[23] ✘ Search description exact
+Expected: TABLEAU INF ; PANEL,INSTRUMENT MAIN LOWER
+Got     : INF DU TABLEAU DE BORD G ; EXTENSION,DASH LOWER INNER,L
+[29] ✘ Public TTC exact DB value
+Expected: 819.38045
+Got     : 77.4928
+[30] ✘ Wholesale HT exact DB value
+Expected: 688.555
+Got     : 65.12
+[31] ✘ Stock totalQuantity exact
+Expected: 1
+Got     : 2
+[32] ✘ Stock stockDisponible exact
+Expected: 0
+Got     : 2
+[33] ✘ Stock stockConsolide exact
+Expected: 1
+Got     : 2
+[34] ✘ Availability status follows stockConsolide rule
+Expected: Indisponible
+Got     : Disponible
+--- run 2
+│ intent            : PARTS_SEARCH
+│ originalQuery     : Je cherche TABLEAU INF pour ma DZIRE. C'est disponible ?
+│ identityMode      : strict-head
+│ requestedPart     : tableau bord
+[18] ✘ Product DB id exact
+Expected: 6664
+Got     : 4842
+[19] ✘ Product reference exact
+Expected: 73121M56R60-5PK
+Got     : 58725M68P00
+[20] ✘ French designation exact
+Expected: TABLEAU INF
+Got     : INF DU TABLEAU DE BORD G
+[21] ✘ Display name exact French designation
+Expected: TABLEAU INF
+Got     : INF DU TABLEAU DE BORD G
+[22] ✘ OEM designation exact
+Expected: PANEL,INSTRUMENT MAIN LOWER
+Got     : EXTENSION,DASH LOWER INNER,L
+[23] ✘ Search description exact
+Expected: TABLEAU INF ; PANEL,INSTRUMENT MAIN LOWER
+Got     : INF DU TABLEAU DE BORD G ; EXTENSION,DASH LOWER INNER,L
+[29] ✘ Public TTC exact DB value
+Expected: 819.38045
+Got     : 77.4928
+[30] ✘ Wholesale HT exact DB value
+Expected: 688.555
+Got     : 65.12
+[31] ✘ Stock totalQuantity exact
+Expected: 1
+Got     : 2
+[32] ✘ Stock stockDisponible exact
+Expected: 0
+Got     : 2
+[33] ✘ Stock stockConsolide exact
+Expected: 1
+Got     : 2
+[34] ✘ Availability status follows stockConsolide rule
+Expected: Indisponible
+Got     : Disponible
+--- run 3
+│ intent            : PARTS_SEARCH
+│ originalQuery     : Je cherche TABLEAU INF pour ma DZIRE. C'est disponible ?
+│ identityMode      : strict-head
+│ requestedPart     : tableau bord
+[18] ✘ Product DB id exact
+Expected: 6664
+Got     : 4842
+[19] ✘ Product reference exact
+Expected: 73121M56R60-5PK
+Got     : 58725M68P00
+[20] ✘ French designation exact
+Expected: TABLEAU INF
+Got     : INF DU TABLEAU DE BORD G
+[21] ✘ Display name exact French designation
+Expected: TABLEAU INF
+Got     : INF DU TABLEAU DE BORD G
+[22] ✘ OEM designation exact
+Expected: PANEL,INSTRUMENT MAIN LOWER
+Got     : EXTENSION,DASH LOWER INNER,L
+[23] ✘ Search description exact
+Expected: TABLEAU INF ; PANEL,INSTRUMENT MAIN LOWER
+Got     : INF DU TABLEAU DE BORD G ; EXTENSION,DASH LOWER INNER,L
+[29] ✘ Public TTC exact DB value
+Expected: 819.38045
+Got     : 77.4928
+[30] ✘ Wholesale HT exact DB value
+Expected: 688.555
+Got     : 65.12
+[31] ✘ Stock totalQuantity exact
+Expected: 1
+Got     : 2
+[32] ✘ Stock stockDisponible exact
+Expected: 0
+Got     : 2
+[33] ✘ Stock stockConsolide exact
+Expected: 1
+Got     : 2
+[34] ✘ Availability status follows stockConsolide rule
+Expected: Indisponible
+Got     : Disponible
+
+=== Case 190 (FAIL) variant=typo part="ACTUATEUR ABS"
+--- run 1
+│ intent            : SECURISATION
+│ originalQuery     : Bonjour, vous avez actuator ABS pour ma CELERIO BVA ?
+│ identityMode      : inactive-no-standalone-form
+│ requestedPart     : actuator abs
+│ withheld reason   : understanding confidence below 0.6
+│ withheld reason   : deterministic check identity failed
+│ withheld reason   : identity: catalog designation does not contain "actuator"
+[04] ✘ Intent is not a refusal/error
+Expected: resolved parts intent
+Got     : SECURISATION
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 4444
+Got     : —
+[19] ✘ Product reference exact
+Expected: 56110M76M81
+Got     : —
+[20] ✘ French designation exact
+Expected: ACTUATEUR ABS
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: ACTUATEUR ABS
+Got     : —
+[22] ✘ OEM designation exact
+Expected: ACTUATOR S/ASSY,ABS
+Got     : —
+[23] ✘ Search description exact
+Expected: ACTUATEUR ABS ; ACTUATOR S/ASSY,ABS
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: ELECTRIQUE
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —
+--- run 2
+│ intent            : SECURISATION
+│ originalQuery     : Bonjour, vous avez actuator ABS pour ma CELERIO BVA ?
+│ identityMode      : inactive-no-standalone-form
+│ requestedPart     : actuator abs
+│ withheld reason   : understanding confidence below 0.6
+│ withheld reason   : deterministic check identity failed
+│ withheld reason   : identity: catalog designation does not contain "actuator"
+[04] ✘ Intent is not a refusal/error
+Expected: resolved parts intent
+Got     : SECURISATION
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 4444
+Got     : —
+[19] ✘ Product reference exact
+Expected: 56110M76M81
+Got     : —
+[20] ✘ French designation exact
+Expected: ACTUATEUR ABS
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: ACTUATEUR ABS
+Got     : —
+[22] ✘ OEM designation exact
+Expected: ACTUATOR S/ASSY,ABS
+Got     : —
+[23] ✘ Search description exact
+Expected: ACTUATEUR ABS ; ACTUATOR S/ASSY,ABS
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: ELECTRIQUE
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —
+--- run 3
+│ intent            : SECURISATION
+│ originalQuery     : Bonjour, vous avez actuator ABS pour ma CELERIO BVA ?
+│ identityMode      : inactive-no-standalone-form
+│ requestedPart     : actuator abs
+│ withheld reason   : understanding confidence below 0.6
+│ withheld reason   : deterministic check identity failed
+│ withheld reason   : identity: catalog designation does not contain "actuator"
+[04] ✘ Intent is not a refusal/error
+Expected: resolved parts intent
+Got     : SECURISATION
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 4444
+Got     : —
+[19] ✘ Product reference exact
+Expected: 56110M76M81
+Got     : —
+[20] ✘ French designation exact
+Expected: ACTUATEUR ABS
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: ACTUATEUR ABS
+Got     : —
+[22] ✘ OEM designation exact
+Expected: ACTUATOR S/ASSY,ABS
+Got     : —
+[23] ✘ Search description exact
+Expected: ACTUATEUR ABS ; ACTUATOR S/ASSY,ABS
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: ELECTRIQUE
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —

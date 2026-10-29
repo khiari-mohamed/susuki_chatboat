@@ -3,6 +3,7 @@ const path = require('path');
 const csv = require('csv-parser');
 const { PrismaClient } = require('@prisma/client');
 const { clean, cleanOrNull, canonicalize, numberOrNull } = require('./lib/data-hygiene');
+const { assertLegacyErpWritesEnabled } = require('./lib/legacy-erp-write-guard');
 
 const prisma = new PrismaClient();
 const csvPath = path.resolve(process.argv.find((arg) => arg.endsWith('.csv')) || 'C:/Users/LENOVO/Downloads/Base_Articles_CPP_080926.csv');
@@ -73,8 +74,8 @@ function mapRow(row) {
       stockDisponible,
       stockConsolide,
       // Business rule (confirmed with client 2026-07-07): sellable
-      // only when stock_consolide > 2.
-      statut: stockConsolide > 2 ? 'Disponible' : 'Indisponible',
+      // only when stock_consolide >= 2.
+      statut: stockConsolide >= 2 ? 'Disponible' : 'Indisponible',
     },
     // Pre-flight anomaly flags — never block the sync, always reported
     // in the dry-run summary so a human decides what to do about them.
@@ -136,8 +137,8 @@ async function main() {
     newStockRows: mappedRows.filter((row) => !stocksByReference.has(row.reference)).length,
     partsChanged: 0,
     stockChanged: 0,
-    stockAvailableAfterSync: mappedRows.filter((row) => row.stock.stockConsolide > 2).length,
-    stockUnavailableAfterSync: mappedRows.filter((row) => row.stock.stockConsolide <= 2).length,
+    stockAvailableAfterSync: mappedRows.filter((row) => row.stock.stockConsolide >= 2).length,
+    stockUnavailableAfterSync: mappedRows.filter((row) => row.stock.stockConsolide < 2).length,
     designationFallbacks: 0,
     // ── new, actionable visibility ──
     dbPartsNotMentionedInThisCsv: dbPartsNotInCsv,
@@ -196,6 +197,7 @@ async function main() {
     console.log('Dry-run only. No database changes were made. Use --apply after reviewing this summary.');
     return;
   }
+  assertLegacyErpWritesEnabled();
 
   const backupPath = writeBackup(changedPartSnapshots, changedStockSnapshots);
   let partsUpserted = 0;

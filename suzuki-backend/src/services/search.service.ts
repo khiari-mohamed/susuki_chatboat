@@ -1,95 +1,81 @@
-import { Injectable } from '@nestjs/common';
-import { AdvancedSearchService } from '../chat/advanced-search.service';
+import { Injectable, Logger } from '@nestjs/common';
+import { AdvancedSearchService, extractReferenceCandidate } from '../chat/advanced-search.service';
+import type { VehicleSearchScope } from '../chat/advanced-search.service';
 import { SearchValidatorService } from './search-validator.service';
-import { StrictValidatorService } from '../chat/strict-validator.service';
+import { isQuantityAvailable } from '../constants/business-rules.constants';
 import type { ConstraintOutcome } from '../chat/part-constraints';
+
+const QUERY_LOG_LIMIT = 120;
 
 @Injectable()
 export class SearchService {
+  private readonly logger = new Logger(SearchService.name);
+
   constructor(
-    private advancedSearch: AdvancedSearchService,
-    private validator: SearchValidatorService,
-    private strictValidator: StrictValidatorService,
+    private readonly advancedSearch: AdvancedSearchService,
+    private readonly validator: SearchValidatorService,
   ) {}
 
   async search(query: string, vehicle?: any): Promise<any[]> {
     return (await this.searchWithDiagnostics(query, vehicle)).products;
   }
 
-  // Same as search(), plus what the identity/position gate did — lets the
-  // orchestrator say "no exact match, this part only exists in AV / AR"
-  // instead of a generic "Indisponible".
+  /**
+   * Same as search(), plus what the identity/position gate did, so the
+   * orchestrator can say "this part only exists in AV / AR" instead of a
+   * generic "Indisponible". Products are candidates only: acceptance is
+   * decided later by the catalog verifier and the AdaptiveDecisionEngine.
+   */
   async searchWithDiagnostics(
     query: string,
     vehicle?: any,
-  ): Promise<{ products: any[]; constraint: ConstraintOutcome | null }> {
-    console.log(`🔍 SearchService.search called with: "${query}"`);
-    const { results: products, constraint } = await this.advancedSearch.searchPartsDetailed(query, vehicle);
-    console.log(`📦 Found ${products.length} products`);
+    options: { validate?: boolean } = {},
+  ): Promise<{
+    products: any[];
+    constraint: ConstraintOutcome | null;
+    scope: VehicleSearchScope | null;
+    truncated: boolean;
+  }> {
+    const { results, constraint, scope, truncated } = await this.advancedSearch.searchPartsDetailed(query, vehicle);
+    this.logger.debug(
+      `"${query.slice(0, QUERY_LOG_LIMIT)}" → ${results.length} candidate(s)${truncated ? ' (truncated)' : ''}`,
+    );
 
-    // ── STRICT VALIDATION ──────────────────────────────────────
-    const validated = this.strictValidator.validateResults(products, query, { vehicle });
-    if (validated.length < products.length) {
-      console.log(`[STRICT] Filtered out ${products.length - validated.length} invalid parts for: "${query}"`);
-    }
-    // ───────────────────────────────────────────────────────────
-    
-    console.log(`🧪 Calling validator...`);
-    this.validator.validateSearch(query, validated, vehicle).catch(err => {
-      console.error('❌ Validation error:', err);
-    });
-    
-    return { products: this.filterAvailable(validated), constraint };
+    if (options.validate !== false) this.validateInBackground(query, results, vehicle);
+    return { products: this.annotateAvailability(results), constraint, scope, truncated };
   }
 
+  /** One extractor for detection and extraction, shared with the search engine. */
   isReferenceQuery(message: string): boolean {
-    const trimmed = message.trim();
-    if (trimmed.length < 6) return false;
-    const tunisianWords = ['nchri', 'n7eb', 'famma', 'chouf', 'barcha', 'mte3', 'w'];
-    if (tunisianWords.some(w => trimmed.toLowerCase().includes(w))) return false;
-    if (trimmed.toLowerCase().startsWith('référence') || trimmed.toLowerCase().startsWith('reference')) {
-      const refMatch = trimmed.match(/ref[eé]rence[\s:]*([a-z0-9-]{5,})/i);
-      if (refMatch && refMatch[1]) {
-        const ref = refMatch[1];
-        if (/[a-z]/i.test(ref) && /[0-9]/.test(ref)) return true;
-      }
-    }
-    const standaloneMatch = trimmed.match(/^\s*([a-z0-9-]{6,})\s*$/i);
-    if (standaloneMatch) {
-      const ref = standaloneMatch[1];
-      if (/[a-z]/i.test(ref) && /[0-9]/.test(ref)) return true;
-    }
-    const anywhereMatch = trimmed.match(/\b([a-z0-9]{8,}(?:-[a-z0-9]+)*)\b/i);
-    if (anywhereMatch) {
-      const ref = anywhereMatch[1];
-      if (/[a-z]/i.test(ref) && /[0-9]/.test(ref)) return true;
-    }
-    return false;
+    return extractReferenceCandidate(message) !== null;
   }
 
   extractReference(message: string): string {
-    const refKeywordMatch = message.match(/ref[eé]rence[\s:]*([a-z0-9-]{5,})/i);
-    if (refKeywordMatch) return refKeywordMatch[1];
-    const standaloneMatch = message.match(/\b([a-z0-9]{5,}(?:-[a-z0-9]+)*)\b/i);
-    if (standaloneMatch) return standaloneMatch[1];
-    return message.trim();
+    return extractReferenceCandidate(message) ?? message.trim();
   }
 
-  private filterAvailable(products: any[]): any[] {
-    if (!Array.isArray(products)) return [];
-    return products.map(p => {
-      const stockConsolide = Number(
-        p.stock?.stockConsolide ?? p.stock?.stock_consolide ?? 0,
-      );
-      const statut: string = stockConsolide >= 2 ? 'Disponible' : 'Indisponible';
-      // Prisma Int id is safe; guard BigInt just in case
-      const safeId = typeof p.id === 'bigint' ? p.id.toString() : p.id;
+  /** Fire-and-forget quality check; it must never fail or slow the search. */
+  private validateInBackground(query: string, products: any[], vehicle: any): void {
+    try {
+      Promise.resolve(this.validator.validateSearch(query, products, vehicle)).catch((err) => {
+        this.logger.warn(`Search validation failed: ${err?.message ?? err}`);
+      });
+    } catch (err: any) {
+      this.logger.warn(`Search validation could not start: ${err?.message ?? err}`);
+    }
+  }
 
+  /** Adds the availability label (never the quantity) using the shared stock rule. */
+  private annotateAvailability(products: any[]): any[] {
+    if (!Array.isArray(products)) return [];
+    return products.map((product) => {
+      const available = isQuantityAvailable(product.stock?.stockConsolide ?? product.stock?.stock_consolide);
       return {
-        ...p,
-        id: safeId,
-        stockStatut: statut,          // expose the label, never the quantity
-        available: stockConsolide >= 2,
+        ...product,
+        // Prisma Int ids are safe; guard BigInt for serialization.
+        id: typeof product.id === 'bigint' ? product.id.toString() : product.id,
+        stockStatut: available ? 'Disponible' : 'Indisponible',
+        available,
       };
     });
   }

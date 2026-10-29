@@ -1,340 +1,188 @@
-// src/services/response.service.ts
 // ═══════════════════════════════════════════════════════════════════
-// FIXES APPLIED (2026-06-25) aligned with advanced-search.service.ts:
-//
-// FIX-1: getDisplayName() helper — every place that previously used
-//         p.designation (English OEM) now calls getDisplayName(p)
-//         which returns designation_2 (French) when available, with
-//         designation as the automatic fallback. The user always sees
-//         the French name in formatted responses.
-//
-// FIX-2: getPrice() helper — safely coerces prixHt from string,
-//         number, or Decimal to a formatted TND string. Previously
-//         Number(p.prixHt).toFixed(3) threw when prixHt was already
-//         a string returned by mapProductForResponse().
-//
-// FIX-3: buildProductResponse() and all list-building methods now
-//         show source label ("CarPro Parts" vs "Suzuki OEM") when
-//         the product comes from source 02_CARPRO, so users can see
-//         which supplier the part comes from.
-//
-// FIX-4: buildReferenceResponse() uses displayName and shows both
-//         the French name and reference clearly.
-//
-// FIX-5: buildPriceResponse() uses displayName and getPrice() for
-//         consistent formatting.
-//
-// FIX-6 (2026-09-20, email CarPro 2026-09-18 — "sécurisation des
-//         réponses"): the phone number changed from 70 603 500 to
-//         70 603 518 – 70 603 519, and the client gave an exact,
-//         official sentence for the specific case where the bot
-//         cannot confidently confirm a part/availability:
-//         "Veuillez contacter Car Pro – Comptoir Pièces de Rechange,
-//          Tél N° 70 603 518 – 70 603 519."
-//         That exact wording is now used ONLY where the bot is
-//         genuinely uncertain (no confident match, reference not
-//         found, no exact position match, filtered-to-nothing).
-//         Confident results (a part WAS found and priced/available)
-//         keep their original "contact to reserve" framing, just with
-//         the corrected number and the counter named explicitly —
-//         those aren't sécurisation cases, they're a normal next step.
-//         General, non-parts-identification messages (complaints,
-//         business-hours questions, technical/mechanical diagnosis
-//         redirects, generic system errors) also just get the number
-//         corrected, since the client did not indicate a separate line
-//         for those and leaving the old number there would be worse.
-//
-// FIX-7 (2026-09-25, email CarPro — formal 4-condition "sécurisation"
-//         gate): buildSecurisationResponse() is the message used when
-//         chat/confidence-gate.ts decides a confident answer cannot be
-//         given — compatibility unconfirmed, VIN→model code missing,
-//         the request/part not reliably understood, or the proposed
-//         reference inconsistent with the vehicle. Unlike
-//         buildNoResultsResponse()/buildNoExactMatchResponse(), this
-//         can fire even when products WERE found — the rule is about
-//         confidence, not result count.
+// Customer-facing texts. Business rules (CarPro emails 2026-09-11/18):
+//   - public price (prix_ttc), never the wholesale price
+//   - available when consolidated stock >= 2 (shared rule from the verifier)
+//   - when a part cannot be confirmed: no guess, the exact sentence below
 // ═══════════════════════════════════════════════════════════════════
 
 import { Injectable } from '@nestjs/common';
+import { COMPTOIR_PR_PHONES, COMPTOIR_REDIRECT_MESSAGE, hasKnownStock } from '../constants/business-rules.constants';
+import { publicPrice, stockIsAvailable } from '../chat/catalog-verifier';
 import { formatCodeLabel, formatPositionLabel } from '../chat/part-constraints';
 import type { ConstraintOutcome } from '../chat/part-constraints';
 
+// Re-exported so existing imports keep working; the values live in one place.
+export const PR_COUNTER_PHONE = COMPTOIR_PR_PHONES;
+export const SECURISATION_MESSAGE = COMPTOIR_REDIRECT_MESSAGE;
+
+const RESPONSE_PRODUCT_LIMIT = 1;
+const CONTACT_LINE = `💡 ${SECURISATION_MESSAGE}`;
+const RESERVE_LINE = `💡 Contactez le Comptoir Pièces de Rechange CarPro au ☎️ ${PR_COUNTER_PHONE} pour réserver.`;
+
 @Injectable()
 export class ResponseService {
-  private static readonly RESPONSE_PRODUCT_LIMIT = 1;
-
-  // FIX-6: single source of truth for both phrasings, so the number
-  // is never typed out inconsistently again.
-  private static readonly PR_COUNTER_PHONE = '70 603 518 – 70 603 519';
-  private static readonly SECURISATION_MESSAGE =
-    `💡 Veuillez contacter Car Pro – Comptoir Pièces de Rechange, Tél N° ${ResponseService.PR_COUNTER_PHONE}.`;
-
-  // ─────────────────────────────────────────────────────────────────
-  // FIX-1: Always return French name (designation_2) first
-  // ─────────────────────────────────────────────────────────────────
-  private getDisplayName(p: any): string {
-    // After mapProductForResponse() in orchestrator, displayName is already set.
-    // Handle both pre-mapped and raw Prisma rows.
-    if (p.displayName && p.displayName.trim().length > 0) return p.displayName.trim();
-    const french  = (p.designation2 ?? p.designation_2 ?? '').trim();
-    const english = (p.designation ?? '').trim();
-    return french.length > 0 ? french : english;
+  // ─── helpers ────────────────────────────────────────────────────
+  /** French name first (already mapped rows carry displayName), English OEM name as last resort. */
+  private getDisplayName(product: any): string {
+    if (product.displayName && product.displayName.trim().length > 0) return product.displayName.trim();
+    const french = (product.designation2 ?? product.designation_2 ?? '').trim();
+    return french.length > 0 ? french : (product.designation ?? '').trim();
   }
 
-  // ─────────────────────────────────────────────────────────────────
-  // FIX-2: Safe price formatter — handles string, number, or Decimal
-  // ─────────────────────────────────────────────────────────────────
-  private getPrice(p: any): string | null {
-    // BUSINESS RULE (email CarPro 2026-09-13): "utilisation du prix
-    // public Car Pro et non du prix gros Car Pro Parts" — prix_ttc is
-    // the public/customer-facing price (all taxes included), prix_ht
-    // is the wholesale/pre-tax price. FIX: no longer falls back to
-    // prixHt when prixTtc is missing — showing the wholesale price to
-    // a customer would violate this rule even as a rare fallback (only
-    // ~5% of parts lack prix_ttc). Missing price now just shows no
-    // price rather than silently substituting the wrong one.
-    const raw = p.prixTtc ?? p.prix_ttc ?? null;
-    if (raw == null) return null;
-    const num = typeof raw === 'string' ? parseFloat(raw) : Number(raw);
-    if (isNaN(num)) return null;
-    return `${num.toFixed(3)} TND`;
+  /** Public price only: a missing prix_ttc shows no price rather than the wholesale one. */
+  private getPrice(product: any): string | null {
+    const value = publicPrice(product);
+    return value === null ? null : `${value.toFixed(3)} TND`;
   }
 
-  // FIX-3: Source label for CarPro Parts
-  private getSourceSuffix(p: any): string {
-    const source = p.source ?? p.sourceLabel ?? '';
-    if (source === '02_CARPRO' || source === 'CarPro Parts') return ' [CarPro]';
-    return '';
+  private getSourceSuffix(product: any): string {
+    const source = product.source ?? product.sourceLabel ?? '';
+    return source === '02_CARPRO' || source === 'CarPro Parts' ? ' [CarPro]' : '';
+  }
+
+  private vehicleSuffix(vehicle: any): string {
+    if (!vehicle?.modele) return '';
+    return ` pour votre ${[vehicle.marque, vehicle.modele].filter(Boolean).join(' ')}`;
   }
 
   private dedupeProductsByReference(products: any[]): any[] {
     const seen = new Set<string>();
-    return products.filter((p) => {
-      const ref = (p.reference ?? '').toString().trim();
-      if (!ref) return true;
-      if (seen.has(ref)) return false;
-      seen.add(ref);
+    return products.filter((product) => {
+      const reference = (product.reference ?? '').toString().trim();
+      if (!reference) return true;
+      if (seen.has(reference)) return false;
+      seen.add(reference);
       return true;
     });
   }
 
-  private isAvailable(p: any): boolean {
-    const stock = p?.stock ?? {};
-    const consolidated = stock.stockConsolide ?? stock.stock_consolide ?? p?.stockConsolide ?? p?.stock_consolide;
-    // BUSINESS RULE (email CarPro 2026-09-13): "Stock supérieur ou égal
-    // à 2" — was `> 2` (strict), corrected to `>= 2` to match exactly
-    // what was confirmed in writing. Fixed consistently everywhere this
-    // threshold appears (chat-orchestrator, search.service,
-    // advanced-search.service, chat.controller, here).
-    if (consolidated !== undefined && consolidated !== null) {
-      return Number(consolidated) >= 2;
-    }
-    return false;
+  private availableList(products: any[]): string {
+    return this.dedupeProductsByReference(products.filter((product) => stockIsAvailable(product)))
+      .slice(0, RESPONSE_PRODUCT_LIMIT)
+      .map((product) => `• ${this.getDisplayName(product)}${this.getSourceSuffix(product)} — ${this.getPrice(product) ?? 'prix non communiqué'}`)
+      .join('\n');
   }
 
+  /** In stock first, then the most relevant row. */
   selectPrimaryProduct(products: any[]): any | null {
     if (!Array.isArray(products) || products.length === 0) return null;
-
-    const available = products.filter(
-      (p) => this.isAvailable(p),
-    );
-
-    if (available.length > 0) {
-      return this.dedupeProductsByReference(available)[0] ?? null;
-    }
-
-    const unavailable = products.filter((p) => !this.isAvailable(p));
-    if (unavailable.length === 0) {
-      return products[0] ?? null;
-    }
-
-    const sorted = [...unavailable].sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
-    return this.dedupeProductsByReference(sorted)[0] ?? null;
+    const unique = this.dedupeProductsByReference(products);
+    const available = unique.filter((product) => stockIsAvailable(product));
+    if (available.length > 0) return available[0];
+    return [...unique].sort((a, b) => (b.score ?? 0) - (a.score ?? 0))[0] ?? null;
   }
 
-  // ─────────────────────────────────────────────────────────────────
-  // FIX-1 + FIX-2 + FIX-3: buildProductResponse
-  // ─────────────────────────────────────────────────────────────────
-  buildProductResponse(products: any[], query: string, vehicle: any): string {
-    const vehicleInfo = vehicle?.modele
-      ? ` pour votre ${vehicle.marque} ${vehicle.modele}`
-      : '';
-
-    // BUGFIX-1: stock may be null for parts missing a stock row.
-    // Treat null stock as Indisponible (safe default, matches DB behaviour).
-    const available = products.filter(
-      (p) => this.isAvailable(p),
-    );
-    const unavailable = products.filter(
-      (p) => !this.isAvailable(p),
-    );
-
-    if (available.length > 0) {
-      const uniqueAvailable = this.dedupeProductsByReference(available);
-      const list = uniqueAvailable
-        .slice(0, ResponseService.RESPONSE_PRODUCT_LIMIT)
-        .map((p) => {
-          const name   = this.getDisplayName(p);
-          const price  = this.getPrice(p);
-          const source = this.getSourceSuffix(p);
-          return `• ${name}${source} — ${price ?? 'prix non communiqué'}`;
-        })
-        .join('\n');
-      return (
-        `Pièces disponibles${vehicleInfo} :\n\n` +
-        `${list}\n\n` +
-        `💡 Contactez le Comptoir Pièces de Rechange CarPro au ☎️ ${ResponseService.PR_COUNTER_PHONE} pour réserver.`
-      );
-    }
-
-    if (unavailable.length > 0) {
-      // BUGFIX: show the most relevant unavailable part (highest score, or first)
-      // Previously dedupeProductsByReference could surface a low-score part first.
-      const sorted = [...unavailable].sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
-      const uniqueUnavailable = this.dedupeProductsByReference(sorted);
-      const list = uniqueUnavailable
-        .slice(0, ResponseService.RESPONSE_PRODUCT_LIMIT)
-        .map((p) => {
-          const name   = this.getDisplayName(p);
-          const source = this.getSourceSuffix(p);
-          return `• ${name}${source} — Indisponible`;
-        })
-        .join('\n');
-      return (
-        `Pièces trouvées${vehicleInfo} :\n\n` +
-        `${list}\n\n` +
-        `💡 Contactez le Comptoir Pièces de Rechange CarPro au ☎️ ${ResponseService.PR_COUNTER_PHONE} pour vérifier les délais.`
-      );
-    }
-
-    // BUSINESS RULE (email CarPro 2026-09-18): "sécurisation des
-    // réponses" — nothing confidently found, official wording verbatim.
-    return `Indisponible${vehicleInfo}.\n\n${ResponseService.SECURISATION_MESSAGE}`;
+  /** No consolidated stock value: availability cannot be stated either way. */
+  private stockUnknown(product: any): boolean {
+    return !hasKnownStock(product?.stock);
   }
 
-  // ─────────────────────────────────────────────────────────────────
-  // FIX-5: buildPriceResponse
-  // ─────────────────────────────────────────────────────────────────
-  buildPriceResponse(
-    products: any[],
-    query: string,
-    vehicle: any,
-    lastTopic: string,
-  ): string {
-    const vehicleInfo = vehicle?.modele
-      ? ` pour votre ${vehicle.marque} ${vehicle.modele}`
-      : '';
+  /** Unknown stock: no "Indisponible", no guess, exact Comptoir sentence. */
+  buildUnknownStockResponse(vehicle?: any): string {
+    return `Je ne peux pas confirmer la disponibilité de cette pièce${this.vehicleSuffix(vehicle)}.\n\n${CONTACT_LINE}`;
+  }
 
-    const available = products.filter(
-      (p) => this.isAvailable(p),
-    );
+  // ─── product answers ────────────────────────────────────────────
+  buildProductResponse(products: any[], vehicle: any): string {
+    const primary = this.selectPrimaryProduct(products);
+    if (!primary) return this.buildNoResultsResponse(vehicle);
+    if (this.stockUnknown(primary)) return this.buildUnknownStockResponse(vehicle);
 
-    if (available.length === 0) {
-      const anyProduct = products[0];
-      if (anyProduct) {
-        const name = this.getDisplayName(anyProduct);
-        return (
-          `${name}${vehicleInfo}\n` +
-          `Statut: Indisponible — prix non communiqué.\n\n` +
-          `${ResponseService.SECURISATION_MESSAGE}`
-        );
-      }
-      return `Indisponible${vehicleInfo}.\n\n${ResponseService.SECURISATION_MESSAGE}`;
+    const suffix = this.vehicleSuffix(vehicle);
+    if (stockIsAvailable(primary)) {
+      return `Pièces disponibles${suffix} :\n\n${this.availableList([primary])}\n\nStatut: Disponible\n\n${RESERVE_LINE}`;
     }
-
-    const uniqueAvailable = this.dedupeProductsByReference(available);
-    const list = uniqueAvailable
-      .slice(0, ResponseService.RESPONSE_PRODUCT_LIMIT)
-      .map((p) => {
-        const name   = this.getDisplayName(p);
-        const price  = this.getPrice(p);
-        const source = this.getSourceSuffix(p);
-        return `• ${name}${source} — ${price ?? 'prix non communiqué'}`;
-      })
-      .join('\n');
-
     return (
-      `Prix${vehicleInfo} :\n\n` +
-      `${list}\n\n` +
-      `💡 Contactez le Comptoir Pièces de Rechange CarPro au ☎️ ${ResponseService.PR_COUNTER_PHONE} pour réserver.`
+      `Pièces trouvées${suffix} :\n\n` +
+      `• ${this.getDisplayName(primary)}${this.getSourceSuffix(primary)} — Indisponible\n\n` +
+      `💡 Contactez le Comptoir Pièces de Rechange CarPro au ☎️ ${PR_COUNTER_PHONE} pour vérifier les délais.`
     );
   }
 
-  // ─────────────────────────────────────────────────────────────────
-  // FIX-4: buildReferenceResponse — French name + source label
-  // ─────────────────────────────────────────────────────────────────
+  buildPriceResponse(products: any[], vehicle: any): string {
+    const suffix = this.vehicleSuffix(vehicle);
+    const primary = this.selectPrimaryProduct(products);
+    if (!primary) return this.buildNoResultsResponse(vehicle);
+    if (this.stockUnknown(primary)) return this.buildUnknownStockResponse(vehicle);
+    if (!stockIsAvailable(primary)) {
+      return `${this.getDisplayName(primary)}${suffix}\nStatut: Indisponible — prix non communiqué.\n\n${CONTACT_LINE}`;
+    }
+    return `Prix${suffix} :\n\n${this.availableList([primary])}\n\nStatut: Disponible\n\n${RESERVE_LINE}`;
+  }
+
+  buildFilteredResponse(products: any[], vehicle: any): string {
+    const suffix = this.vehicleSuffix(vehicle);
+    if (!products.some((product) => stockIsAvailable(product))) {
+      return `Aucun résultat disponible avec les filtres appliqués${suffix}.\n\n${CONTACT_LINE}`;
+    }
+    return `Résultats filtrés${suffix} :\n\n${this.availableList(products)}\n\n${RESERVE_LINE}`;
+  }
+
+  buildStockCheckResponse(partLabel: string, product: any, vehicle: any): string {
+    if (this.stockUnknown(product)) return this.buildUnknownStockResponse(vehicle);
+    const suffix = this.vehicleSuffix(vehicle);
+    if (stockIsAvailable(product)) {
+      return (
+        `Oui, ${partLabel} est disponible${suffix}.\n\n` +
+        `Produit disponible :\n${this.availableList([product])}\n\n` +
+        `💡 Contactez le Comptoir Pièces de Rechange CarPro au ☎️ ${PR_COUNTER_PHONE} pour réserver.`
+      );
+    }
+    return `Désolé, ${partLabel} n'est pas disponible actuellement${suffix}.\n\n${CONTACT_LINE}`;
+  }
+
   buildReferenceResponse(reference: string, product: any, vehicle: any): string {
-    const vehicleInfo  = vehicle?.modele
-      ? ` pour votre ${vehicle.marque} ${vehicle.modele}`
-      : '';
-    const isAvailable  = this.isAvailable(product);
-    const price        = isAvailable ? this.getPrice(product) : null;
-    const name         = this.getDisplayName(product);       // FIX-4: French first
-    const source       = this.getSourceSuffix(product);      // FIX-3: source label
-    const stockLine    = isAvailable ? 'Disponible' : 'Indisponible';
-    const priceLine    = price ? `\nPrix: ${price}` : '';
-
+    if (this.stockUnknown(product)) return this.buildUnknownStockResponse(vehicle);
+    const available = stockIsAvailable(product);
+    const price = available ? this.getPrice(product) : null;
     return (
-      `Bonjour! Référence trouvée${vehicleInfo} :\n\n` +
-      `• ${name}${source} (Réf: ${product.reference})${priceLine}\n` +
-      `Statut: ${stockLine}\n\n` +
-      `💡 Contactez le Comptoir Pièces de Rechange CarPro au ☎️ ${ResponseService.PR_COUNTER_PHONE} pour réserver.`
+      `Bonjour! Référence trouvée${this.vehicleSuffix(vehicle)} :\n\n` +
+      `• ${this.getDisplayName(product)}${this.getSourceSuffix(product)} (Réf: ${product.reference})${price ? `\nPrix: ${price}` : ''}\n` +
+      `Statut: ${available ? 'Disponible' : 'Indisponible'}\n\n` +
+      RESERVE_LINE
     );
   }
 
   buildReferenceNotFoundResponse(reference: string, vehicle?: any): string {
-    const vehicleInfo = vehicle?.modele
-      ? ` pour votre ${vehicle.marque} ${vehicle.modele}`
-      : '';
-    // BUSINESS RULE (email CarPro 2026-09-18): reference not found = the
-    // system cannot confirm identification → sécurisation wording.
     return (
-      `Bonjour! Aucun produit trouvé pour la référence "${reference}"${vehicleInfo}.\n\n` +
-      `💡 Vérifiez l'orthographe ou veuillez contacter Car Pro – Comptoir Pièces de Rechange, Tél N° ${ResponseService.PR_COUNTER_PHONE}.`
+      `Bonjour! Aucun produit trouvé pour la référence "${reference}"${this.vehicleSuffix(vehicle)}.\n\n` +
+      `Vérifiez l'orthographe de la référence.\n\n${CONTACT_LINE}`
     );
   }
 
-  // ─────────────────────────────────────────────────────────────────
-  // buildFilteredResponse — FIX-1 applied
-  // ─────────────────────────────────────────────────────────────────
-  buildFilteredResponse(products: any[], query: string, vehicle: any): string {
-    const vehicleInfo = vehicle?.modele
-      ? ` pour votre ${vehicle.marque} ${vehicle.modele}`
-      : '';
+  // ─── cannot answer ──────────────────────────────────────────────
+  /** Nothing found: not proof of unavailability, so nothing is asserted. */
+  buildNoResultsResponse(vehicle: any): string {
+    return `Je n'ai trouvé aucune pièce correspondante${this.vehicleSuffix(vehicle)}.\n\n${CONTACT_LINE}`;
+  }
 
-    const available = products.filter(
-      (p) => this.isAvailable(p),
-    );
-
-    if (available.length === 0) {
-      return (
-        `Aucun résultat disponible avec les filtres appliqués${vehicleInfo}.\n\n` +
-        `${ResponseService.SECURISATION_MESSAGE}`
-      );
-    }
-
-    const uniqueAvailable = this.dedupeProductsByReference(available);
-    const list = uniqueAvailable
-      .slice(0, ResponseService.RESPONSE_PRODUCT_LIMIT)
-      .map((p) => {
-        const name   = this.getDisplayName(p);
-        const price  = this.getPrice(p);
-        const source = this.getSourceSuffix(p);
-        return `• ${name}${source} — ${price ?? 'prix non communiqué'}`;
-      })
-      .join('\n');
-
+  /**
+   * The requested part exists but not in the requested position. Existing
+   * positions are listed only when the part's identity was verified.
+   */
+  buildNoExactMatchResponse(constraint: ConstraintOutcome, vehicle: any): string {
+    const part = constraint.requestedPart ?? 'cette pièce';
+    const wanted = formatPositionLabel(constraint.requestedPositions);
+    const existing =
+      constraint.identityMode === 'strict-head' && constraint.availablePositions.length > 0
+        ? `Positions existantes pour cette pièce : ${constraint.availablePositions.map((code) => formatCodeLabel(code)).join(', ')}.\n\n`
+        : '';
     return (
-      `Résultats filtrés${vehicleInfo} :\n\n` +
-      `${list}\n\n` +
-      `💡 Contactez le Comptoir Pièces de Rechange CarPro au ☎️ ${ResponseService.PR_COUNTER_PHONE} pour réserver.`
+      `Je n'ai pas trouvé « ${part} » en position ${wanted}${this.vehicleSuffix(vehicle)}.\n\n` +
+      existing +
+      `💡 Précisez une position existante ou contactez le Comptoir Pièces de Rechange.\n${SECURISATION_MESSAGE}`
     );
   }
 
-  // ─────────────────────────────────────────────────────────────────
-  // Static responses — unchanged content, no product text involved
-  // ─────────────────────────────────────────────────────────────────
+  /**
+   * Used when the decision engine withholds an answer, even if candidates
+   * exist: the part may well be in stock, it just cannot be confirmed.
+   */
+  buildSecurisationResponse(vehicle?: any): string {
+    return `Je ne peux pas confirmer cette pièce avec un niveau de fiabilité suffisant${this.vehicleSuffix(vehicle)}.\n\n${CONTACT_LINE}`;
+  }
 
+  // ─── static texts ───────────────────────────────────────────────
   buildGreetingResponse(): string {
     return "Bonjour, comment puis-je vous aider aujourd'hui ?";
   }
@@ -346,7 +194,7 @@ export class ResponseService {
   buildComplaintResponse(): string {
     return (
       'Bonjour, je suis désolé pour ce désagrément. ' +
-      `Notre service client CarPro au ☎️ ${ResponseService.PR_COUNTER_PHONE} pourra vous aider à résoudre ce problème rapidement.`
+      `Notre service client CarPro au ☎️ ${PR_COUNTER_PHONE} pourra vous aider à résoudre ce problème rapidement.`
     );
   }
 
@@ -354,7 +202,7 @@ export class ResponseService {
     return (
       'Bonjour ! Je suis spécialisé dans les pièces automobiles Suzuki. ' +
       'Pour les questions sur les horaires, livraisons, garanties ou notre localisation, ' +
-      `veuillez contacter CarPro au ☎️ ${ResponseService.PR_COUNTER_PHONE}. ` +
+      `veuillez contacter CarPro au ☎️ ${PR_COUNTER_PHONE}. ` +
       'Comment puis-je vous aider avec des pièces ?'
     );
   }
@@ -362,76 +210,30 @@ export class ResponseService {
   buildDiagnosticRedirectResponse(): string {
     return (
       `Bonjour! Pour tout problème technique ou diagnostic, contactez directement notre équipe d'experts CarPro.\n\n` +
-      `☎️ Téléphone: ${ResponseService.PR_COUNTER_PHONE}\n` +
+      `☎️ Téléphone: ${PR_COUNTER_PHONE}\n` +
       `🔹 Service disponible 7j/7\n` +
       `🔹 Diagnostic professionnel sur place\n\n` +
       `Pour rechercher des pièces de rechange, je reste à votre disposition!`
     );
   }
 
-  buildErrorResponse(message: string): string {
+  /** `_reason` is accepted for existing callers; the customer never sees technical details. */
+  buildErrorResponse(_reason?: string): string {
     return (
       `Bonjour! Je rencontre une difficulté technique temporaire.\n\n` +
-      `💡 Contactez CarPro au ☎️ ${ResponseService.PR_COUNTER_PHONE} pour assistance immédiate.`
+      CONTACT_LINE
     );
   }
 
   buildNoContextFilterResponse(): string {
     return (
       `Aucune recherche précédente à filtrer. Veuillez d'abord rechercher une pièce.\n\n` +
-      `💡 Contactez CarPro au ☎️ ${ResponseService.PR_COUNTER_PHONE} pour assistance.`
+      CONTACT_LINE
     );
   }
 
-  buildNoResultsResponse(query: string, vehicle: any): string {
-    const vehicleInfo = vehicle?.modele
-      ? ` pour votre ${vehicle.marque} ${vehicle.modele}`
-      : '';
-    // BUSINESS RULE (email CarPro 2026-09-18): the canonical
-    // "sécurisation des réponses" case — official wording verbatim.
-    return `Indisponible${vehicleInfo}.\n\n${ResponseService.SECURISATION_MESSAGE}`;
-  }
-
-  // The customer asked for a part in a specific position and the catalog has
-  // no such row. Say so (and what DOES exist) instead of answering with a
-  // different part. The list of existing positions is only shown when the
-  // part's identity was verified (strict-head), otherwise it could mislead.
-  buildNoExactMatchResponse(constraint: ConstraintOutcome, vehicle: any): string {
-    const vehicleInfo = vehicle?.modele
-      ? ` pour votre ${vehicle.marque} ${vehicle.modele}`
-      : '';
-    const part   = constraint.requestedPart ?? 'cette pièce';
-    const wanted = formatPositionLabel(constraint.requestedPositions);
-    const existing =
-      constraint.identityMode === 'strict-head' && constraint.availablePositions.length > 0
-        ? `Positions existantes pour cette pièce : ${constraint.availablePositions
-            .map((code) => formatCodeLabel(code))
-            .join(', ')}.\n\n`
-        : '';
-    return (
-      `Je n'ai pas trouvé « ${part} » en position ${wanted}${vehicleInfo}.\n\n` +
-      existing +
-      `💡 Précisez une position existante ou contactez le Comptoir Pièces de Rechange CarPro au ☎️ ${ResponseService.PR_COUNTER_PHONE}.`
-    );
-  }
-
-  // ─────────────────────────────────────────────────────────────────
-  // FIX-7: buildSecurisationResponse — the confidence-gate redirect.
-  // Fires when chat/confidence-gate.ts decides at least one of the 4
-  // conditions (compatibility confirmed / model code present / request
-  // understood / need-vehicle-reference consistent) is not met, even
-  // if candidate products exist. Deliberately does not name the
-  // specific product or say "Indisponible" — the part may well be
-  // available, we just cannot confirm it well enough to say so.
-  // ─────────────────────────────────────────────────────────────────
-  buildSecurisationResponse(vehicle?: any): string {
-    const vehicleInfo = vehicle?.modele
-      ? ` pour votre ${vehicle.marque} ${vehicle.modele}`
-      : '';
-    return (
-      `Je ne peux pas confirmer cette pièce avec un niveau de fiabilité suffisant${vehicleInfo}.\n\n` +
-      `${ResponseService.SECURISATION_MESSAGE}`
-    );
+  buildTooBroadResponse(): string {
+    return 'Votre recherche correspond à de nombreuses références. Veuillez reformuler votre demande en ajoutant un mot distinctif (position, côté, version ou pièce concernée) afin de préciser la pièce recherchée.';
   }
 
   buildModelMismatchResponse(vehicleModel: string, requestedModel: string): string {

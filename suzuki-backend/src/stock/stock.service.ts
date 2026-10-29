@@ -1,259 +1,208 @@
-// src/stock/stock.service.ts
 // ═══════════════════════════════════════════════════════════════════
-// FIXES APPLIED (2026-06-25) aligned with advanced-search.service.ts:
+// Stock service: availability, quantities and display data per reference.
 //
-// FIX-1: getStockStatus() now joins the parts table to return
-//         displayName (designation_2 French first, designation fallback)
-//         alongside the status. Previously only reference + statut were
-//         returned, so callers had to do a second query to get the name.
+// Business rules (CarPro emails 2026-09-11/18):
+//   - a part is "Disponible" only when consolidated stock >= 2
+//     (rule lives in constants/business-rules.constants.ts)
+//   - the public price is prix_ttc of 01_PROD rows only; 02_CARPRO rows
+//     are wholesale and are never exposed as a price
+//   - missing consolidated stock is "Inconnue" and must be redirected
 //
-// FIX-2: getStockStatus() now returns totalQuantity so the frontend
-//         can show "Disponible (6 en stock)" instead of just "Disponible".
-//         Quantity is INCLUDED here because the controller decides
-//         whether to expose it — the controller keeps the "never expose
-//         raw quantities publicly" guard via its own response shaping.
-//
-// FIX-3: getBulkStockStatus() extended to also return totalQuantity
-//         and displayName so callers (e.g. search results) can enrich
-//         product lists without N+1 queries.
-//
-// FIX-4: getStockWithPart() new method — returns full part + stock
-//         joined row for the enriched /stock/:reference endpoint.
-//
-// ALL BUSINESS LOGIC PRESERVED:
-//   ✅ Indisponible as safe default for unknown references
-//   ✅ Never expose null to callers
-//   ✅ Bulk lookup with Map<reference, statut>
-//   ✅ PrismaService injected (not re-provided in module)
+// Lookups start from `parts`, not `stock`: parts without a stock row still
+// have a name and a price and must not be reported as unknown references.
+// Raw quantities are returned here for internal callers; the controller
+// decides what is exposed publicly.
 // ═══════════════════════════════════════════════════════════════════
 
 import { Injectable, Logger } from '@nestjs/common';
+import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  hasKnownStock,
+  isQuantityAvailable,
+  PUBLIC_PRICE_SOURCE,
+} from '../constants/business-rules.constants';
+
+export type StockAvailability = 'Disponible' | 'Indisponible' | 'Inconnue';
 
 export interface StockStatusResult {
-  reference:      string;
-  statut:         string;          // 'Disponible' | 'Indisponible'
-  totalQuantity:  number;          // FIX-2: quantity exposed to service layer
+  reference: string;
+  statut: StockAvailability;
+  totalQuantity: number;
   stockDisponible: number;
-  stockConsolide:  number;
-  // FIX-1: French name
-  displayName:    string;          // designation_2 (French) or designation fallback
-  designation:    string | null;   // raw English OEM name
-  designation2:   string | null;   // raw French name
-  // Source info
-  source:         string | null;
-  sourceLabel:    string | null;   // 'Suzuki OEM' | 'CarPro Parts'
-  // Pricing
-  prixHt:         string | null;
-  prixTtc:        string | null;
-  categorie:      string | null;
+  stockConsolide: number;
+  /** false = no stock row / no consolidated value: callers must redirect, not say "Indisponible". */
+  stockKnown: boolean;
+  /** designation_2 (French) first, English OEM designation as fallback, reference as last resort. */
+  displayName: string;
+  designation: string | null;
+  designation2: string | null;
+  source: string | null;
+  /** 'Suzuki OEM' | 'CarPro Parts' */
+  sourceLabel: string | null;
+  prixHt: string | null;
+  /** Public price only (01_PROD); null for wholesale rows. */
+  prixTtc: string | null;
+  categorie: string | null;
 }
 
 export interface BulkStockEntry {
-  statut:        string;
+  statut: StockAvailability;
   totalQuantity: number;
   stockDisponible: number;
-  stockConsolide:  number;
-  displayName:   string;
+  stockConsolide: number;
+  stockKnown: boolean;
+  displayName: string;
 }
+
+const PART_WITH_STOCK_SELECT = {
+  reference: true,
+  designation: true,
+  designation2: true,
+  prixHt: true,
+  prixTtc: true,
+  categorie: true,
+  source: true,
+  stock: {
+    select: {
+      totalQuantity: true,
+      stockDisponible: true,
+      stockConsolide: true,
+    },
+  },
+} as const;
+
+type PartWithStock = Prisma.PartGetPayload<{ select: typeof PART_WITH_STOCK_SELECT }>;
 
 @Injectable()
 export class StockService {
   private readonly logger = new Logger(StockService.name);
 
-  constructor(private prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) {}
 
-  // ─────────────────────────────────────────────────────────────────
-  // FIX-1 + FIX-2: getStockStatus — joins parts for name + quantity
-  // ─────────────────────────────────────────────────────────────────
+  /** Always returns a status; missing stock is explicitly marked unknown. */
   async getStockStatus(reference: string): Promise<StockStatusResult> {
-    // Single query: join stock → parts via shared reference key
-    const stock = await this.prisma.stock.findUnique({
-      where:  { reference },
-      select: {
-        reference:     true,
-        statut:        true,
-        totalQuantity: true,   // FIX-2
-        stockDisponible: true,
-        stockConsolide:  true,
-        part: {                // FIX-1: join to parts
-          select: {
-            designation:  true,
-            designation2: true,
-            prixHt:       true,
-            prixTtc:      true,
-            categorie:    true,
-            source:       true,
-          },
-        },
-      },
+    const part = await this.prisma.part.findUnique({
+      where: { reference },
+      select: PART_WITH_STOCK_SELECT,
     });
-
-    if (!stock) {
-      // Safe default — unknown reference
-      return {
-        reference,
-        statut:        'Indisponible',
-        totalQuantity: 0,
-        stockDisponible: 0,
-        stockConsolide:  0,
-        displayName:   reference,   // fallback: show reference as name
-        designation:   null,
-        designation2:  null,
-        source:        null,
-        sourceLabel:   null,
-        prixHt:        null,
-        prixTtc:       null,
-        categorie:     null,
-      };
+    if (!part) {
+      this.logger.debug(`Unknown reference requested: ${reference}`);
+      return this.unknownResult(reference);
     }
-
-    return this.buildResult(stock);
+    return this.buildResult(part);
   }
 
-  // ─────────────────────────────────────────────────────────────────
-  // FIX-3: getBulkStockStatus — returns quantity and displayName
-  // Returns Map<reference, BulkStockEntry> for richer callers,
-  // and keeps the old Map<reference, statut> shape via the
-  // getStatutMap() helper below for backward-compat callers.
-  // ─────────────────────────────────────────────────────────────────
-  async getBulkStockStatus(
-    references: string[],
-  ): Promise<Map<string, BulkStockEntry>> {
-    if (references.length === 0) return new Map();
-
-    const stocks = await this.prisma.stock.findMany({
-      where:  { reference: { in: references } },
-      select: {
-        reference:     true,
-        statut:        true,
-        totalQuantity: true,
-        stockDisponible: true,
-        stockConsolide:  true,
-        part: {
-          select: {
-            designation:  true,
-            designation2: true,
-            source:       true,
-          },
-        },
-      },
-    });
-
-    // Seed all requested references with safe defaults
-    const map = new Map<string, BulkStockEntry>(
-      references.map((r) => [
-        r,
-        {
-          statut: 'Indisponible',
-          totalQuantity: 0,
-          stockDisponible: 0,
-          stockConsolide: 0,
-          displayName: r,
-        },
-      ]),
-    );
-
-    for (const s of stocks) {
-      map.set(s.reference, {
-        statut:        this.resolveAvailabilityStatus(s),
-        totalQuantity: Number(s.totalQuantity ?? 0),
-        stockDisponible: Number(s.stockDisponible ?? 0),
-        stockConsolide:  Number(s.stockConsolide ?? s.totalQuantity ?? 0),
-        displayName:   this.resolveDisplayName(s.part),
-      });
-    }
-
-    return map;
-  }
-
-  // ─────────────────────────────────────────────────────────────────
-  // Backward-compat helper — returns Map<reference, statut> string
-  // so existing callers that only need statut don't break.
-  // ─────────────────────────────────────────────────────────────────
-  async getStatutMap(references: string[]): Promise<Map<string, string>> {
-    const bulk = await this.getBulkStockStatus(references);
-    const map  = new Map<string, string>();
-    for (const [ref, entry] of bulk.entries()) {
-      map.set(ref, entry.statut);
-    }
-    return map;
-  }
-
-  // ─────────────────────────────────────────────────────────────────
-  // FIX-4: getStockWithPart — full joined result for the enriched
-  //         controller endpoint
-  // ─────────────────────────────────────────────────────────────────
+  /** null when the part does not exist at all. */
   async getStockWithPart(reference: string): Promise<StockStatusResult | null> {
-    const stock = await this.prisma.stock.findUnique({
-      where:  { reference },
-      select: {
-        reference:     true,
-        statut:        true,
-        totalQuantity: true,
-        stockDisponible: true,
-        stockConsolide:  true,
-        part: {
-          select: {
-            designation:  true,
-            designation2: true,
-            prixHt:       true,
-            prixTtc:      true,
-            categorie:    true,
-            source:       true,
-          },
-        },
-      },
+    const part = await this.prisma.part.findUnique({
+      where: { reference },
+      select: PART_WITH_STOCK_SELECT,
+    });
+    return part ? this.buildResult(part) : null;
+  }
+
+  /**
+   * One query for many references (no N+1). References are trimmed, uppercased
+   * and deduplicated; every requested reference is present in the result,
+  * unknown ones with the safe "Inconnue" status.
+   */
+  async getBulkStockStatus(references: string[]): Promise<Map<string, BulkStockEntry>> {
+    const unique = [...new Set(references.map((ref) => ref.trim().toUpperCase()).filter(Boolean))];
+    if (unique.length === 0) return new Map();
+
+    const parts = await this.prisma.part.findMany({
+      where: { reference: { in: unique } },
+      select: PART_WITH_STOCK_SELECT,
     });
 
-    if (!stock) return null;
-    return this.buildResult(stock);
+    const entries = new Map<string, BulkStockEntry>(
+      unique.map((ref): [string, BulkStockEntry] => [ref, this.unknownEntry(ref)]),
+    );
+    for (const part of parts) {
+      entries.set(part.reference, this.toBulkEntry(this.buildResult(part)));
+    }
+
+    const unknown = unique.length - parts.length;
+    if (unknown > 0) this.logger.debug(`Bulk stock lookup: ${unknown}/${unique.length} unknown reference(s)`);
+    return entries;
   }
 
   // ─────────────────────────────────────────────────────────────────
-  // Private helpers
+  // Helpers
   // ─────────────────────────────────────────────────────────────────
 
-  private buildResult(stock: any): StockStatusResult {
-    const part        = stock.part;
-    const displayName = this.resolveDisplayName(part);
-    const sourceLabel = this.resolveSourceLabel(part?.source);
-
+  private buildResult(part: PartWithStock): StockStatusResult {
+    // Availability is decided by stock_consolide only (no fallback to total_quantity).
+    // A missing stock row is UNKNOWN (stockKnown=false), never a real zero.
+    const stockKnown = hasKnownStock(part.stock);
+    const stockConsolide = stockKnown ? Number(part.stock!.stockConsolide) : 0;
     return {
-      reference:     stock.reference,
-      statut:        this.resolveAvailabilityStatus(stock),
-      totalQuantity: Number(stock.totalQuantity ?? 0),
-      stockDisponible: Number(stock.stockDisponible ?? 0),
-      stockConsolide:  Number(stock.stockConsolide ?? stock.totalQuantity ?? 0),
-      displayName,
-      designation:   part?.designation   ?? null,
-      designation2:  part?.designation2  ?? null,
-      source:        part?.source        ?? null,
-      sourceLabel,
-      prixHt:        part?.prixHt  != null ? String(part.prixHt)  : null,
-      prixTtc:       part?.prixTtc != null ? String(part.prixTtc) : null,
-      categorie:     part?.categorie     ?? null,
+      stockKnown,
+      reference: part.reference,
+      statut: stockKnown ? this.availabilityOf(stockConsolide) : 'Inconnue',
+      totalQuantity: Number(part.stock?.totalQuantity ?? 0),
+      stockDisponible: Number(part.stock?.stockDisponible ?? 0),
+      stockConsolide,
+      displayName: this.resolveDisplayName(part) || part.reference,
+      designation: part.designation ?? null,
+      designation2: part.designation2 ?? null,
+      source: part.source ?? null,
+      sourceLabel: this.resolveSourceLabel(part.source),
+      prixHt: part.prixHt != null ? String(part.prixHt) : null,
+      prixTtc: part.source === PUBLIC_PRICE_SOURCE && part.prixTtc != null ? String(part.prixTtc) : null,
+      categorie: part.categorie ?? null,
     };
   }
 
-  // FIX-1: French name first — mirrors getDisplayName() pattern used
-  //         throughout the rest of the codebase
-  private resolveDisplayName(part: any): string {
-    if (!part) return '';
-    const french  = (part.designation2 ?? '').trim();
-    const english = (part.designation  ?? '').trim();
-    return french.length > 0 ? french : english;
+  private unknownResult(reference: string): StockStatusResult {
+    return {
+      reference,
+      statut: 'Inconnue',
+      totalQuantity: 0,
+      stockDisponible: 0,
+      stockConsolide: 0,
+      stockKnown: false,
+      displayName: reference,
+      designation: null,
+      designation2: null,
+      source: null,
+      sourceLabel: null,
+      prixHt: null,
+      prixTtc: null,
+      categorie: null,
+    };
+  }
+
+  private unknownEntry(reference: string): BulkStockEntry {
+    return this.toBulkEntry(this.unknownResult(reference));
+  }
+
+  private toBulkEntry(result: StockStatusResult): BulkStockEntry {
+    return {
+      statut: result.statut,
+      totalQuantity: result.totalQuantity,
+      stockDisponible: result.stockDisponible,
+      stockConsolide: result.stockConsolide,
+      stockKnown: result.stockKnown,
+      displayName: result.displayName,
+    };
+  }
+
+  /** French name first, English OEM name as fallback. */
+  private resolveDisplayName(part: Pick<PartWithStock, 'designation' | 'designation2'>): string {
+    const french = (part.designation2 ?? '').trim();
+    return french.length > 0 ? french : (part.designation ?? '').trim();
   }
 
   private resolveSourceLabel(source: string | null | undefined): string | null {
     if (!source) return null;
-    if (source === '01_PROD')   return 'Suzuki OEM';
+    if (source === '01_PROD') return 'Suzuki OEM';
     if (source === '02_CARPRO') return 'CarPro Parts';
     return source;
   }
 
-  private resolveAvailabilityStatus(stock: any): 'Disponible' | 'Indisponible' {
-    const consolidated = Number(stock?.stockConsolide ?? stock?.stock_consolide ?? 0);
-    return consolidated >= 2 ? 'Disponible' : 'Indisponible';
+  private availabilityOf(stockConsolide: number): StockAvailability {
+    return isQuantityAvailable(stockConsolide) ? 'Disponible' : 'Indisponible';
   }
 }

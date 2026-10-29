@@ -2,6 +2,8 @@ import {
   applyCatalogConstraints,
   buildIdentityKeys,
   buildRequestedPartTokens,
+  extractColorTokens,
+  extractNumericSpecifications,
   extractRequestedPositions,
   getCatalogPositions,
   keysMatch,
@@ -104,6 +106,22 @@ describe('identity + position gate', () => {
     ).toEqual(['amortisseur']);
   });
 
+  it('ignores color variants as identity while preserving meaningful part terms', () => {
+    expect(buildRequestedPartTokens('coussinet palier vilebrequin rouge violet'.split(/\s+/)))
+      .toEqual(['coussinet', 'palier', 'vilebrequin']);
+    expect(buildRequestedPartTokens('filtre a air noir'.split(/\s+/))).toEqual(['filtre', 'air']);
+  });
+
+  it('extracts normalized color variants for soft ranking', () => {
+    expect(extractColorTokens('ROUGE/VIOLET')).toEqual(['rouge', 'violet']);
+    expect(extractColorTokens('ROUGES/VIOLETS')).toEqual(['rouge', 'violet']);
+  });
+
+  it('extracts exact decimal specifications independent of comma or dot notation', () => {
+    expect(extractNumericSpecifications('Coussinet 0,25 rouge')).toEqual(['0.25']);
+    expect(extractNumericSpecifications('Coussinet 0.250')).toEqual(['0.25']);
+  });
+
   it('door: keeps the door in the requested position, drops lock/seal/handle', () => {
     const doors = [part('PORTE AV G'), part('PORTE AV D'), part('SERRURE PORTE AV G'), part('JOINT PORTE AV G')];
     expect(names(run('porte avant gauche', doors))).toEqual(['PORTE AV G']);
@@ -127,5 +145,58 @@ describe('identity + position gate', () => {
     });
     expect(r.outcome.applied).toBe(false);
     expect(r.kept).toHaveLength(bumpers.length);
+  });
+});
+
+describe('CarPro anomalies (2nd test session, 18/09/2026): identity gate', () => {
+  const v = { 'pare choc': ['pare choc'] };
+
+  it('anomaly 2: "pare choc avant" never returns a bumper grille', () => {
+    const catalog = [part('GRILLE PARE CHOC AV'), part('GRILLE DE PARE CHOC AV'), part('PARE CHOC AV')];
+    const r = run('pare choc avant', catalog, v);
+    expect(names(r)).toEqual(['PARE CHOC AV']);
+    expect(r.outcome.identityMode).toBe('strict-head');
+  });
+
+  it('anomaly 3: "filtre a air" never returns a cabin filter or an oil filter', () => {
+    const catalog = [part('FILTRE A AIR'), part("FILTRE D'AIR"), part('FILTRE HABITACLE'), part("FILTRE A HUILE")];
+    const r = run('filtre a air', catalog);
+    expect(names(r)).toEqual(['FILTRE A AIR', "FILTRE D'AIR"]);
+    expect(r.outcome.identityMode).toBe('strict-head');
+  });
+
+  it('anomaly 4: "vitre" never returns a window seal or a wiper-strip', () => {
+    const catalog = [
+      part('JOINT LECHE VITRE AV G'),
+      part('LECHEUR DE VITRE AV G'),
+      part('VITRE AV G'),
+      part('VITRE AR D'),
+    ];
+    expect(names(run('vitre', catalog))).toEqual(['VITRE AV G', 'VITRE AR D']);
+    expect(names(run('vitre avant gauche', catalog))).toEqual(['VITRE AV G']);
+  });
+});
+
+describe('position rule (CarPro 11/09): positions come from the catalog, never generated', () => {
+  it('hood: no position exists, so none is offered', () => {
+    const catalog = [part('CAPOT'), part('CHARNIERE CAPOT G'), part('SERRURE CAPOT')];
+    const r = run('capot', catalog);
+    expect(names(r)).toEqual(['CAPOT']);
+    expect(r.outcome.availablePositions).toEqual([]);
+    expect(r.outcome.noExactMatch).toBe(false);
+  });
+
+  it('hood hinge: only left/right exist', () => {
+    const catalog = [part('CHARNIERE CAPOT G'), part('CHARNIERE CAPOT D'), part('CAPOT')];
+    const r = run('charniere capot', catalog);
+    expect(names(r)).toEqual(['CHARNIERE CAPOT G', 'CHARNIERE CAPOT D']);
+    expect(r.outcome.availablePositions).toEqual(['G', 'D']);
+  });
+
+  it('hood with an invented position: no exact match, nothing proposed', () => {
+    const r = run('capot gauche', [part('CAPOT')]);
+    expect(r.kept).toHaveLength(0);
+    expect(r.outcome.noExactMatch).toBe(true);
+    expect(r.outcome.availablePositions).toEqual([]);
   });
 });

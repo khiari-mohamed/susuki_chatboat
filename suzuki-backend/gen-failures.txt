@@ -1,0 +1,3527 @@
+=== Case 19 (FAIL) variant=dialect part="PANNEAU INT AR AILE AR G"
+--- run 1
+│ intent            : PARTS_SEARCH
+│ originalQuery     : panneau int aile arriere gauche
+│ identityMode      : strict-head
+│ requestedPart     : panneau int aile
+[18] ✘ Product DB id exact
+Expected: 5098
+Got     : 5089
+[19] ✘ Product reference exact
+Expected: 63713M79M50
+Got     : 63710M79M50
+[20] ✘ French designation exact
+Expected: PANNEAU INT AR AILE AR G
+Got     : PANNEAU INT AV AILE AR G
+[21] ✘ Display name exact French designation
+Expected: PANNEAU INT AR AILE AR G
+Got     : PANNEAU INT AV AILE AR G
+[22] ✘ OEM designation exact
+Expected: PANEL,QTR INNER RR,L
+Got     : PANEL,QTR INNER FR,L
+[23] ✘ Search description exact
+Expected: PANNEAU INT AR AILE AR G ; PANEL,QTR INNER RR,L
+Got     : PANNEAU INT AV AILE AR G ; PANEL,QTR INNER FR,L
+[29] ✘ Public TTC exact DB value
+Expected: 99.43164
+Got     : 361.44108
+[30] ✘ Wholesale HT exact DB value
+Expected: 83.556
+Got     : 303.732
+[42] ✘ Product identification articleNumber exact
+Expected: 63713M79M50
+Got     : 63710M79M50
+[43] ✘ UI response contains the exact French designation
+Expected: PANNEAU INT AR AILE AR G
+Got     : false
+✘ FAIL — score 79% < 100% (10 check(s) failed)
+--- run 2
+│ intent            : PARTS_SEARCH
+│ originalQuery     : panneau int aile arriere gauche
+│ identityMode      : strict-head
+│ requestedPart     : panneau int aile
+[18] ✘ Product DB id exact
+Expected: 5098
+Got     : 5089
+[19] ✘ Product reference exact
+Expected: 63713M79M50
+Got     : 63710M79M50
+[20] ✘ French designation exact
+Expected: PANNEAU INT AR AILE AR G
+Got     : PANNEAU INT AV AILE AR G
+[21] ✘ Display name exact French designation
+Expected: PANNEAU INT AR AILE AR G
+Got     : PANNEAU INT AV AILE AR G
+[22] ✘ OEM designation exact
+Expected: PANEL,QTR INNER RR,L
+Got     : PANEL,QTR INNER FR,L
+[23] ✘ Search description exact
+Expected: PANNEAU INT AR AILE AR G ; PANEL,QTR INNER RR,L
+Got     : PANNEAU INT AV AILE AR G ; PANEL,QTR INNER FR,L
+[29] ✘ Public TTC exact DB value
+Expected: 99.43164
+Got     : 361.44108
+[30] ✘ Wholesale HT exact DB value
+Expected: 83.556
+Got     : 303.732
+[42] ✘ Product identification articleNumber exact
+Expected: 63713M79M50
+Got     : 63710M79M50
+[43] ✘ UI response contains the exact French designation
+Expected: PANNEAU INT AR AILE AR G
+Got     : false
+✘ FAIL — score 79% < 100% (10 check(s) failed)
+--- run 3
+│ intent            : PARTS_SEARCH
+│ originalQuery     : panneau int aile arriere gauche
+│ identityMode      : strict-head
+│ requestedPart     : panneau int aile
+[18] ✘ Product DB id exact
+Expected: 5098
+Got     : 5089
+[19] ✘ Product reference exact
+Expected: 63713M79M50
+Got     : 63710M79M50
+[20] ✘ French designation exact
+Expected: PANNEAU INT AR AILE AR G
+Got     : PANNEAU INT AV AILE AR G
+[21] ✘ Display name exact French designation
+Expected: PANNEAU INT AR AILE AR G
+Got     : PANNEAU INT AV AILE AR G
+[22] ✘ OEM designation exact
+Expected: PANEL,QTR INNER RR,L
+Got     : PANEL,QTR INNER FR,L
+[23] ✘ Search description exact
+Expected: PANNEAU INT AR AILE AR G ; PANEL,QTR INNER RR,L
+Got     : PANNEAU INT AV AILE AR G ; PANEL,QTR INNER FR,L
+[29] ✘ Public TTC exact DB value
+Expected: 99.43164
+Got     : 361.44108
+[30] ✘ Wholesale HT exact DB value
+Expected: 83.556
+Got     : 303.732
+[42] ✘ Product identification articleNumber exact
+Expected: 63713M79M50
+Got     : 63710M79M50
+[43] ✘ UI response contains the exact French designation
+Expected: PANNEAU INT AR AILE AR G
+Got     : false
+✘ FAIL — score 79% < 100% (10 check(s) failed)
+
+=== Case 23 (FAIL) variant=typo part="CANALISATION  D'AIR"
+--- run 1
+│ intent            : SECURISATION
+│ originalQuery     : bonjour vous avez canalisation air pour ma new swift
+│ identityMode      : strict-head
+│ requestedPart     : canalisation air
+[04] ✘ Intent is not a refusal/error
+Expected: resolved parts intent
+Got     : SECURISATION
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 6814
+Got     : —
+[19] ✘ Product reference exact
+Expected: 74662M56R10
+Got     : —
+[20] ✘ French designation exact
+Expected: CANALISATION  D'AIR
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: CANALISATION  D'AIR
+Got     : —
+[22] ✘ OEM designation exact
+Expected: DUCT,REAR VENT NO.2 LH
+Got     : —
+[23] ✘ Search description exact
+Expected: CANALISATION D'AIR ; DUCT,REAR VENT NO.2 LH
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: CARROSSERIE
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —
+[27] ✘ Supplier code exact
+Expected: CAR PRO PARTS
+Got     : —
+--- run 2
+│ intent            : SECURISATION
+│ originalQuery     : bonjour vous avez canalisation air pour ma new swift
+│ identityMode      : strict-head
+│ requestedPart     : canalisation air
+[04] ✘ Intent is not a refusal/error
+Expected: resolved parts intent
+Got     : SECURISATION
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 6814
+Got     : —
+[19] ✘ Product reference exact
+Expected: 74662M56R10
+Got     : —
+[20] ✘ French designation exact
+Expected: CANALISATION  D'AIR
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: CANALISATION  D'AIR
+Got     : —
+[22] ✘ OEM designation exact
+Expected: DUCT,REAR VENT NO.2 LH
+Got     : —
+[23] ✘ Search description exact
+Expected: CANALISATION D'AIR ; DUCT,REAR VENT NO.2 LH
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: CARROSSERIE
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —
+[27] ✘ Supplier code exact
+Expected: CAR PRO PARTS
+Got     : —
+--- run 3
+│ intent            : SECURISATION
+│ originalQuery     : bonjour vous avez canalisation air pour ma new swift
+│ identityMode      : strict-head
+│ requestedPart     : canalisation air
+[04] ✘ Intent is not a refusal/error
+Expected: resolved parts intent
+Got     : SECURISATION
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 6814
+Got     : —
+[19] ✘ Product reference exact
+Expected: 74662M56R10
+Got     : —
+[20] ✘ French designation exact
+Expected: CANALISATION  D'AIR
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: CANALISATION  D'AIR
+Got     : —
+[22] ✘ OEM designation exact
+Expected: DUCT,REAR VENT NO.2 LH
+Got     : —
+[23] ✘ Search description exact
+Expected: CANALISATION D'AIR ; DUCT,REAR VENT NO.2 LH
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: CARROSSERIE
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —
+[27] ✘ Supplier code exact
+Expected: CAR PRO PARTS
+Got     : —
+
+=== Case 25 (FAIL) variant=typo part="ENGRENAGE DIFFERENTIEL"
+--- run 1
+│ intent            : PARTS_SEARCH
+│ originalQuery     : Bonjour, vous avez ENGREAGE DIFFERENTIEL pour ma VITARA ?
+│ identityMode      : strict-head
+│ requestedPart     : differentiel
+[18] ✘ Product DB id exact
+Expected: 1926
+Got     : 1954
+[19] ✘ Product reference exact
+Expected: 27300-54P10-000
+Got     : 27450-57L00-000
+[20] ✘ French designation exact
+Expected: ENGRENAGE DIFFERENTIEL
+Got     : DIFFERENTIEL
+[21] ✘ Display name exact French designation
+Expected: ENGRENAGE DIFFERENTIEL
+Got     : DIFFERENTIEL
+[22] ✘ OEM designation exact
+Expected: GEAR ASSY,DIFFERENTIAL
+Got     : CARRIER ASSY,DIFF
+[23] ✘ Search description exact
+Expected: ENGRENAGE DIFFERENTIEL ; GEAR ASSY,DIFFERENTIAL
+Got     : DIFFERENTIEL ; CARRIER ASSY,DIFF
+[29] ✘ Public TTC exact DB value
+Expected: 11049.2809
+Got     : 1618.36196
+[30] ✘ Wholesale HT exact DB value
+Expected: 9285.11
+Got     : 1359.96803
+[31] ✘ Stock totalQuantity exact
+Expected: 0
+Got     : 1
+[33] ✘ Stock stockConsolide exact
+Expected: 0
+Got     : 1
+[35] ✘ Complete fitment rows exact
+Expected: APK416-TYPE1|APK416-TYPE1
+Got     : APK416-TYPE1|APK416-TYPE1,APQ415|APQ415-TYPE2
+[42] ✘ Product identification articleNumber exact
+Expected: 27300-54P10-000
+Got     : 27450-57L00-000
+--- run 2
+│ intent            : PARTS_SEARCH
+│ originalQuery     : Bonjour, vous avez ENGREAGE DIFFERENTIEL pour ma VITARA ?
+│ identityMode      : strict-head
+│ requestedPart     : differentiel
+[18] ✘ Product DB id exact
+Expected: 1926
+Got     : 1954
+[19] ✘ Product reference exact
+Expected: 27300-54P10-000
+Got     : 27450-57L00-000
+[20] ✘ French designation exact
+Expected: ENGRENAGE DIFFERENTIEL
+Got     : DIFFERENTIEL
+[21] ✘ Display name exact French designation
+Expected: ENGRENAGE DIFFERENTIEL
+Got     : DIFFERENTIEL
+[22] ✘ OEM designation exact
+Expected: GEAR ASSY,DIFFERENTIAL
+Got     : CARRIER ASSY,DIFF
+[23] ✘ Search description exact
+Expected: ENGRENAGE DIFFERENTIEL ; GEAR ASSY,DIFFERENTIAL
+Got     : DIFFERENTIEL ; CARRIER ASSY,DIFF
+[29] ✘ Public TTC exact DB value
+Expected: 11049.2809
+Got     : 1618.36196
+[30] ✘ Wholesale HT exact DB value
+Expected: 9285.11
+Got     : 1359.96803
+[31] ✘ Stock totalQuantity exact
+Expected: 0
+Got     : 1
+[33] ✘ Stock stockConsolide exact
+Expected: 0
+Got     : 1
+[35] ✘ Complete fitment rows exact
+Expected: APK416-TYPE1|APK416-TYPE1
+Got     : APK416-TYPE1|APK416-TYPE1,APQ415|APQ415-TYPE2
+[42] ✘ Product identification articleNumber exact
+Expected: 27300-54P10-000
+Got     : 27450-57L00-000
+--- run 3
+│ intent            : PARTS_SEARCH
+│ originalQuery     : Bonjour, vous avez ENGREAGE DIFFERENTIEL pour ma VITARA ?
+│ identityMode      : strict-head
+│ requestedPart     : differentiel
+[18] ✘ Product DB id exact
+Expected: 1926
+Got     : 1954
+[19] ✘ Product reference exact
+Expected: 27300-54P10-000
+Got     : 27450-57L00-000
+[20] ✘ French designation exact
+Expected: ENGRENAGE DIFFERENTIEL
+Got     : DIFFERENTIEL
+[21] ✘ Display name exact French designation
+Expected: ENGRENAGE DIFFERENTIEL
+Got     : DIFFERENTIEL
+[22] ✘ OEM designation exact
+Expected: GEAR ASSY,DIFFERENTIAL
+Got     : CARRIER ASSY,DIFF
+[23] ✘ Search description exact
+Expected: ENGRENAGE DIFFERENTIEL ; GEAR ASSY,DIFFERENTIAL
+Got     : DIFFERENTIEL ; CARRIER ASSY,DIFF
+[29] ✘ Public TTC exact DB value
+Expected: 11049.2809
+Got     : 1618.36196
+[30] ✘ Wholesale HT exact DB value
+Expected: 9285.11
+Got     : 1359.96803
+[31] ✘ Stock totalQuantity exact
+Expected: 0
+Got     : 1
+[33] ✘ Stock stockConsolide exact
+Expected: 0
+Got     : 1
+[35] ✘ Complete fitment rows exact
+Expected: APK416-TYPE1|APK416-TYPE1
+Got     : APK416-TYPE1|APK416-TYPE1,APQ415|APQ415-TYPE2
+[42] ✘ Product identification articleNumber exact
+Expected: 27300-54P10-000
+Got     : 27450-57L00-000
+
+=== Case 29 (FLAKY) variant=twoturn part="RESERVOIR HUILE FREIN"
+--- run 1
+│ intent            : PARTS_SEARCH
+│ originalQuery     : vous avez reservoir huile frein pour une ertiga
+│ identityMode      : strict-head
+│ requestedPart     : reservoir huile frein
+[18] ✘ Product DB id exact
+Expected: 4209
+Got     : 4208
+[19] ✘ Product reference exact
+Expected: 51200M72R70
+Got     : 51200M72R60
+[20] ✘ French designation exact
+Expected: RESERVOIR HUILE FREIN
+Got     : RESERVOIR HUILE DE FREIN
+[21] ✘ Display name exact French designation
+Expected: RESERVOIR HUILE FREIN
+Got     : RESERVOIR HUILE DE FREIN
+[23] ✘ Search description exact
+Expected: RESERVOIR HUILE FREIN ; RESERVOIR S/ASSY, OIL
+Got     : RESERVOIR HUILE DE FREIN ; RESERVOIR S/ASSY, OIL
+[25] ✘ Category exact
+Expected: PR
+Got     : MÉCANIQUE
+[29] ✘ Public TTC exact DB value
+Expected: 147.23756
+Got     : 158.59011
+[30] ✘ Wholesale HT exact DB value
+Expected: 123.72904
+Got     : 133.269
+[32] ✘ Stock stockDisponible exact
+Expected: 0
+Got     : 2
+[36] ✘ Alternate references exact
+Expected:
+Got     : 51200M72R60-000|3,51200M72R60|3
+[42] ✘ Product identification articleNumber exact
+Expected: 51200M72R70
+Got     : 51200M72R60
+[43] ✘ UI response contains the exact French designation
+Expected: RESERVOIR HUILE FREIN
+Got     : false
+--- run 3
+│ intent            : PARTS_SEARCH
+│ originalQuery     : vous avez reservoir huile frein pour une ertiga
+│ identityMode      : strict-head
+│ requestedPart     : reservoir huile frein
+[18] ✘ Product DB id exact
+Expected: 4209
+Got     : 4208
+[19] ✘ Product reference exact
+Expected: 51200M72R70
+Got     : 51200M72R60
+[20] ✘ French designation exact
+Expected: RESERVOIR HUILE FREIN
+Got     : RESERVOIR HUILE DE FREIN
+[21] ✘ Display name exact French designation
+Expected: RESERVOIR HUILE FREIN
+Got     : RESERVOIR HUILE DE FREIN
+[23] ✘ Search description exact
+Expected: RESERVOIR HUILE FREIN ; RESERVOIR S/ASSY, OIL
+Got     : RESERVOIR HUILE DE FREIN ; RESERVOIR S/ASSY, OIL
+[25] ✘ Category exact
+Expected: PR
+Got     : MÉCANIQUE
+[29] ✘ Public TTC exact DB value
+Expected: 147.23756
+Got     : 158.59011
+[30] ✘ Wholesale HT exact DB value
+Expected: 123.72904
+Got     : 133.269
+[32] ✘ Stock stockDisponible exact
+Expected: 0
+Got     : 2
+[36] ✘ Alternate references exact
+Expected:
+Got     : 51200M72R60-000|3,51200M72R60|3
+[42] ✘ Product identification articleNumber exact
+Expected: 51200M72R70
+Got     : 51200M72R60
+[43] ✘ UI response contains the exact French designation
+Expected: RESERVOIR HUILE FREIN
+Got     : false
+
+=== Case 33 (FAIL) variant=typo part="ÉGRATIGNER LE SEUIL AV G"
+--- run 1
+│ intent            : SECURISATION
+│ originalQuery     : Bonjour, vous avez ÉGRATGINER LE SEUIL AV G pour ma SPRESSO ?
+│ identityMode      : inactive-no-standalone-form
+│ requestedPart     : seuil
+│ withheld reason   : understanding confidence below 0.6
+│ withheld reason   : identity unverified by the catalog: redirect instead of guessing
+│ withheld reason   : identity: designation contains "avant" but not as its head noun
+[04] ✘ Intent is not a refusal/error
+Expected: resolved parts intent
+Got     : SECURISATION
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 6889
+Got     : —
+[19] ✘ Product reference exact
+Expected: 76161M62S00-5PK
+Got     : —
+[20] ✘ French designation exact
+Expected: ÉGRATIGNER LE SEUIL AV G
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: ÉGRATIGNER LE SEUIL AV G
+Got     : —
+[22] ✘ OEM designation exact
+Expected: SCUFF SIDE SILL FR LH (BLACK)
+Got     : —
+[23] ✘ Search description exact
+Expected: ÉGRATIGNER LE SEUIL AV G ; SCUFF SIDE SILL FR LH (BLACK)
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: PR
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —
+--- run 2
+│ intent            : SECURISATION
+│ originalQuery     : Bonjour, vous avez ÉGRATGINER LE SEUIL AV G pour ma SPRESSO ?
+│ identityMode      : inactive-no-standalone-form
+│ requestedPart     : seuil
+│ withheld reason   : understanding confidence below 0.6
+│ withheld reason   : identity unverified by the catalog: redirect instead of guessing
+│ withheld reason   : identity: designation contains "avant" but not as its head noun
+[04] ✘ Intent is not a refusal/error
+Expected: resolved parts intent
+Got     : SECURISATION
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 6889
+Got     : —
+[19] ✘ Product reference exact
+Expected: 76161M62S00-5PK
+Got     : —
+[20] ✘ French designation exact
+Expected: ÉGRATIGNER LE SEUIL AV G
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: ÉGRATIGNER LE SEUIL AV G
+Got     : —
+[22] ✘ OEM designation exact
+Expected: SCUFF SIDE SILL FR LH (BLACK)
+Got     : —
+[23] ✘ Search description exact
+Expected: ÉGRATIGNER LE SEUIL AV G ; SCUFF SIDE SILL FR LH (BLACK)
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: PR
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —
+--- run 3
+│ intent            : SECURISATION
+│ originalQuery     : Bonjour, vous avez ÉGRATGINER LE SEUIL AV G pour ma SPRESSO ?
+│ identityMode      : inactive-no-standalone-form
+│ requestedPart     : seuil
+│ withheld reason   : understanding confidence below 0.6
+│ withheld reason   : identity unverified by the catalog: redirect instead of guessing
+│ withheld reason   : identity: designation contains "avant" but not as its head noun
+[04] ✘ Intent is not a refusal/error
+Expected: resolved parts intent
+Got     : SECURISATION
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 6889
+Got     : —
+[19] ✘ Product reference exact
+Expected: 76161M62S00-5PK
+Got     : —
+[20] ✘ French designation exact
+Expected: ÉGRATIGNER LE SEUIL AV G
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: ÉGRATIGNER LE SEUIL AV G
+Got     : —
+[22] ✘ OEM designation exact
+Expected: SCUFF SIDE SILL FR LH (BLACK)
+Got     : —
+[23] ✘ Search description exact
+Expected: ÉGRATIGNER LE SEUIL AV G ; SCUFF SIDE SILL FR LH (BLACK)
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: PR
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —
+
+=== Case 48 (FAIL) variant=exact part="LAMP ASSY,ROOM"
+--- run 1
+│ intent            : PARTS_SEARCH
+│ originalQuery     : Je cherche LAMP ASSY,ROOM pour ma NEW SWIFT. C'est disponible ?
+│ identityMode      : strict-head
+│ requestedPart     : lamp assy room
+[18] ✘ Product DB id exact
+Expected: 2539
+Got     : 2538
+[19] ✘ Product reference exact
+Expected: 36210M66R00-V6N
+Got     : 36210M55K00-V6N
+[20] ✘ French designation exact
+Expected: LAMP ASSY,ROOM
+Got     : LAMP ASSY ROOM
+[21] ✘ Display name exact French designation
+Expected: LAMP ASSY,ROOM
+Got     : LAMP ASSY ROOM
+[22] ✘ OEM designation exact
+Expected: LAMP ASSY,ROOM
+Got     : LAMP ASSY ROOM
+[23] ✘ Search description exact
+Expected: LAMP ASSY,ROOM
+Got     : LAMP ASSY ROOM
+[29] ✘ Public TTC exact DB value
+Expected: 118.63705
+Got     : 57.71738
+[30] ✘ Wholesale HT exact DB value
+Expected: 99.695
+Got     : 48.502
+[35] ✘ Complete fitment rows exact
+Expected: A2N412-TYPE1|A2N412-TYPE1,A2N412-TYPE2|A2N412-TYPE2,ARL415-2-TYPE2|ARL415-TYPE2,ARL415-TYPE1|ARL415-TYPE1
+Got     : A2N412-TYPE1|A2N412-TYPE1,A2N412-TYPE2|A2N412-TYPE2,AZI412-TYPE3|AZI412-TYPE3
+[36] ✘ Alternate references exact
+Expected: 36210M66R00-V6N|3
+Got     : 36210M55K00-V6N|3
+[42] ✘ Product identification articleNumber exact
+Expected: 36210M66R00-V6N
+Got     : 36210M55K00-V6N
+[43] ✘ UI response contains the exact French designation
+Expected: LAMP ASSY,ROOM
+Got     : false
+--- run 2
+│ intent            : PARTS_SEARCH
+│ originalQuery     : Je cherche LAMP ASSY,ROOM pour ma NEW SWIFT. C'est disponible ?
+│ identityMode      : strict-head
+│ requestedPart     : lamp assy room
+[18] ✘ Product DB id exact
+Expected: 2539
+Got     : 2538
+[19] ✘ Product reference exact
+Expected: 36210M66R00-V6N
+Got     : 36210M55K00-V6N
+[20] ✘ French designation exact
+Expected: LAMP ASSY,ROOM
+Got     : LAMP ASSY ROOM
+[21] ✘ Display name exact French designation
+Expected: LAMP ASSY,ROOM
+Got     : LAMP ASSY ROOM
+[22] ✘ OEM designation exact
+Expected: LAMP ASSY,ROOM
+Got     : LAMP ASSY ROOM
+[23] ✘ Search description exact
+Expected: LAMP ASSY,ROOM
+Got     : LAMP ASSY ROOM
+[29] ✘ Public TTC exact DB value
+Expected: 118.63705
+Got     : 57.71738
+[30] ✘ Wholesale HT exact DB value
+Expected: 99.695
+Got     : 48.502
+[35] ✘ Complete fitment rows exact
+Expected: A2N412-TYPE1|A2N412-TYPE1,A2N412-TYPE2|A2N412-TYPE2,ARL415-2-TYPE2|ARL415-TYPE2,ARL415-TYPE1|ARL415-TYPE1
+Got     : A2N412-TYPE1|A2N412-TYPE1,A2N412-TYPE2|A2N412-TYPE2,AZI412-TYPE3|AZI412-TYPE3
+[36] ✘ Alternate references exact
+Expected: 36210M66R00-V6N|3
+Got     : 36210M55K00-V6N|3
+[42] ✘ Product identification articleNumber exact
+Expected: 36210M66R00-V6N
+Got     : 36210M55K00-V6N
+[43] ✘ UI response contains the exact French designation
+Expected: LAMP ASSY,ROOM
+Got     : false
+--- run 3
+│ intent            : PARTS_SEARCH
+│ originalQuery     : Je cherche LAMP ASSY,ROOM pour ma NEW SWIFT. C'est disponible ?
+│ identityMode      : strict-head
+│ requestedPart     : lamp assy room
+[18] ✘ Product DB id exact
+Expected: 2539
+Got     : 2538
+[19] ✘ Product reference exact
+Expected: 36210M66R00-V6N
+Got     : 36210M55K00-V6N
+[20] ✘ French designation exact
+Expected: LAMP ASSY,ROOM
+Got     : LAMP ASSY ROOM
+[21] ✘ Display name exact French designation
+Expected: LAMP ASSY,ROOM
+Got     : LAMP ASSY ROOM
+[22] ✘ OEM designation exact
+Expected: LAMP ASSY,ROOM
+Got     : LAMP ASSY ROOM
+[23] ✘ Search description exact
+Expected: LAMP ASSY,ROOM
+Got     : LAMP ASSY ROOM
+[29] ✘ Public TTC exact DB value
+Expected: 118.63705
+Got     : 57.71738
+[30] ✘ Wholesale HT exact DB value
+Expected: 99.695
+Got     : 48.502
+[35] ✘ Complete fitment rows exact
+Expected: A2N412-TYPE1|A2N412-TYPE1,A2N412-TYPE2|A2N412-TYPE2,ARL415-2-TYPE2|ARL415-TYPE2,ARL415-TYPE1|ARL415-TYPE1
+Got     : A2N412-TYPE1|A2N412-TYPE1,A2N412-TYPE2|A2N412-TYPE2,AZI412-TYPE3|AZI412-TYPE3
+[36] ✘ Alternate references exact
+Expected: 36210M66R00-V6N|3
+Got     : 36210M55K00-V6N|3
+[42] ✘ Product identification articleNumber exact
+Expected: 36210M66R00-V6N
+Got     : 36210M55K00-V6N
+[43] ✘ UI response contains the exact French designation
+Expected: LAMP ASSY,ROOM
+Got     : false
+
+=== Case 58 (FAIL) variant=price part="ROULEMENT3ÈME ET 4ÈME VITESSE"
+--- run 1
+│ intent            : NO_RESULTS
+│ originalQuery     : ROULEMENT3
+[04] ✘ Intent is not a refusal/error
+Expected: resolved parts intent
+Got     : NO_RESULTS
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 1750
+Got     : —
+[19] ✘ Product reference exact
+Expected: 24283M76M00
+Got     : —
+[20] ✘ French designation exact
+Expected: ROULEMENT3ÈME ET 4ÈME VITESSE
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: ROULEMENT3ÈME ET 4ÈME VITESSE
+Got     : —
+[22] ✘ OEM designation exact
+Expected: BEARING,3RD & 4TH GEAR NDL
+Got     : —
+[23] ✘ Search description exact
+Expected: ROULEMENT3ÈME ET 4ÈME VITESSE ; BEARING,3RD & 4TH GEAR NDL
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: MÉCANIQUE
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —
+[27] ✘ Supplier code exact
+Expected: CAR PRO PARTS
+Got     : —
+[28] ✘ Source exact
+Expected: 01_PROD
+--- run 2
+│ intent            : NO_RESULTS
+│ originalQuery     : ROULEMENT3
+[04] ✘ Intent is not a refusal/error
+Expected: resolved parts intent
+Got     : NO_RESULTS
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 1750
+Got     : —
+[19] ✘ Product reference exact
+Expected: 24283M76M00
+Got     : —
+[20] ✘ French designation exact
+Expected: ROULEMENT3ÈME ET 4ÈME VITESSE
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: ROULEMENT3ÈME ET 4ÈME VITESSE
+Got     : —
+[22] ✘ OEM designation exact
+Expected: BEARING,3RD & 4TH GEAR NDL
+Got     : —
+[23] ✘ Search description exact
+Expected: ROULEMENT3ÈME ET 4ÈME VITESSE ; BEARING,3RD & 4TH GEAR NDL
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: MÉCANIQUE
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —
+[27] ✘ Supplier code exact
+Expected: CAR PRO PARTS
+Got     : —
+[28] ✘ Source exact
+Expected: 01_PROD
+--- run 3
+│ intent            : NO_RESULTS
+│ originalQuery     : ROULEMENT3
+[04] ✘ Intent is not a refusal/error
+Expected: resolved parts intent
+Got     : NO_RESULTS
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 1750
+Got     : —
+[19] ✘ Product reference exact
+Expected: 24283M76M00
+Got     : —
+[20] ✘ French designation exact
+Expected: ROULEMENT3ÈME ET 4ÈME VITESSE
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: ROULEMENT3ÈME ET 4ÈME VITESSE
+Got     : —
+[22] ✘ OEM designation exact
+Expected: BEARING,3RD & 4TH GEAR NDL
+Got     : —
+[23] ✘ Search description exact
+Expected: ROULEMENT3ÈME ET 4ÈME VITESSE ; BEARING,3RD & 4TH GEAR NDL
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: MÉCANIQUE
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —
+[27] ✘ Supplier code exact
+Expected: CAR PRO PARTS
+Got     : —
+[28] ✘ Source exact
+Expected: 01_PROD
+
+=== Case 69 (FAIL) variant=twoturn part="RETROV INT"
+--- run 1
+│ intent            : PARTS_SEARCH
+│ originalQuery     : Vous avez RETROV INT pour une VITARA ?
+│ identityMode      : strict-head
+│ requestedPart     : retrov int
+│ intent            : SECURISATION
+│ originalQuery     : Vous l'avez en stock ? Et c'est combien ?
+[04] ✘ Intent is not a refusal/error
+Expected: resolved parts intent
+Got     : SECURISATION
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 8618
+Got     : —
+[19] ✘ Product reference exact
+Expected: 84703-71L00-000
+Got     : —
+[20] ✘ French designation exact
+Expected: RETROV INT
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: RETROV INT
+Got     : —
+[22] ✘ OEM designation exact
+Expected: MIRROR ASSY,INS RR VIEW
+Got     : —
+[23] ✘ Search description exact
+Expected: RETROV INT ; MIRROR ASSY,INS RR VIEW
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: PR
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: AUTRES FABRICANTS
+Got     : —
+[27] ✘ Supplier code exact
+--- run 2
+│ intent            : PARTS_SEARCH
+│ originalQuery     : Vous avez RETROV INT pour une VITARA ?
+│ identityMode      : strict-head
+│ requestedPart     : retrov int
+│ intent            : SECURISATION
+│ originalQuery     : Vous l'avez en stock ? Et c'est combien ?
+[04] ✘ Intent is not a refusal/error
+Expected: resolved parts intent
+Got     : SECURISATION
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 8618
+Got     : —
+[19] ✘ Product reference exact
+Expected: 84703-71L00-000
+Got     : —
+[20] ✘ French designation exact
+Expected: RETROV INT
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: RETROV INT
+Got     : —
+[22] ✘ OEM designation exact
+Expected: MIRROR ASSY,INS RR VIEW
+Got     : —
+[23] ✘ Search description exact
+Expected: RETROV INT ; MIRROR ASSY,INS RR VIEW
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: PR
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: AUTRES FABRICANTS
+Got     : —
+[27] ✘ Supplier code exact
+--- run 3
+│ intent            : PARTS_SEARCH
+│ originalQuery     : Vous avez RETROV INT pour une VITARA ?
+│ identityMode      : strict-head
+│ requestedPart     : retrov int
+│ intent            : SECURISATION
+│ originalQuery     : Vous l'avez en stock ? Et c'est combien ?
+[04] ✘ Intent is not a refusal/error
+Expected: resolved parts intent
+Got     : SECURISATION
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 8618
+Got     : —
+[19] ✘ Product reference exact
+Expected: 84703-71L00-000
+Got     : —
+[20] ✘ French designation exact
+Expected: RETROV INT
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: RETROV INT
+Got     : —
+[22] ✘ OEM designation exact
+Expected: MIRROR ASSY,INS RR VIEW
+Got     : —
+[23] ✘ Search description exact
+Expected: RETROV INT ; MIRROR ASSY,INS RR VIEW
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: PR
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: AUTRES FABRICANTS
+Got     : —
+[27] ✘ Supplier code exact
+
+=== Case 76 (FAIL) variant=typo part="COMMUTATEUR MAINS LIBRES"
+--- run 1
+│ intent            : SECURISATION
+│ originalQuery     : Bonjour, vous avez COMMUUTATEUR MAINS LIBRES pour ma CELERIO BVA ?
+│ identityMode      : inactive-no-standalone-form
+│ requestedPart     : mains libres
+│ withheld reason   : understanding confidence below 0.6
+│ withheld reason   : identity unverified by the catalog: redirect instead of guessing
+│ withheld reason   : identity: designation contains "mains" but not as its head noun
+[04] ✘ Intent is not a refusal/error
+Expected: resolved parts intent
+Got     : SECURISATION
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 2864
+Got     : —
+[19] ✘ Product reference exact
+Expected: 37490M76M10
+Got     : —
+[20] ✘ French designation exact
+Expected: COMMUTATEUR MAINS LIBRES
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: COMMUTATEUR MAINS LIBRES
+Got     : —
+[22] ✘ OEM designation exact
+Expected: SWITCH ASSY,HANDS FREE
+Got     : —
+[23] ✘ Search description exact
+Expected: COMMUTATEUR MAINS LIBRES ; SWITCH ASSY,HANDS FREE
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: ELECTRIQUE
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —
+--- run 2
+│ intent            : SECURISATION
+│ originalQuery     : Bonjour, vous avez COMMUUTATEUR MAINS LIBRES pour ma CELERIO BVA ?
+│ identityMode      : inactive-no-standalone-form
+│ requestedPart     : mains libres
+│ withheld reason   : understanding confidence below 0.6
+│ withheld reason   : identity unverified by the catalog: redirect instead of guessing
+│ withheld reason   : identity: designation contains "mains" but not as its head noun
+[04] ✘ Intent is not a refusal/error
+Expected: resolved parts intent
+Got     : SECURISATION
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 2864
+Got     : —
+[19] ✘ Product reference exact
+Expected: 37490M76M10
+Got     : —
+[20] ✘ French designation exact
+Expected: COMMUTATEUR MAINS LIBRES
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: COMMUTATEUR MAINS LIBRES
+Got     : —
+[22] ✘ OEM designation exact
+Expected: SWITCH ASSY,HANDS FREE
+Got     : —
+[23] ✘ Search description exact
+Expected: COMMUTATEUR MAINS LIBRES ; SWITCH ASSY,HANDS FREE
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: ELECTRIQUE
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —
+--- run 3
+│ intent            : SECURISATION
+│ originalQuery     : Bonjour, vous avez COMMUUTATEUR MAINS LIBRES pour ma CELERIO BVA ?
+│ identityMode      : inactive-no-standalone-form
+│ requestedPart     : mains libres
+│ withheld reason   : understanding confidence below 0.6
+│ withheld reason   : identity unverified by the catalog: redirect instead of guessing
+│ withheld reason   : identity: designation contains "mains" but not as its head noun
+[04] ✘ Intent is not a refusal/error
+Expected: resolved parts intent
+Got     : SECURISATION
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 2864
+Got     : —
+[19] ✘ Product reference exact
+Expected: 37490M76M10
+Got     : —
+[20] ✘ French designation exact
+Expected: COMMUTATEUR MAINS LIBRES
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: COMMUTATEUR MAINS LIBRES
+Got     : —
+[22] ✘ OEM designation exact
+Expected: SWITCH ASSY,HANDS FREE
+Got     : —
+[23] ✘ Search description exact
+Expected: COMMUTATEUR MAINS LIBRES ; SWITCH ASSY,HANDS FREE
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: ELECTRIQUE
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —
+
+=== Case 87 (FAIL) variant=typo part="POIGNEE DE PORTE"
+--- run 1
+│ intent            : CLARIFICATION_NEEDED
+│ originalQuery     : Bonjour, vous avez POGNEE DE PORTE pour ma VITARA ?
+│ identityMode      : strict-head
+│ requestedPart     : porte
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 7673
+Got     : —
+[19] ✘ Product reference exact
+Expected: 82812-57LA0-ZNL
+Got     : —
+[20] ✘ French designation exact
+Expected: POIGNEE DE PORTE
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: POIGNEE DE PORTE
+Got     : —
+[22] ✘ OEM designation exact
+Expected: HANDLE, SIDE DOOR OUT (WHITE)
+Got     : —
+[23] ✘ Search description exact
+Expected: POIGNEE DE PORTE ; HANDLE, SIDE DOOR OUT (WHITE)
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: CARROSSERIE
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —
+[27] ✘ Supplier code exact
+Expected: CAR PRO PARTS
+Got     : —
+[28] ✘ Source exact
+Expected: 01_PROD
+Got     : —
+--- run 2
+│ intent            : CLARIFICATION_NEEDED
+│ originalQuery     : Bonjour, vous avez POGNEE DE PORTE pour ma VITARA ?
+│ identityMode      : strict-head
+│ requestedPart     : porte
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 7673
+Got     : —
+[19] ✘ Product reference exact
+Expected: 82812-57LA0-ZNL
+Got     : —
+[20] ✘ French designation exact
+Expected: POIGNEE DE PORTE
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: POIGNEE DE PORTE
+Got     : —
+[22] ✘ OEM designation exact
+Expected: HANDLE, SIDE DOOR OUT (WHITE)
+Got     : —
+[23] ✘ Search description exact
+Expected: POIGNEE DE PORTE ; HANDLE, SIDE DOOR OUT (WHITE)
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: CARROSSERIE
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —
+[27] ✘ Supplier code exact
+Expected: CAR PRO PARTS
+Got     : —
+[28] ✘ Source exact
+Expected: 01_PROD
+Got     : —
+--- run 3
+│ intent            : CLARIFICATION_NEEDED
+│ originalQuery     : Bonjour, vous avez POGNEE DE PORTE pour ma VITARA ?
+│ identityMode      : strict-head
+│ requestedPart     : porte
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 7673
+Got     : —
+[19] ✘ Product reference exact
+Expected: 82812-57LA0-ZNL
+Got     : —
+[20] ✘ French designation exact
+Expected: POIGNEE DE PORTE
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: POIGNEE DE PORTE
+Got     : —
+[22] ✘ OEM designation exact
+Expected: HANDLE, SIDE DOOR OUT (WHITE)
+Got     : —
+[23] ✘ Search description exact
+Expected: POIGNEE DE PORTE ; HANDLE, SIDE DOOR OUT (WHITE)
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: CARROSSERIE
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —
+[27] ✘ Supplier code exact
+Expected: CAR PRO PARTS
+Got     : —
+[28] ✘ Source exact
+Expected: 01_PROD
+Got     : —
+
+=== Case 94 (FAIL) variant=twoturn part="CAPUCHON TIGE DE RENFORT"
+--- run 1
+│ intent            : PARTS_SEARCH
+│ originalQuery     : Vous avez CAPUCHON TIGE DE RENFORT pour une NEW SWIFT ?
+│ identityMode      : strict-head
+│ requestedPart     : capuchon tige renfort
+│ intent            : SECURISATION
+│ originalQuery     : D'accord. Et le prix, s'il vous plaît ?
+│ withheld reason   : understanding confidence below 0.6
+[04] ✘ Intent is not a refusal/error
+Expected: resolved parts intent
+Got     : SECURISATION
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 3568
+Got     : —
+[19] ✘ Product reference exact
+Expected: 41724M55R00
+Got     : —
+[20] ✘ French designation exact
+Expected: CAPUCHON TIGE DE RENFORT
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: CAPUCHON TIGE DE RENFORT
+Got     : —
+[22] ✘ OEM designation exact
+Expected: CAP,STRUT ROD2
+Got     : —
+[23] ✘ Search description exact
+Expected: CAPUCHON TIGE DE RENFORT ; CAP,STRUT ROD2
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: MÉCANIQUE
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —
+--- run 2
+│ intent            : PARTS_SEARCH
+│ originalQuery     : Vous avez CAPUCHON TIGE DE RENFORT pour une NEW SWIFT ?
+│ identityMode      : strict-head
+│ requestedPart     : capuchon tige renfort
+│ intent            : SECURISATION
+│ originalQuery     : D'accord. Et le prix, s'il vous plaît ?
+│ withheld reason   : understanding confidence below 0.6
+[04] ✘ Intent is not a refusal/error
+Expected: resolved parts intent
+Got     : SECURISATION
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 3568
+Got     : —
+[19] ✘ Product reference exact
+Expected: 41724M55R00
+Got     : —
+[20] ✘ French designation exact
+Expected: CAPUCHON TIGE DE RENFORT
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: CAPUCHON TIGE DE RENFORT
+Got     : —
+[22] ✘ OEM designation exact
+Expected: CAP,STRUT ROD2
+Got     : —
+[23] ✘ Search description exact
+Expected: CAPUCHON TIGE DE RENFORT ; CAP,STRUT ROD2
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: MÉCANIQUE
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —
+--- run 3
+│ intent            : PARTS_SEARCH
+│ originalQuery     : Vous avez CAPUCHON TIGE DE RENFORT pour une NEW SWIFT ?
+│ identityMode      : strict-head
+│ requestedPart     : capuchon tige renfort
+│ intent            : SECURISATION
+│ originalQuery     : D'accord. Et le prix, s'il vous plaît ?
+│ withheld reason   : understanding confidence below 0.6
+[04] ✘ Intent is not a refusal/error
+Expected: resolved parts intent
+Got     : SECURISATION
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 3568
+Got     : —
+[19] ✘ Product reference exact
+Expected: 41724M55R00
+Got     : —
+[20] ✘ French designation exact
+Expected: CAPUCHON TIGE DE RENFORT
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: CAPUCHON TIGE DE RENFORT
+Got     : —
+[22] ✘ OEM designation exact
+Expected: CAP,STRUT ROD2
+Got     : —
+[23] ✘ Search description exact
+Expected: CAPUCHON TIGE DE RENFORT ; CAP,STRUT ROD2
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: MÉCANIQUE
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —
+
+=== Case 103 (FAIL) variant=twoturn part="SIGLE BALENO (CHROME)"
+--- run 1
+│ intent            : PARTS_SEARCH
+│ originalQuery     : Vous avez SIGLE BALENO (CHROME) pour une BALENO ?
+│ identityMode      : inactive-no-standalone-form
+│ requestedPart     : sigle chrome
+│ intent            : SECURISATION
+│ originalQuery     : D'accord. Et le prix, s'il vous plaît ?
+│ withheld reason   : understanding confidence below 0.6
+[04] ✘ Intent is not a refusal/error
+Expected: resolved parts intent
+Got     : SECURISATION
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 7218
+Got     : —
+[19] ✘ Product reference exact
+Expected: 77831M68P00-0PG
+Got     : —
+[20] ✘ French designation exact
+Expected: SIGLE BALENO (CHROME)
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: SIGLE BALENO (CHROME)
+Got     : —
+[22] ✘ OEM designation exact
+Expected: EMBLEM (CHROME)
+Got     : —
+[23] ✘ Search description exact
+Expected: SIGLE BALENO (CHROME) ; EMBLEM (CHROME)
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: CARROSSERIE
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —
+--- run 2
+│ intent            : PARTS_SEARCH
+│ originalQuery     : Vous avez SIGLE BALENO (CHROME) pour une BALENO ?
+│ identityMode      : inactive-no-standalone-form
+│ requestedPart     : sigle chrome
+│ intent            : SECURISATION
+│ originalQuery     : D'accord. Et le prix, s'il vous plaît ?
+│ withheld reason   : understanding confidence below 0.6
+[04] ✘ Intent is not a refusal/error
+Expected: resolved parts intent
+Got     : SECURISATION
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 7218
+Got     : —
+[19] ✘ Product reference exact
+Expected: 77831M68P00-0PG
+Got     : —
+[20] ✘ French designation exact
+Expected: SIGLE BALENO (CHROME)
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: SIGLE BALENO (CHROME)
+Got     : —
+[22] ✘ OEM designation exact
+Expected: EMBLEM (CHROME)
+Got     : —
+[23] ✘ Search description exact
+Expected: SIGLE BALENO (CHROME) ; EMBLEM (CHROME)
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: CARROSSERIE
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —
+--- run 3
+│ intent            : PARTS_SEARCH
+│ originalQuery     : Vous avez SIGLE BALENO (CHROME) pour une BALENO ?
+│ identityMode      : inactive-no-standalone-form
+│ requestedPart     : sigle chrome
+│ intent            : SECURISATION
+│ originalQuery     : D'accord. Et le prix, s'il vous plaît ?
+│ withheld reason   : understanding confidence below 0.6
+[04] ✘ Intent is not a refusal/error
+Expected: resolved parts intent
+Got     : SECURISATION
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 7218
+Got     : —
+[19] ✘ Product reference exact
+Expected: 77831M68P00-0PG
+Got     : —
+[20] ✘ French designation exact
+Expected: SIGLE BALENO (CHROME)
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: SIGLE BALENO (CHROME)
+Got     : —
+[22] ✘ OEM designation exact
+Expected: EMBLEM (CHROME)
+Got     : —
+[23] ✘ Search description exact
+Expected: SIGLE BALENO (CHROME) ; EMBLEM (CHROME)
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: CARROSSERIE
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —
+
+=== Case 107 (FAIL) variant=exact part="SUPPORT, GARDE-BOUE AV D"
+--- run 1
+│ intent            : PARTS_SEARCH
+│ originalQuery     : Je cherche SUPPORT, GARDE-BOUE AV D pour ma BALENO. C'est disponible ?
+│ identityMode      : strict-head
+│ requestedPart     : support garde boue
+[18] ✘ Product DB id exact
+Expected: 4873
+Got     : 4721
+[19] ✘ Product reference exact
+Expected: 59233M68P00
+Got     : 58322M68P00
+[20] ✘ French designation exact
+Expected: SUPPORT, GARDE-BOUE AV D
+Got     : SUPPORT, GARDE-BOUE AV INF D
+[21] ✘ Display name exact French designation
+Expected: SUPPORT, GARDE-BOUE AV D
+Got     : SUPPORT, GARDE-BOUE AV INF D
+[22] ✘ OEM designation exact
+Expected: BRACKET, FRONT FENDER RH
+Got     : BRACKET FRONT FENDER LOWER RH
+[23] ✘ Search description exact
+Expected: SUPPORT, GARDE-BOUE AV D ; BRACKET, FRONT FENDER RH
+Got     : SUPPORT, GARDE-BOUE AV INF D ; BRACKET FRONT FENDER LOWER RH
+[29] ✘ Public TTC exact DB value
+Expected: 4.5101
+Got     : 7.46249
+[30] ✘ Wholesale HT exact DB value
+Expected: 3.79
+Got     : 6.271
+[36] ✘ Alternate references exact
+Expected: 59233M68P00-000|3,59233M68P00|3
+Got     : 58322M68P00|3
+[42] ✘ Product identification articleNumber exact
+Expected: 59233M68P00
+Got     : 58322M68P00
+[43] ✘ UI response contains the exact French designation
+Expected: SUPPORT, GARDE-BOUE AV D
+Got     : false
+[46] ✘ UI response exposes exact TTC to 3 decimals
+Expected: 4.510 TND
+Got     : Pièces disponibles pour votre SUZUKI BALENO :
+--- run 2
+│ intent            : PARTS_SEARCH
+│ originalQuery     : je cherche support garde boue avant droite
+│ identityMode      : strict-head
+│ requestedPart     : support garde boue
+[18] ✘ Product DB id exact
+Expected: 4873
+Got     : 4721
+[19] ✘ Product reference exact
+Expected: 59233M68P00
+Got     : 58322M68P00
+[20] ✘ French designation exact
+Expected: SUPPORT, GARDE-BOUE AV D
+Got     : SUPPORT, GARDE-BOUE AV INF D
+[21] ✘ Display name exact French designation
+Expected: SUPPORT, GARDE-BOUE AV D
+Got     : SUPPORT, GARDE-BOUE AV INF D
+[22] ✘ OEM designation exact
+Expected: BRACKET, FRONT FENDER RH
+Got     : BRACKET FRONT FENDER LOWER RH
+[23] ✘ Search description exact
+Expected: SUPPORT, GARDE-BOUE AV D ; BRACKET, FRONT FENDER RH
+Got     : SUPPORT, GARDE-BOUE AV INF D ; BRACKET FRONT FENDER LOWER RH
+[29] ✘ Public TTC exact DB value
+Expected: 4.5101
+Got     : 7.46249
+[30] ✘ Wholesale HT exact DB value
+Expected: 3.79
+Got     : 6.271
+[36] ✘ Alternate references exact
+Expected: 59233M68P00-000|3,59233M68P00|3
+Got     : 58322M68P00|3
+[42] ✘ Product identification articleNumber exact
+Expected: 59233M68P00
+Got     : 58322M68P00
+[43] ✘ UI response contains the exact French designation
+Expected: SUPPORT, GARDE-BOUE AV D
+Got     : false
+[46] ✘ UI response exposes exact TTC to 3 decimals
+Expected: 4.510 TND
+Got     : Pièces disponibles pour votre SUZUKI BALENO :
+--- run 3
+│ intent            : PARTS_SEARCH
+│ originalQuery     : je cherche support garde boue avant droite
+│ identityMode      : strict-head
+│ requestedPart     : support garde boue
+[18] ✘ Product DB id exact
+Expected: 4873
+Got     : 4721
+[19] ✘ Product reference exact
+Expected: 59233M68P00
+Got     : 58322M68P00
+[20] ✘ French designation exact
+Expected: SUPPORT, GARDE-BOUE AV D
+Got     : SUPPORT, GARDE-BOUE AV INF D
+[21] ✘ Display name exact French designation
+Expected: SUPPORT, GARDE-BOUE AV D
+Got     : SUPPORT, GARDE-BOUE AV INF D
+[22] ✘ OEM designation exact
+Expected: BRACKET, FRONT FENDER RH
+Got     : BRACKET FRONT FENDER LOWER RH
+[23] ✘ Search description exact
+Expected: SUPPORT, GARDE-BOUE AV D ; BRACKET, FRONT FENDER RH
+Got     : SUPPORT, GARDE-BOUE AV INF D ; BRACKET FRONT FENDER LOWER RH
+[29] ✘ Public TTC exact DB value
+Expected: 4.5101
+Got     : 7.46249
+[30] ✘ Wholesale HT exact DB value
+Expected: 3.79
+Got     : 6.271
+[36] ✘ Alternate references exact
+Expected: 59233M68P00-000|3,59233M68P00|3
+Got     : 58322M68P00|3
+[42] ✘ Product identification articleNumber exact
+Expected: 59233M68P00
+Got     : 58322M68P00
+[43] ✘ UI response contains the exact French designation
+Expected: SUPPORT, GARDE-BOUE AV D
+Got     : false
+[46] ✘ UI response exposes exact TTC to 3 decimals
+Expected: 4.510 TND
+Got     : Pièces disponibles pour votre SUZUKI BALENO :
+
+=== Case 111 (FAIL) variant=twoturn part="CHARNIERE DE PORTE AR H"
+--- run 1
+│ intent            : PARTS_SEARCH
+│ originalQuery     : Vous avez CHARNIERE DE PORTE AR H pour une CELERIO BVA ?
+│ identityMode      : strict-head
+│ requestedPart     : charniere porte
+[18] ✘ Product DB id exact
+Expected: 5695
+Got     : 5704
+[19] ✘ Product reference exact
+Expected: 69410M68L00
+Got     : 69430M68L00
+[20] ✘ French designation exact
+Expected: CHARNIERE DE PORTE AR H
+Got     : CHARNIERE DE PORTE AR B
+[21] ✘ Display name exact French designation
+Expected: CHARNIERE DE PORTE AR H
+Got     : CHARNIERE DE PORTE AR B
+[22] ✘ OEM designation exact
+Expected: HINGE, REAR DOOR UPPER RH
+Got     : HINGE, REAR DOOR LOWER RH
+[23] ✘ Search description exact
+Expected: CHARNIERE DE PORTE AR H ; HINGE, REAR DOOR UPPER RH
+Got     : CHARNIERE DE PORTE AR B ; HINGE, REAR DOOR LOWER RH
+[29] ✘ Public TTC exact DB value
+Expected: 59.45121
+Got     : 51.44013
+[30] ✘ Wholesale HT exact DB value
+Expected: 49.959
+Got     : 43.227
+[31] ✘ Stock totalQuantity exact
+Expected: 14
+Got     : 12
+[32] ✘ Stock stockDisponible exact
+Expected: 9
+Got     : 2
+[33] ✘ Stock stockConsolide exact
+Expected: 14
+Got     : 12
+[35] ✘ Complete fitment rows exact
+Expected: A1M414-TYPE1|A1M414-TYPE1,A2N412-TYPE1|A2N412-TYPE1,A2N412-TYPE2|A2N412-TYPE2,A3K415-TYPE1|A3K415-TYPE1,APQ415|APQ415-TYPE2,ARL415-2-TYPE2|ARL415-TYPE2,ARL415-TYPE1|ARL415-TYPE1,AVB414-TYPE1|AVB414-TYPE1,AVB415-TYPE2|AVB415-TYPE2,AVB415-TYPE3|AVB415-TYPE3,AVH310-TYPE 1|AVH310-TYPE1,AVH310-TYPE 2|AVH310-TYPE2,AZI412-TYPE3|AZI412-TYPE3,BALENO GLX|A1K414-TYPE1
+Got     : A1M414-TYPE1|A1M414-TYPE1,A2N412-TYPE1|A2N412-TYPE1,A2N412-TYPE2|A2N412-TYPE2,APQ415|APQ415-TYPE2,AVH310-TYPE 1|AVH310-TYPE1,AVH310-TYPE 2|AVH310-TYPE2,AZI412-TYPE3|AZI412-TYPE3,BALENO GLX|A1K414-TYPE1
+--- run 2
+│ intent            : PARTS_SEARCH
+│ originalQuery     : Vous avez CHARNIERE DE PORTE AR H pour une CELERIO BVA ?
+│ identityMode      : strict-head
+│ requestedPart     : charniere porte
+[18] ✘ Product DB id exact
+Expected: 5695
+Got     : 5704
+[19] ✘ Product reference exact
+Expected: 69410M68L00
+Got     : 69430M68L00
+[20] ✘ French designation exact
+Expected: CHARNIERE DE PORTE AR H
+Got     : CHARNIERE DE PORTE AR B
+[21] ✘ Display name exact French designation
+Expected: CHARNIERE DE PORTE AR H
+Got     : CHARNIERE DE PORTE AR B
+[22] ✘ OEM designation exact
+Expected: HINGE, REAR DOOR UPPER RH
+Got     : HINGE, REAR DOOR LOWER RH
+[23] ✘ Search description exact
+Expected: CHARNIERE DE PORTE AR H ; HINGE, REAR DOOR UPPER RH
+Got     : CHARNIERE DE PORTE AR B ; HINGE, REAR DOOR LOWER RH
+[29] ✘ Public TTC exact DB value
+Expected: 59.45121
+Got     : 51.44013
+[30] ✘ Wholesale HT exact DB value
+Expected: 49.959
+Got     : 43.227
+[31] ✘ Stock totalQuantity exact
+Expected: 14
+Got     : 12
+[32] ✘ Stock stockDisponible exact
+Expected: 9
+Got     : 2
+[33] ✘ Stock stockConsolide exact
+Expected: 14
+Got     : 12
+[35] ✘ Complete fitment rows exact
+Expected: A1M414-TYPE1|A1M414-TYPE1,A2N412-TYPE1|A2N412-TYPE1,A2N412-TYPE2|A2N412-TYPE2,A3K415-TYPE1|A3K415-TYPE1,APQ415|APQ415-TYPE2,ARL415-2-TYPE2|ARL415-TYPE2,ARL415-TYPE1|ARL415-TYPE1,AVB414-TYPE1|AVB414-TYPE1,AVB415-TYPE2|AVB415-TYPE2,AVB415-TYPE3|AVB415-TYPE3,AVH310-TYPE 1|AVH310-TYPE1,AVH310-TYPE 2|AVH310-TYPE2,AZI412-TYPE3|AZI412-TYPE3,BALENO GLX|A1K414-TYPE1
+Got     : A1M414-TYPE1|A1M414-TYPE1,A2N412-TYPE1|A2N412-TYPE1,A2N412-TYPE2|A2N412-TYPE2,APQ415|APQ415-TYPE2,AVH310-TYPE 1|AVH310-TYPE1,AVH310-TYPE 2|AVH310-TYPE2,AZI412-TYPE3|AZI412-TYPE3,BALENO GLX|A1K414-TYPE1
+--- run 3
+│ intent            : PARTS_SEARCH
+│ originalQuery     : Vous avez CHARNIERE DE PORTE AR H pour une CELERIO BVA ?
+│ identityMode      : strict-head
+│ requestedPart     : charniere porte
+[18] ✘ Product DB id exact
+Expected: 5695
+Got     : 5704
+[19] ✘ Product reference exact
+Expected: 69410M68L00
+Got     : 69430M68L00
+[20] ✘ French designation exact
+Expected: CHARNIERE DE PORTE AR H
+Got     : CHARNIERE DE PORTE AR B
+[21] ✘ Display name exact French designation
+Expected: CHARNIERE DE PORTE AR H
+Got     : CHARNIERE DE PORTE AR B
+[22] ✘ OEM designation exact
+Expected: HINGE, REAR DOOR UPPER RH
+Got     : HINGE, REAR DOOR LOWER RH
+[23] ✘ Search description exact
+Expected: CHARNIERE DE PORTE AR H ; HINGE, REAR DOOR UPPER RH
+Got     : CHARNIERE DE PORTE AR B ; HINGE, REAR DOOR LOWER RH
+[29] ✘ Public TTC exact DB value
+Expected: 59.45121
+Got     : 51.44013
+[30] ✘ Wholesale HT exact DB value
+Expected: 49.959
+Got     : 43.227
+[31] ✘ Stock totalQuantity exact
+Expected: 14
+Got     : 12
+[32] ✘ Stock stockDisponible exact
+Expected: 9
+Got     : 2
+[33] ✘ Stock stockConsolide exact
+Expected: 14
+Got     : 12
+[35] ✘ Complete fitment rows exact
+Expected: A1M414-TYPE1|A1M414-TYPE1,A2N412-TYPE1|A2N412-TYPE1,A2N412-TYPE2|A2N412-TYPE2,A3K415-TYPE1|A3K415-TYPE1,APQ415|APQ415-TYPE2,ARL415-2-TYPE2|ARL415-TYPE2,ARL415-TYPE1|ARL415-TYPE1,AVB414-TYPE1|AVB414-TYPE1,AVB415-TYPE2|AVB415-TYPE2,AVB415-TYPE3|AVB415-TYPE3,AVH310-TYPE 1|AVH310-TYPE1,AVH310-TYPE 2|AVH310-TYPE2,AZI412-TYPE3|AZI412-TYPE3,BALENO GLX|A1K414-TYPE1
+Got     : A1M414-TYPE1|A1M414-TYPE1,A2N412-TYPE1|A2N412-TYPE1,A2N412-TYPE2|A2N412-TYPE2,APQ415|APQ415-TYPE2,AVH310-TYPE 1|AVH310-TYPE1,AVH310-TYPE 2|AVH310-TYPE2,AZI412-TYPE3|AZI412-TYPE3,BALENO GLX|A1K414-TYPE1
+
+=== Case 112 (FAIL) variant=typo part="HARNESS ASSY, SOCKET"
+--- run 1
+│ intent            : SECURISATION
+│ originalQuery     : Bonjour, vous avez HANRESS ASSY, SOCKET pour ma NEW SWIFT ?
+│ identityMode      : inactive-no-standalone-form
+│ requestedPart     : assy socket
+│ withheld reason   : understanding confidence below 0.6
+│ withheld reason   : identity unverified by the catalog: redirect instead of guessing
+│ withheld reason   : identity: designation contains "assy" but not as its head noun
+[04] ✘ Intent is not a refusal/error
+Expected: resolved parts intent
+Got     : SECURISATION
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 3362
+Got     : —
+[19] ✘ Product reference exact
+Expected: 39460M56R00
+Got     : —
+[20] ✘ French designation exact
+Expected: HARNESS ASSY, SOCKET
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: HARNESS ASSY, SOCKET
+Got     : —
+[22] ✘ OEM designation exact
+Expected: HARNESS ASSY, SOCKET
+Got     : —
+[23] ✘ Search description exact
+Expected: HARNESS ASSY, SOCKET
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: ELECTRIQUE
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —
+--- run 2
+│ intent            : SECURISATION
+│ originalQuery     : Bonjour, vous avez HANRESS ASSY, SOCKET pour ma NEW SWIFT ?
+│ identityMode      : inactive-no-standalone-form
+│ requestedPart     : assy socket
+│ withheld reason   : understanding confidence below 0.6
+│ withheld reason   : identity unverified by the catalog: redirect instead of guessing
+│ withheld reason   : identity: designation contains "assy" but not as its head noun
+[04] ✘ Intent is not a refusal/error
+Expected: resolved parts intent
+Got     : SECURISATION
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 3362
+Got     : —
+[19] ✘ Product reference exact
+Expected: 39460M56R00
+Got     : —
+[20] ✘ French designation exact
+Expected: HARNESS ASSY, SOCKET
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: HARNESS ASSY, SOCKET
+Got     : —
+[22] ✘ OEM designation exact
+Expected: HARNESS ASSY, SOCKET
+Got     : —
+[23] ✘ Search description exact
+Expected: HARNESS ASSY, SOCKET
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: ELECTRIQUE
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —
+--- run 3
+│ intent            : SECURISATION
+│ originalQuery     : Bonjour, vous avez HANRESS ASSY, SOCKET pour ma NEW SWIFT ?
+│ identityMode      : inactive-no-standalone-form
+│ requestedPart     : assy socket
+│ withheld reason   : understanding confidence below 0.6
+│ withheld reason   : identity unverified by the catalog: redirect instead of guessing
+│ withheld reason   : identity: designation contains "assy" but not as its head noun
+[04] ✘ Intent is not a refusal/error
+Expected: resolved parts intent
+Got     : SECURISATION
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 3362
+Got     : —
+[19] ✘ Product reference exact
+Expected: 39460M56R00
+Got     : —
+[20] ✘ French designation exact
+Expected: HARNESS ASSY, SOCKET
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: HARNESS ASSY, SOCKET
+Got     : —
+[22] ✘ OEM designation exact
+Expected: HARNESS ASSY, SOCKET
+Got     : —
+[23] ✘ Search description exact
+Expected: HARNESS ASSY, SOCKET
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: ELECTRIQUE
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —
+
+=== Case 118 (FAIL) variant=price part="CARDAN AVD"
+--- run 1
+│ intent            : PARTS_SEARCH
+│ originalQuery     : prix cardan avant droite
+│ identityMode      : strict-head
+│ requestedPart     : cardan
+[18] ✘ Product DB id exact
+Expected: 3804
+Got     : 3805
+[19] ✘ Product reference exact
+Expected: 44101-54PB2-000
+Got     : 44101-61M01-000
+[20] ✘ French designation exact
+Expected: CARDAN AVD
+Got     : CARDAN AV D
+[21] ✘ Display name exact French designation
+Expected: CARDAN AVD
+Got     : CARDAN AV D
+[22] ✘ OEM designation exact
+Expected: SHAFT,FRONT DRIVE APK416
+Got     : SHAFT, FRONT DRIVE AKK416
+[23] ✘ Search description exact
+Expected: CARDAN AVD ; SHAFT,FRONT DRIVE APK416
+Got     : CARDAN AV D ; SHAFT, FRONT DRIVE AKK416
+[29] ✘ Public TTC exact DB value
+Expected: 1982.71969
+Got     : 2450.52297
+[30] ✘ Wholesale HT exact DB value
+Expected: 1666.151
+Got     : 2059.263
+[31] ✘ Stock totalQuantity exact
+Expected: 1
+Got     : 5
+[32] ✘ Stock stockDisponible exact
+Expected: 0
+Got     : 3
+[33] ✘ Stock stockConsolide exact
+Expected: 1
+Got     : 5
+[34] ✘ Availability status follows stockConsolide rule
+Expected: Indisponible
+Got     : Disponible
+--- run 2
+│ intent            : PARTS_SEARCH
+│ originalQuery     : prix cardan avant droite
+│ identityMode      : strict-head
+│ requestedPart     : cardan
+[18] ✘ Product DB id exact
+Expected: 3804
+Got     : 3805
+[19] ✘ Product reference exact
+Expected: 44101-54PB2-000
+Got     : 44101-61M01-000
+[20] ✘ French designation exact
+Expected: CARDAN AVD
+Got     : CARDAN AV D
+[21] ✘ Display name exact French designation
+Expected: CARDAN AVD
+Got     : CARDAN AV D
+[22] ✘ OEM designation exact
+Expected: SHAFT,FRONT DRIVE APK416
+Got     : SHAFT, FRONT DRIVE AKK416
+[23] ✘ Search description exact
+Expected: CARDAN AVD ; SHAFT,FRONT DRIVE APK416
+Got     : CARDAN AV D ; SHAFT, FRONT DRIVE AKK416
+[29] ✘ Public TTC exact DB value
+Expected: 1982.71969
+Got     : 2450.52297
+[30] ✘ Wholesale HT exact DB value
+Expected: 1666.151
+Got     : 2059.263
+[31] ✘ Stock totalQuantity exact
+Expected: 1
+Got     : 5
+[32] ✘ Stock stockDisponible exact
+Expected: 0
+Got     : 3
+[33] ✘ Stock stockConsolide exact
+Expected: 1
+Got     : 5
+[34] ✘ Availability status follows stockConsolide rule
+Expected: Indisponible
+Got     : Disponible
+--- run 3
+│ intent            : PARTS_SEARCH
+│ originalQuery     : prix cardan avant droite
+│ identityMode      : strict-head
+│ requestedPart     : cardan
+[18] ✘ Product DB id exact
+Expected: 3804
+Got     : 3805
+[19] ✘ Product reference exact
+Expected: 44101-54PB2-000
+Got     : 44101-61M01-000
+[20] ✘ French designation exact
+Expected: CARDAN AVD
+Got     : CARDAN AV D
+[21] ✘ Display name exact French designation
+Expected: CARDAN AVD
+Got     : CARDAN AV D
+[22] ✘ OEM designation exact
+Expected: SHAFT,FRONT DRIVE APK416
+Got     : SHAFT, FRONT DRIVE AKK416
+[23] ✘ Search description exact
+Expected: CARDAN AVD ; SHAFT,FRONT DRIVE APK416
+Got     : CARDAN AV D ; SHAFT, FRONT DRIVE AKK416
+[29] ✘ Public TTC exact DB value
+Expected: 1982.71969
+Got     : 2450.52297
+[30] ✘ Wholesale HT exact DB value
+Expected: 1666.151
+Got     : 2059.263
+[31] ✘ Stock totalQuantity exact
+Expected: 1
+Got     : 5
+[32] ✘ Stock stockDisponible exact
+Expected: 0
+Got     : 3
+[33] ✘ Stock stockConsolide exact
+Expected: 1
+Got     : 5
+[34] ✘ Availability status follows stockConsolide rule
+Expected: Indisponible
+Got     : Disponible
+
+=== Case 126 (FAIL) variant=twoturn part="VOLANT CIAZ"
+--- run 1
+│ intent            : PARTS_SEARCH
+│ originalQuery     : Vous avez VOLANT CIAZ pour une CIAZ ?
+│ identityMode      : strict-head
+│ requestedPart     : volant
+│ intent            : CLARIFICATION_NEEDED
+│ originalQuery     : Vous avez VOLANT CIAZ pour une CIAZ ?
+│ identityMode      : strict-head
+│ requestedPart     : volant
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 4031
+Got     : —
+[19] ✘ Product reference exact
+Expected: 48110M79MC0-C48
+Got     : —
+[20] ✘ French designation exact
+Expected: VOLANT CIAZ
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: VOLANT CIAZ
+Got     : —
+[22] ✘ OEM designation exact
+Expected: WHEEL S/ASSYSTEERING
+Got     : —
+[23] ✘ Search description exact
+Expected: VOLANT CIAZ ; WHEEL S/ASSYSTEERING
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: MÉCANIQUE
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —
+[27] ✘ Supplier code exact
+Expected: CAR PRO PARTS
+--- run 2
+│ intent            : PARTS_SEARCH
+│ originalQuery     : Vous avez VOLANT CIAZ pour une CIAZ ?
+│ identityMode      : strict-head
+│ requestedPart     : volant
+│ intent            : CLARIFICATION_NEEDED
+│ originalQuery     : Vous avez VOLANT CIAZ pour une CIAZ ?
+│ identityMode      : strict-head
+│ requestedPart     : volant
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 4031
+Got     : —
+[19] ✘ Product reference exact
+Expected: 48110M79MC0-C48
+Got     : —
+[20] ✘ French designation exact
+Expected: VOLANT CIAZ
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: VOLANT CIAZ
+Got     : —
+[22] ✘ OEM designation exact
+Expected: WHEEL S/ASSYSTEERING
+Got     : —
+[23] ✘ Search description exact
+Expected: VOLANT CIAZ ; WHEEL S/ASSYSTEERING
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: MÉCANIQUE
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —
+[27] ✘ Supplier code exact
+Expected: CAR PRO PARTS
+--- run 3
+│ intent            : PARTS_SEARCH
+│ originalQuery     : Vous avez VOLANT CIAZ pour une CIAZ ?
+│ identityMode      : strict-head
+│ requestedPart     : volant
+│ intent            : CLARIFICATION_NEEDED
+│ originalQuery     : Vous avez VOLANT CIAZ pour une CIAZ ?
+│ identityMode      : strict-head
+│ requestedPart     : volant
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 4031
+Got     : —
+[19] ✘ Product reference exact
+Expected: 48110M79MC0-C48
+Got     : —
+[20] ✘ French designation exact
+Expected: VOLANT CIAZ
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: VOLANT CIAZ
+Got     : —
+[22] ✘ OEM designation exact
+Expected: WHEEL S/ASSYSTEERING
+Got     : —
+[23] ✘ Search description exact
+Expected: VOLANT CIAZ ; WHEEL S/ASSYSTEERING
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: MÉCANIQUE
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —
+[27] ✘ Supplier code exact
+Expected: CAR PRO PARTS
+
+=== Case 129 (FAIL) variant=typo part="CADRE SIEGE CONDUCTEUR"
+--- run 1
+│ intent            : GREETING
+│ originalQuery     : Bonjour, vous avez CADRE SIEGE CONDUTCEUR pour ma DZIRE ?
+│ identityMode      : inactive-no-standalone-form
+│ requestedPart     : cadre siege condutceur
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 8837
+Got     : —
+[19] ✘ Product reference exact
+Expected: 85603M68P42
+Got     : —
+[20] ✘ French designation exact
+Expected: CADRE SIEGE CONDUCTEUR
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: CADRE SIEGE CONDUCTEUR
+Got     : —
+[22] ✘ OEM designation exact
+Expected: FRAME ASSY,FR CUSH,L
+Got     : —
+[23] ✘ Search description exact
+Expected: CADRE SIEGE CONDUCTEUR ; FRAME ASSY,FR CUSH,L
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: PR
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —
+[27] ✘ Supplier code exact
+Expected: CAR PRO PARTS
+Got     : —
+[28] ✘ Source exact
+Expected: 01_PROD
+Got     : —
+--- run 2
+│ intent            : GREETING
+│ originalQuery     : Bonjour, vous avez CADRE SIEGE CONDUTCEUR pour ma DZIRE ?
+│ identityMode      : inactive-no-standalone-form
+│ requestedPart     : cadre siege condutceur
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 8837
+Got     : —
+[19] ✘ Product reference exact
+Expected: 85603M68P42
+Got     : —
+[20] ✘ French designation exact
+Expected: CADRE SIEGE CONDUCTEUR
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: CADRE SIEGE CONDUCTEUR
+Got     : —
+[22] ✘ OEM designation exact
+Expected: FRAME ASSY,FR CUSH,L
+Got     : —
+[23] ✘ Search description exact
+Expected: CADRE SIEGE CONDUCTEUR ; FRAME ASSY,FR CUSH,L
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: PR
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —
+[27] ✘ Supplier code exact
+Expected: CAR PRO PARTS
+Got     : —
+[28] ✘ Source exact
+Expected: 01_PROD
+Got     : —
+--- run 3
+│ intent            : GREETING
+│ originalQuery     : Bonjour, vous avez CADRE SIEGE CONDUTCEUR pour ma DZIRE ?
+│ identityMode      : inactive-no-standalone-form
+│ requestedPart     : cadre siege condutceur
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 8837
+Got     : —
+[19] ✘ Product reference exact
+Expected: 85603M68P42
+Got     : —
+[20] ✘ French designation exact
+Expected: CADRE SIEGE CONDUCTEUR
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: CADRE SIEGE CONDUCTEUR
+Got     : —
+[22] ✘ OEM designation exact
+Expected: FRAME ASSY,FR CUSH,L
+Got     : —
+[23] ✘ Search description exact
+Expected: CADRE SIEGE CONDUCTEUR ; FRAME ASSY,FR CUSH,L
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: PR
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —
+[27] ✘ Supplier code exact
+Expected: CAR PRO PARTS
+Got     : —
+[28] ✘ Source exact
+Expected: 01_PROD
+Got     : —
+
+=== Case 130 (FAIL) variant=twoturn part="MOYEU SYNCHRO BASSES VITESSES 1ERE ET 2EME"
+--- run 1
+│ intent            : PARTS_SEARCH
+│ originalQuery     : Vous avez MOYEU SYNCHRO BASSES VITESSES 1ERE ET 2EME pour une SWIFT ?
+│ identityMode      : strict-head
+│ requestedPart     : moyeu synchro basses vitesses
+│ intent            : SECURISATION
+│ originalQuery     : D'accord. Et le prix, s'il vous plaît ?
+│ withheld reason   : understanding confidence below 0.6
+[04] ✘ Intent is not a refusal/error
+Expected: resolved parts intent
+Got     : SECURISATION
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 1797
+Got     : —
+[19] ✘ Product reference exact
+Expected: 24411M67P00
+Got     : —
+[20] ✘ French designation exact
+Expected: MOYEU SYNCHRO BASSES VITESSES 1ERE ET 2EME
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: MOYEU SYNCHRO BASSES VITESSES 1ERE ET 2EME
+Got     : —
+[22] ✘ OEM designation exact
+Expected: HUB,LOW SPEED SYNC
+Got     : —
+[23] ✘ Search description exact
+Expected: MOYEU SYNCHRO BASSES VITESSES 1ERE ET 2EME ; HUB,LOW SPEED SYNC
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: MÉCANIQUE
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —
+--- run 2
+│ intent            : PARTS_SEARCH
+│ originalQuery     : Vous avez MOYEU SYNCHRO BASSES VITESSES 1ERE ET 2EME pour une SWIFT ?
+│ identityMode      : strict-head
+│ requestedPart     : moyeu synchro basses vitesses
+│ intent            : SECURISATION
+│ originalQuery     : D'accord. Et le prix, s'il vous plaît ?
+│ withheld reason   : understanding confidence below 0.6
+[04] ✘ Intent is not a refusal/error
+Expected: resolved parts intent
+Got     : SECURISATION
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 1797
+Got     : —
+[19] ✘ Product reference exact
+Expected: 24411M67P00
+Got     : —
+[20] ✘ French designation exact
+Expected: MOYEU SYNCHRO BASSES VITESSES 1ERE ET 2EME
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: MOYEU SYNCHRO BASSES VITESSES 1ERE ET 2EME
+Got     : —
+[22] ✘ OEM designation exact
+Expected: HUB,LOW SPEED SYNC
+Got     : —
+[23] ✘ Search description exact
+Expected: MOYEU SYNCHRO BASSES VITESSES 1ERE ET 2EME ; HUB,LOW SPEED SYNC
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: MÉCANIQUE
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —
+--- run 3
+│ intent            : PARTS_SEARCH
+│ originalQuery     : Vous avez MOYEU SYNCHRO BASSES VITESSES 1ERE ET 2EME pour une SWIFT ?
+│ identityMode      : strict-head
+│ requestedPart     : moyeu synchro basses vitesses
+│ intent            : SECURISATION
+│ originalQuery     : D'accord. Et le prix, s'il vous plaît ?
+│ withheld reason   : understanding confidence below 0.6
+[04] ✘ Intent is not a refusal/error
+Expected: resolved parts intent
+Got     : SECURISATION
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 1797
+Got     : —
+[19] ✘ Product reference exact
+Expected: 24411M67P00
+Got     : —
+[20] ✘ French designation exact
+Expected: MOYEU SYNCHRO BASSES VITESSES 1ERE ET 2EME
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: MOYEU SYNCHRO BASSES VITESSES 1ERE ET 2EME
+Got     : —
+[22] ✘ OEM designation exact
+Expected: HUB,LOW SPEED SYNC
+Got     : —
+[23] ✘ Search description exact
+Expected: MOYEU SYNCHRO BASSES VITESSES 1ERE ET 2EME ; HUB,LOW SPEED SYNC
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: MÉCANIQUE
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —
+
+=== Case 139 (FAIL) variant=exact part="ADHESIF PORTE AV G 2"
+--- run 1
+│ intent            : PARTS_SEARCH
+│ originalQuery     : adhesif porte 2 avant gauche
+│ identityMode      : strict-head
+│ requestedPart     : adhesif porte
+[18] ✘ Product DB id exact
+Expected: 8120
+Got     : 8096
+[19] ✘ Product reference exact
+Expected: 83924M68P10-0CB
+Got     : 83922M68P10-0CB
+[20] ✘ French designation exact
+Expected: ADHESIF PORTE AV G 2
+Got     : ADHESIF  PORTE AV G
+[21] ✘ Display name exact French designation
+Expected: ADHESIF PORTE AV G 2
+Got     : ADHESIF  PORTE AV G
+[22] ✘ OEM designation exact
+Expected: TAPE,FRONT DOOR OUTER RR,
+Got     : TAPE,FRONT DOOR OUTER ROO
+[23] ✘ Search description exact
+Expected: ADHESIF PORTE AV G 2 ; TAPE,FRONT DOOR OUTER RR,
+Got     : ADHESIF PORTE AV G ; TAPE,FRONT DOOR OUTER ROO
+[29] ✘ Public TTC exact DB value
+Expected: 67.8657
+Got     : 85.14688
+[30] ✘ Wholesale HT exact DB value
+Expected: 57.03
+Got     : 71.55200000000001
+[31] ✘ Stock totalQuantity exact
+Expected: 1
+Got     : 10
+[33] ✘ Stock stockConsolide exact
+Expected: 1
+Got     : 10
+[34] ✘ Availability status follows stockConsolide rule
+Expected: Indisponible
+Got     : Disponible
+[36] ✘ Alternate references exact
+Expected: 83924M68P10-0CB|3
+Got     : 83922M68P10-0CB|3
+--- run 2
+│ intent            : PARTS_SEARCH
+│ originalQuery     : adhesif porte 2 avant gauche
+│ identityMode      : strict-head
+│ requestedPart     : adhesif porte
+[18] ✘ Product DB id exact
+Expected: 8120
+Got     : 8096
+[19] ✘ Product reference exact
+Expected: 83924M68P10-0CB
+Got     : 83922M68P10-0CB
+[20] ✘ French designation exact
+Expected: ADHESIF PORTE AV G 2
+Got     : ADHESIF  PORTE AV G
+[21] ✘ Display name exact French designation
+Expected: ADHESIF PORTE AV G 2
+Got     : ADHESIF  PORTE AV G
+[22] ✘ OEM designation exact
+Expected: TAPE,FRONT DOOR OUTER RR,
+Got     : TAPE,FRONT DOOR OUTER ROO
+[23] ✘ Search description exact
+Expected: ADHESIF PORTE AV G 2 ; TAPE,FRONT DOOR OUTER RR,
+Got     : ADHESIF PORTE AV G ; TAPE,FRONT DOOR OUTER ROO
+[29] ✘ Public TTC exact DB value
+Expected: 67.8657
+Got     : 85.14688
+[30] ✘ Wholesale HT exact DB value
+Expected: 57.03
+Got     : 71.55200000000001
+[31] ✘ Stock totalQuantity exact
+Expected: 1
+Got     : 10
+[33] ✘ Stock stockConsolide exact
+Expected: 1
+Got     : 10
+[34] ✘ Availability status follows stockConsolide rule
+Expected: Indisponible
+Got     : Disponible
+[36] ✘ Alternate references exact
+Expected: 83924M68P10-0CB|3
+Got     : 83922M68P10-0CB|3
+--- run 3
+│ intent            : PARTS_SEARCH
+│ originalQuery     : adhesif porte 2 avant gauche
+│ identityMode      : strict-head
+│ requestedPart     : adhesif porte
+[18] ✘ Product DB id exact
+Expected: 8120
+Got     : 8096
+[19] ✘ Product reference exact
+Expected: 83924M68P10-0CB
+Got     : 83922M68P10-0CB
+[20] ✘ French designation exact
+Expected: ADHESIF PORTE AV G 2
+Got     : ADHESIF  PORTE AV G
+[21] ✘ Display name exact French designation
+Expected: ADHESIF PORTE AV G 2
+Got     : ADHESIF  PORTE AV G
+[22] ✘ OEM designation exact
+Expected: TAPE,FRONT DOOR OUTER RR,
+Got     : TAPE,FRONT DOOR OUTER ROO
+[23] ✘ Search description exact
+Expected: ADHESIF PORTE AV G 2 ; TAPE,FRONT DOOR OUTER RR,
+Got     : ADHESIF PORTE AV G ; TAPE,FRONT DOOR OUTER ROO
+[29] ✘ Public TTC exact DB value
+Expected: 67.8657
+Got     : 85.14688
+[30] ✘ Wholesale HT exact DB value
+Expected: 57.03
+Got     : 71.55200000000001
+[31] ✘ Stock totalQuantity exact
+Expected: 1
+Got     : 10
+[33] ✘ Stock stockConsolide exact
+Expected: 1
+Got     : 10
+[34] ✘ Availability status follows stockConsolide rule
+Expected: Indisponible
+Got     : Disponible
+[36] ✘ Alternate references exact
+Expected: 83924M68P10-0CB|3
+Got     : 83922M68P10-0CB|3
+
+=== Case 144 (FAIL) variant=typo part="CATADIOPTRE AR"
+--- run 1
+│ intent            : SECURISATION
+│ originalQuery     : Bonjour, vous avez CATADIOOPTRE AR pour ma FRONX ?
+│ identityMode      : skipped
+│ requestedPart     : null
+[04] ✘ Intent is not a refusal/error
+Expected: resolved parts intent
+Got     : SECURISATION
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 2524
+Got     : —
+[19] ✘ Product reference exact
+Expected: 35950M72S00
+Got     : —
+[20] ✘ French designation exact
+Expected: CATADIOPTRE AR
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: CATADIOPTRE AR
+Got     : —
+[22] ✘ OEM designation exact
+Expected: REFLECTOR ASSY,REAR
+Got     : —
+[23] ✘ Search description exact
+Expected: CATADIOPTRE AR ; REFLECTOR ASSY,REAR
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: ELECTRIQUE
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —
+[27] ✘ Supplier code exact
+Expected: CAR PRO PARTS
+Got     : —
+--- run 2
+│ intent            : SECURISATION
+│ originalQuery     : Bonjour, vous avez CATADIOOPTRE AR pour ma FRONX ?
+│ identityMode      : skipped
+│ requestedPart     : null
+[04] ✘ Intent is not a refusal/error
+Expected: resolved parts intent
+Got     : SECURISATION
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 2524
+Got     : —
+[19] ✘ Product reference exact
+Expected: 35950M72S00
+Got     : —
+[20] ✘ French designation exact
+Expected: CATADIOPTRE AR
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: CATADIOPTRE AR
+Got     : —
+[22] ✘ OEM designation exact
+Expected: REFLECTOR ASSY,REAR
+Got     : —
+[23] ✘ Search description exact
+Expected: CATADIOPTRE AR ; REFLECTOR ASSY,REAR
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: ELECTRIQUE
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —
+[27] ✘ Supplier code exact
+Expected: CAR PRO PARTS
+Got     : —
+--- run 3
+│ intent            : SECURISATION
+│ originalQuery     : Bonjour, vous avez CATADIOOPTRE AR pour ma FRONX ?
+│ identityMode      : skipped
+│ requestedPart     : null
+[04] ✘ Intent is not a refusal/error
+Expected: resolved parts intent
+Got     : SECURISATION
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 2524
+Got     : —
+[19] ✘ Product reference exact
+Expected: 35950M72S00
+Got     : —
+[20] ✘ French designation exact
+Expected: CATADIOPTRE AR
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: CATADIOPTRE AR
+Got     : —
+[22] ✘ OEM designation exact
+Expected: REFLECTOR ASSY,REAR
+Got     : —
+[23] ✘ Search description exact
+Expected: CATADIOPTRE AR ; REFLECTOR ASSY,REAR
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: ELECTRIQUE
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —
+[27] ✘ Supplier code exact
+Expected: CAR PRO PARTS
+Got     : —
+
+=== Case 147 (FAIL) variant=twoturn part="BALAIS ESSUI GLASS AR"
+--- run 1
+│ intent            : NO_RESULTS
+│ originalQuery     : Vous avez BALAIS ESSUI GLASS AR pour une FRONX ?
+│ identityMode      : inactive-no-standalone-form
+│ requestedPart     : verre
+[04] ✘ Intent is not a refusal/error
+Expected: resolved parts intent
+Got     : NO_RESULTS
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 3234
+Got     : —
+[19] ✘ Product reference exact
+Expected: 38823M55T00
+Got     : —
+[20] ✘ French designation exact
+Expected: BALAIS ESSUI GLASS AR
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: BALAIS ESSUI GLASS AR
+Got     : —
+[22] ✘ OEM designation exact
+Expected: BLADE ASSY,REAR WIPER
+Got     : —
+[23] ✘ Search description exact
+Expected: BALAIS ESSUI GLASS AR ; BLADE ASSY,REAR WIPER
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: CARROSSERIE
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —
+[27] ✘ Supplier code exact
+Expected: CAR PRO PARTS
+Got     : —
+--- run 2
+│ intent            : NO_RESULTS
+│ originalQuery     : Vous avez BALAIS ESSUI GLASS AR pour une FRONX ?
+│ identityMode      : inactive-no-standalone-form
+│ requestedPart     : verre
+[04] ✘ Intent is not a refusal/error
+Expected: resolved parts intent
+Got     : NO_RESULTS
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 3234
+Got     : —
+[19] ✘ Product reference exact
+Expected: 38823M55T00
+Got     : —
+[20] ✘ French designation exact
+Expected: BALAIS ESSUI GLASS AR
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: BALAIS ESSUI GLASS AR
+Got     : —
+[22] ✘ OEM designation exact
+Expected: BLADE ASSY,REAR WIPER
+Got     : —
+[23] ✘ Search description exact
+Expected: BALAIS ESSUI GLASS AR ; BLADE ASSY,REAR WIPER
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: CARROSSERIE
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —
+[27] ✘ Supplier code exact
+Expected: CAR PRO PARTS
+Got     : —
+--- run 3
+│ intent            : NO_RESULTS
+│ originalQuery     : Vous avez BALAIS ESSUI GLASS AR pour une FRONX ?
+│ identityMode      : inactive-no-standalone-form
+│ requestedPart     : verre
+[04] ✘ Intent is not a refusal/error
+Expected: resolved parts intent
+Got     : NO_RESULTS
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 3234
+Got     : —
+[19] ✘ Product reference exact
+Expected: 38823M55T00
+Got     : —
+[20] ✘ French designation exact
+Expected: BALAIS ESSUI GLASS AR
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: BALAIS ESSUI GLASS AR
+Got     : —
+[22] ✘ OEM designation exact
+Expected: BLADE ASSY,REAR WIPER
+Got     : —
+[23] ✘ Search description exact
+Expected: BALAIS ESSUI GLASS AR ; BLADE ASSY,REAR WIPER
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: CARROSSERIE
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —
+[27] ✘ Supplier code exact
+Expected: CAR PRO PARTS
+Got     : —
+
+=== Case 153 (FAIL) variant=exact part="JOINT PORTE AV D"
+--- run 1
+│ intent            : PARTS_SEARCH
+│ originalQuery     : je cherche joint porte avant droite
+│ identityMode      : strict-head
+│ requestedPart     : joint porte
+[18] ✘ Product DB id exact
+Expected: 6968
+Got     : 8440
+[19] ✘ Product reference exact
+Expected: 76291-54P00-000
+Got     : 84641-54P01-000
+[20] ✘ French designation exact
+Expected: JOINT PORTE AV D
+Got     : JOINT DE PORTE AV D
+[21] ✘ Display name exact French designation
+Expected: JOINT PORTE AV D
+Got     : JOINT DE PORTE AV D
+[22] ✘ OEM designation exact
+Expected: TRIM,FR DR OPNG,R
+Got     : WEATHERSTRIP
+[23] ✘ Search description exact
+Expected: JOINT PORTE AV D ; TRIM,FR DR OPNG,R
+Got     : JOINT DE PORTE AV D ; WEATHERSTRIP
+[25] ✘ Category exact
+Expected: PR
+Got     : CARROSSERIE
+[29] ✘ Public TTC exact DB value
+Expected: 283.1843
+Got     : 344.86319
+[30] ✘ Wholesale HT exact DB value
+Expected: 237.97
+Got     : 289.801
+[31] ✘ Stock totalQuantity exact
+Expected: 0
+Got     : 1
+[32] ✘ Stock stockDisponible exact
+Expected: 0
+Got     : 1
+[33] ✘ Stock stockConsolide exact
+Expected: 0
+Got     : 1
+--- run 2
+│ intent            : PARTS_SEARCH
+│ originalQuery     : je cherche joint porte avant droite
+│ identityMode      : strict-head
+│ requestedPart     : joint porte
+[18] ✘ Product DB id exact
+Expected: 6968
+Got     : 8440
+[19] ✘ Product reference exact
+Expected: 76291-54P00-000
+Got     : 84641-54P01-000
+[20] ✘ French designation exact
+Expected: JOINT PORTE AV D
+Got     : JOINT DE PORTE AV D
+[21] ✘ Display name exact French designation
+Expected: JOINT PORTE AV D
+Got     : JOINT DE PORTE AV D
+[22] ✘ OEM designation exact
+Expected: TRIM,FR DR OPNG,R
+Got     : WEATHERSTRIP
+[23] ✘ Search description exact
+Expected: JOINT PORTE AV D ; TRIM,FR DR OPNG,R
+Got     : JOINT DE PORTE AV D ; WEATHERSTRIP
+[25] ✘ Category exact
+Expected: PR
+Got     : CARROSSERIE
+[29] ✘ Public TTC exact DB value
+Expected: 283.1843
+Got     : 344.86319
+[30] ✘ Wholesale HT exact DB value
+Expected: 237.97
+Got     : 289.801
+[31] ✘ Stock totalQuantity exact
+Expected: 0
+Got     : 1
+[32] ✘ Stock stockDisponible exact
+Expected: 0
+Got     : 1
+[33] ✘ Stock stockConsolide exact
+Expected: 0
+Got     : 1
+--- run 3
+│ intent            : PARTS_SEARCH
+│ originalQuery     : je cherche joint porte avant droite
+│ identityMode      : strict-head
+│ requestedPart     : joint porte
+[18] ✘ Product DB id exact
+Expected: 6968
+Got     : 8440
+[19] ✘ Product reference exact
+Expected: 76291-54P00-000
+Got     : 84641-54P01-000
+[20] ✘ French designation exact
+Expected: JOINT PORTE AV D
+Got     : JOINT DE PORTE AV D
+[21] ✘ Display name exact French designation
+Expected: JOINT PORTE AV D
+Got     : JOINT DE PORTE AV D
+[22] ✘ OEM designation exact
+Expected: TRIM,FR DR OPNG,R
+Got     : WEATHERSTRIP
+[23] ✘ Search description exact
+Expected: JOINT PORTE AV D ; TRIM,FR DR OPNG,R
+Got     : JOINT DE PORTE AV D ; WEATHERSTRIP
+[25] ✘ Category exact
+Expected: PR
+Got     : CARROSSERIE
+[29] ✘ Public TTC exact DB value
+Expected: 283.1843
+Got     : 344.86319
+[30] ✘ Wholesale HT exact DB value
+Expected: 237.97
+Got     : 289.801
+[31] ✘ Stock totalQuantity exact
+Expected: 0
+Got     : 1
+[32] ✘ Stock stockDisponible exact
+Expected: 0
+Got     : 1
+[33] ✘ Stock stockConsolide exact
+Expected: 0
+Got     : 1
+
+=== Case 158 (FAIL) variant=twoturn part="CIRCLIP MOYEU SYNCHRO BASSES VITESSES 1ERE ET 2EME"
+--- run 1
+│ intent            : PARTS_SEARCH
+│ originalQuery     : Vous avez CIRCLIP MOYEU SYNCHRO BASSES VITESSES 1ERE ET 2EME pour une ERTIGA ?
+│ identityMode      : strict-head
+│ requestedPart     : circlip moyeu synchro basses vitesses
+│ intent            : SECURISATION
+│ originalQuery     : Vous l'avez en stock ? Et c'est combien ?
+[04] ✘ Intent is not a refusal/error
+Expected: resolved parts intent
+Got     : SECURISATION
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 1828
+Got     : —
+[19] ✘ Product reference exact
+Expected: 24451M78L00
+Got     : —
+[20] ✘ French designation exact
+Expected: CIRCLIP MOYEU SYNCHRO BASSES VITESSES 1ERE ET 2EME
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: CIRCLIP MOYEU SYNCHRO BASSES VITESSES 1ERE ET 2EME
+Got     : —
+[22] ✘ OEM designation exact
+Expected: CIRCLIP, LOW SPEED SYNC HUB
+Got     : —
+[23] ✘ Search description exact
+Expected: CIRCLIP MOYEU SYNCHRO BASSES VITESSES 1ERE ET 2EME ; CIRCLIP, LOW SPEED SYNC HUB
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: MÉCANIQUE
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —
+[27] ✘ Supplier code exact
+--- run 2
+│ intent            : PARTS_SEARCH
+│ originalQuery     : Vous avez CIRCLIP MOYEU SYNCHRO BASSES VITESSES 1ERE ET 2EME pour une ERTIGA ?
+│ identityMode      : strict-head
+│ requestedPart     : circlip moyeu synchro basses vitesses
+│ intent            : SECURISATION
+│ originalQuery     : Vous l'avez en stock ? Et c'est combien ?
+[04] ✘ Intent is not a refusal/error
+Expected: resolved parts intent
+Got     : SECURISATION
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 1828
+Got     : —
+[19] ✘ Product reference exact
+Expected: 24451M78L00
+Got     : —
+[20] ✘ French designation exact
+Expected: CIRCLIP MOYEU SYNCHRO BASSES VITESSES 1ERE ET 2EME
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: CIRCLIP MOYEU SYNCHRO BASSES VITESSES 1ERE ET 2EME
+Got     : —
+[22] ✘ OEM designation exact
+Expected: CIRCLIP, LOW SPEED SYNC HUB
+Got     : —
+[23] ✘ Search description exact
+Expected: CIRCLIP MOYEU SYNCHRO BASSES VITESSES 1ERE ET 2EME ; CIRCLIP, LOW SPEED SYNC HUB
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: MÉCANIQUE
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —
+[27] ✘ Supplier code exact
+--- run 3
+│ intent            : PARTS_SEARCH
+│ originalQuery     : Vous avez CIRCLIP MOYEU SYNCHRO BASSES VITESSES 1ERE ET 2EME pour une ERTIGA ?
+│ identityMode      : strict-head
+│ requestedPart     : circlip moyeu synchro basses vitesses
+│ intent            : SECURISATION
+│ originalQuery     : Vous l'avez en stock ? Et c'est combien ?
+[04] ✘ Intent is not a refusal/error
+Expected: resolved parts intent
+Got     : SECURISATION
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 1828
+Got     : —
+[19] ✘ Product reference exact
+Expected: 24451M78L00
+Got     : —
+[20] ✘ French designation exact
+Expected: CIRCLIP MOYEU SYNCHRO BASSES VITESSES 1ERE ET 2EME
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: CIRCLIP MOYEU SYNCHRO BASSES VITESSES 1ERE ET 2EME
+Got     : —
+[22] ✘ OEM designation exact
+Expected: CIRCLIP, LOW SPEED SYNC HUB
+Got     : —
+[23] ✘ Search description exact
+Expected: CIRCLIP MOYEU SYNCHRO BASSES VITESSES 1ERE ET 2EME ; CIRCLIP, LOW SPEED SYNC HUB
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: MÉCANIQUE
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —
+[27] ✘ Supplier code exact
+
+=== Case 166 (FAIL) variant=typo part="RONDELLE ELASTIQUE DE PIGNON DE DIFFERENTIEL"
+--- run 1
+│ intent            : SECURISATION
+│ originalQuery     : Bonjour, vous avez RONDELLLE ELASTIQUE DE PIGNON DE DIFFERENTIEL pour ma CELERIO BVA ?
+│ identityMode      : inactive-no-standalone-form
+│ requestedPart     : elastique pignon differentiel
+│ withheld reason   : understanding confidence below 0.6
+│ withheld reason   : identity unverified by the catalog: redirect instead of guessing
+│ withheld reason   : identity: designation contains "elastique" but not as its head noun
+[04] ✘ Intent is not a refusal/error
+Expected: resolved parts intent
+Got     : SECURISATION
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 66
+Got     : —
+[19] ✘ Product reference exact
+Expected: 09164-35003-000
+Got     : —
+[20] ✘ French designation exact
+Expected: RONDELLE ELASTIQUE DE PIGNON DE DIFFERENTIEL
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: RONDELLE ELASTIQUE DE PIGNON DE DIFFERENTIEL
+Got     : —
+[22] ✘ OEM designation exact
+Expected: WASHER
+Got     : —
+[23] ✘ Search description exact
+Expected: RONDELLE ELASTIQUE DE PIGNON DE DIFFERENTIEL ; WASHER
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: MÉCANIQUE
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —
+--- run 2
+│ intent            : SECURISATION
+│ originalQuery     : Bonjour, vous avez RONDELLLE ELASTIQUE DE PIGNON DE DIFFERENTIEL pour ma CELERIO BVA ?
+│ identityMode      : inactive-no-standalone-form
+│ requestedPart     : elastique pignon differentiel
+│ withheld reason   : understanding confidence below 0.6
+│ withheld reason   : identity unverified by the catalog: redirect instead of guessing
+│ withheld reason   : identity: designation contains "elastique" but not as its head noun
+[04] ✘ Intent is not a refusal/error
+Expected: resolved parts intent
+Got     : SECURISATION
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 66
+Got     : —
+[19] ✘ Product reference exact
+Expected: 09164-35003-000
+Got     : —
+[20] ✘ French designation exact
+Expected: RONDELLE ELASTIQUE DE PIGNON DE DIFFERENTIEL
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: RONDELLE ELASTIQUE DE PIGNON DE DIFFERENTIEL
+Got     : —
+[22] ✘ OEM designation exact
+Expected: WASHER
+Got     : —
+[23] ✘ Search description exact
+Expected: RONDELLE ELASTIQUE DE PIGNON DE DIFFERENTIEL ; WASHER
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: MÉCANIQUE
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —
+--- run 3
+│ intent            : SECURISATION
+│ originalQuery     : Bonjour, vous avez RONDELLLE ELASTIQUE DE PIGNON DE DIFFERENTIEL pour ma CELERIO BVA ?
+│ identityMode      : inactive-no-standalone-form
+│ requestedPart     : elastique pignon differentiel
+│ withheld reason   : understanding confidence below 0.6
+│ withheld reason   : identity unverified by the catalog: redirect instead of guessing
+│ withheld reason   : identity: designation contains "elastique" but not as its head noun
+[04] ✘ Intent is not a refusal/error
+Expected: resolved parts intent
+Got     : SECURISATION
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 66
+Got     : —
+[19] ✘ Product reference exact
+Expected: 09164-35003-000
+Got     : —
+[20] ✘ French designation exact
+Expected: RONDELLE ELASTIQUE DE PIGNON DE DIFFERENTIEL
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: RONDELLE ELASTIQUE DE PIGNON DE DIFFERENTIEL
+Got     : —
+[22] ✘ OEM designation exact
+Expected: WASHER
+Got     : —
+[23] ✘ Search description exact
+Expected: RONDELLE ELASTIQUE DE PIGNON DE DIFFERENTIEL ; WASHER
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: MÉCANIQUE
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —
+
+=== Case 178 (FAIL) variant=typo part="SYNCHRO 2 EME VITESSE"
+--- run 1
+│ intent            : SECURISATION
+│ originalQuery     : Bonjour, vous avez SYCHRO 2 EME VITESSE pour ma ERTIGA ?
+│ identityMode      : inactive-no-standalone-form
+│ requestedPart     : eme vitesse
+│ withheld reason   : understanding confidence below 0.6
+│ withheld reason   : identity unverified by the catalog: redirect instead of guessing
+│ withheld reason   : identity: designation contains "eme" but not as its head noun
+[04] ✘ Intent is not a refusal/error
+Expected: resolved parts intent
+Got     : SECURISATION
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 1762
+Got     : —
+[19] ✘ Product reference exact
+Expected: 24321M60M01
+Got     : —
+[20] ✘ French designation exact
+Expected: SYNCHRO 2 EME VITESSE
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: SYNCHRO 2 EME VITESSE
+Got     : —
+[22] ✘ OEM designation exact
+Expected: GEAR COUNTERSHAFT 2ND
+Got     : —
+[23] ✘ Search description exact
+Expected: SYNCHRO 2 EME VITESSE ; GEAR COUNTERSHAFT 2ND
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: MÉCANIQUE
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —
+--- run 2
+│ intent            : SECURISATION
+│ originalQuery     : Bonjour, vous avez SYCHRO 2 EME VITESSE pour ma ERTIGA ?
+│ identityMode      : inactive-no-standalone-form
+│ requestedPart     : eme vitesse
+│ withheld reason   : understanding confidence below 0.6
+│ withheld reason   : identity unverified by the catalog: redirect instead of guessing
+│ withheld reason   : identity: designation contains "eme" but not as its head noun
+[04] ✘ Intent is not a refusal/error
+Expected: resolved parts intent
+Got     : SECURISATION
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 1762
+Got     : —
+[19] ✘ Product reference exact
+Expected: 24321M60M01
+Got     : —
+[20] ✘ French designation exact
+Expected: SYNCHRO 2 EME VITESSE
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: SYNCHRO 2 EME VITESSE
+Got     : —
+[22] ✘ OEM designation exact
+Expected: GEAR COUNTERSHAFT 2ND
+Got     : —
+[23] ✘ Search description exact
+Expected: SYNCHRO 2 EME VITESSE ; GEAR COUNTERSHAFT 2ND
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: MÉCANIQUE
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —
+--- run 3
+│ intent            : SECURISATION
+│ originalQuery     : Bonjour, vous avez SYCHRO 2 EME VITESSE pour ma ERTIGA ?
+│ identityMode      : inactive-no-standalone-form
+│ requestedPart     : eme vitesse
+│ withheld reason   : understanding confidence below 0.6
+│ withheld reason   : identity unverified by the catalog: redirect instead of guessing
+│ withheld reason   : identity: designation contains "eme" but not as its head noun
+[04] ✘ Intent is not a refusal/error
+Expected: resolved parts intent
+Got     : SECURISATION
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 1762
+Got     : —
+[19] ✘ Product reference exact
+Expected: 24321M60M01
+Got     : —
+[20] ✘ French designation exact
+Expected: SYNCHRO 2 EME VITESSE
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: SYNCHRO 2 EME VITESSE
+Got     : —
+[22] ✘ OEM designation exact
+Expected: GEAR COUNTERSHAFT 2ND
+Got     : —
+[23] ✘ Search description exact
+Expected: SYNCHRO 2 EME VITESSE ; GEAR COUNTERSHAFT 2ND
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: MÉCANIQUE
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —
+
+=== Case 181 (FAIL) variant=typo part="Engrenage de 5e vitesse de l’arbre primaire"
+--- run 1
+│ intent            : SECURISATION
+│ originalQuery     : Bonjour, vous avez Engrengae de 5e vitesse de l’arbre primaire pour ma SWIFT ?
+│ identityMode      : inactive-no-standalone-form
+│ requestedPart     : vitesse arbre primaire
+│ withheld reason   : understanding confidence below 0.6
+│ withheld reason   : identity unverified by the catalog: redirect instead of guessing
+│ withheld reason   : identity: designation contains "vitesse" but not as its head noun
+[04] ✘ Intent is not a refusal/error
+Expected: resolved parts intent
+Got     : SECURISATION
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 1723
+Got     : —
+[19] ✘ Product reference exact
+Expected: 24114-52R80-000
+Got     : —
+[20] ✘ French designation exact
+Expected: Engrenage de 5e vitesse de l’arbre primaire
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: Engrenage de 5e vitesse de l’arbre primaire
+Got     : —
+[22] ✘ OEM designation exact
+Expected: GEAR,INPUT SHAFT 5TH
+Got     : —
+[23] ✘ Search description exact
+Expected: Engrenage de 5e vitesse de l’arbre primaire ; GEAR,INPUT SHAFT 5TH
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: PR
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —
+--- run 2
+│ intent            : SECURISATION
+│ originalQuery     : Bonjour, vous avez Engrengae de 5e vitesse de l’arbre primaire pour ma SWIFT ?
+│ identityMode      : inactive-no-standalone-form
+│ requestedPart     : vitesse arbre primaire
+│ withheld reason   : understanding confidence below 0.6
+│ withheld reason   : identity unverified by the catalog: redirect instead of guessing
+│ withheld reason   : identity: designation contains "vitesse" but not as its head noun
+[04] ✘ Intent is not a refusal/error
+Expected: resolved parts intent
+Got     : SECURISATION
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 1723
+Got     : —
+[19] ✘ Product reference exact
+Expected: 24114-52R80-000
+Got     : —
+[20] ✘ French designation exact
+Expected: Engrenage de 5e vitesse de l’arbre primaire
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: Engrenage de 5e vitesse de l’arbre primaire
+Got     : —
+[22] ✘ OEM designation exact
+Expected: GEAR,INPUT SHAFT 5TH
+Got     : —
+[23] ✘ Search description exact
+Expected: Engrenage de 5e vitesse de l’arbre primaire ; GEAR,INPUT SHAFT 5TH
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: PR
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —
+--- run 3
+│ intent            : SECURISATION
+│ originalQuery     : Bonjour, vous avez Engrengae de 5e vitesse de l’arbre primaire pour ma SWIFT ?
+│ identityMode      : inactive-no-standalone-form
+│ requestedPart     : vitesse arbre primaire
+│ withheld reason   : understanding confidence below 0.6
+│ withheld reason   : identity unverified by the catalog: redirect instead of guessing
+│ withheld reason   : identity: designation contains "vitesse" but not as its head noun
+[04] ✘ Intent is not a refusal/error
+Expected: resolved parts intent
+Got     : SECURISATION
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 1723
+Got     : —
+[19] ✘ Product reference exact
+Expected: 24114-52R80-000
+Got     : —
+[20] ✘ French designation exact
+Expected: Engrenage de 5e vitesse de l’arbre primaire
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: Engrenage de 5e vitesse de l’arbre primaire
+Got     : —
+[22] ✘ OEM designation exact
+Expected: GEAR,INPUT SHAFT 5TH
+Got     : —
+[23] ✘ Search description exact
+Expected: Engrenage de 5e vitesse de l’arbre primaire ; GEAR,INPUT SHAFT 5TH
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: PR
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —
+
+=== Case 185 (FAIL) variant=exact part="JOINT TABLEAU DU BORD"
+--- run 1
+│ intent            : PARTS_SEARCH
+│ originalQuery     : je cherche joint tableau du bord
+│ identityMode      : strict-head
+│ requestedPart     : joint tableau bord
+[18] ✘ Product DB id exact
+Expected: 6656
+Got     : 6659
+[19] ✘ Product reference exact
+Expected: 73114M76M00
+Got     : 73118M58J00
+[20] ✘ French designation exact
+Expected: JOINT TABLEAU DU BORD
+Got     : JOINT TABLEAU DE BORD
+[21] ✘ Display name exact French designation
+Expected: JOINT TABLEAU DU BORD
+Got     : JOINT TABLEAU DE BORD
+[22] ✘ OEM designation exact
+Expected: SILENCER I/P TOP
+Got     : SEAL, I/
+[23] ✘ Search description exact
+Expected: JOINT TABLEAU DU BORD ; SILENCER I/P TOP
+Got     : JOINT TABLEAU DE BORD ; SEAL, I/
+[25] ✘ Category exact
+Expected: PR
+Got     : CARROSSERIE
+[29] ✘ Public TTC exact DB value
+Expected: 163.52385
+Got     : 16.58265
+[30] ✘ Wholesale HT exact DB value
+Expected: 137.415
+Got     : 13.935
+[31] ✘ Stock totalQuantity exact
+Expected: 0
+Got     : 17
+[32] ✘ Stock stockDisponible exact
+Expected: 0
+Got     : 17
+[33] ✘ Stock stockConsolide exact
+Expected: 0
+Got     : 17
+--- run 2
+│ intent            : PARTS_SEARCH
+│ originalQuery     : je cherche joint tableau du bord
+│ identityMode      : strict-head
+│ requestedPart     : joint tableau bord
+[18] ✘ Product DB id exact
+Expected: 6656
+Got     : 6659
+[19] ✘ Product reference exact
+Expected: 73114M76M00
+Got     : 73118M58J00
+[20] ✘ French designation exact
+Expected: JOINT TABLEAU DU BORD
+Got     : JOINT TABLEAU DE BORD
+[21] ✘ Display name exact French designation
+Expected: JOINT TABLEAU DU BORD
+Got     : JOINT TABLEAU DE BORD
+[22] ✘ OEM designation exact
+Expected: SILENCER I/P TOP
+Got     : SEAL, I/
+[23] ✘ Search description exact
+Expected: JOINT TABLEAU DU BORD ; SILENCER I/P TOP
+Got     : JOINT TABLEAU DE BORD ; SEAL, I/
+[25] ✘ Category exact
+Expected: PR
+Got     : CARROSSERIE
+[29] ✘ Public TTC exact DB value
+Expected: 163.52385
+Got     : 16.58265
+[30] ✘ Wholesale HT exact DB value
+Expected: 137.415
+Got     : 13.935
+[31] ✘ Stock totalQuantity exact
+Expected: 0
+Got     : 17
+[32] ✘ Stock stockDisponible exact
+Expected: 0
+Got     : 17
+[33] ✘ Stock stockConsolide exact
+Expected: 0
+Got     : 17
+--- run 3
+│ intent            : PARTS_SEARCH
+│ originalQuery     : je cherche joint tableau du bord
+│ identityMode      : strict-head
+│ requestedPart     : joint tableau bord
+[18] ✘ Product DB id exact
+Expected: 6656
+Got     : 6659
+[19] ✘ Product reference exact
+Expected: 73114M76M00
+Got     : 73118M58J00
+[20] ✘ French designation exact
+Expected: JOINT TABLEAU DU BORD
+Got     : JOINT TABLEAU DE BORD
+[21] ✘ Display name exact French designation
+Expected: JOINT TABLEAU DU BORD
+Got     : JOINT TABLEAU DE BORD
+[22] ✘ OEM designation exact
+Expected: SILENCER I/P TOP
+Got     : SEAL, I/
+[23] ✘ Search description exact
+Expected: JOINT TABLEAU DU BORD ; SILENCER I/P TOP
+Got     : JOINT TABLEAU DE BORD ; SEAL, I/
+[25] ✘ Category exact
+Expected: PR
+Got     : CARROSSERIE
+[29] ✘ Public TTC exact DB value
+Expected: 163.52385
+Got     : 16.58265
+[30] ✘ Wholesale HT exact DB value
+Expected: 137.415
+Got     : 13.935
+[31] ✘ Stock totalQuantity exact
+Expected: 0
+Got     : 17
+[32] ✘ Stock stockDisponible exact
+Expected: 0
+Got     : 17
+[33] ✘ Stock stockConsolide exact
+Expected: 0
+Got     : 17
+
+=== Case 188 (FLAKY) variant=price part="CALCULATEUR ENSEMBLE EPI / ECM"
+--- run 1
+│ intent            : SECURISATION
+│ originalQuery     : prix calculateur ensemble epi
+│ identityMode      : strict-head
+│ requestedPart     : calculateur ensemble epi
+│ withheld reason   : qualifiers unverified by the catalog: redirect instead of guessing
+[04] ✘ Intent is not a refusal/error
+Expected: resolved parts intent
+Got     : SECURISATION
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 2221
+Got     : —
+[19] ✘ Product reference exact
+Expected: 33920M79M40
+Got     : —
+[20] ✘ French designation exact
+Expected: CALCULATEUR ENSEMBLE EPI / ECM
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: CALCULATEUR ENSEMBLE EPI / ECM
+Got     : —
+[22] ✘ OEM designation exact
+Expected: CONTROLLER ASSY,EPI-A/C
+Got     : —
+[23] ✘ Search description exact
+Expected: CALCULATEUR ENSEMBLE EPI / ECM ; CONTROLLER ASSY,EPI-A/C
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: ELECTRIQUE
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —
+[27] ✘ Supplier code exact
+Expected: CAR PRO PARTS
+--- run 3
+│ intent            : SECURISATION
+│ originalQuery     : prix calculateur ensemble epi
+│ identityMode      : strict-head
+│ requestedPart     : calculateur ensemble epi
+│ withheld reason   : qualifiers unverified by the catalog: redirect instead of guessing
+[04] ✘ Intent is not a refusal/error
+Expected: resolved parts intent
+Got     : SECURISATION
+[05] ✘ Exactly one expected product is returned
+Expected: 1
+Got     : 0
+[18] ✘ Product DB id exact
+Expected: 2221
+Got     : —
+[19] ✘ Product reference exact
+Expected: 33920M79M40
+Got     : —
+[20] ✘ French designation exact
+Expected: CALCULATEUR ENSEMBLE EPI / ECM
+Got     : —
+[21] ✘ Display name exact French designation
+Expected: CALCULATEUR ENSEMBLE EPI / ECM
+Got     : —
+[22] ✘ OEM designation exact
+Expected: CONTROLLER ASSY,EPI-A/C
+Got     : —
+[23] ✘ Search description exact
+Expected: CALCULATEUR ENSEMBLE EPI / ECM ; CONTROLLER ASSY,EPI-A/C
+Got     : —
+[24] ✘ Unit exact
+Expected: PCS
+Got     : —
+[25] ✘ Category exact
+Expected: ELECTRIQUE
+Got     : —
+[26] ✘ Manufacturer exact
+Expected: SUZUKI
+Got     : —
+[27] ✘ Supplier code exact
+Expected: CAR PRO PARTS

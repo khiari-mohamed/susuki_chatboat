@@ -1,0 +1,337 @@
+﻿[1m  Case 12 Ôöé SUZUKI FRONX Ôöé SPIRALE DE VOLANT  ALLUMAGE AUTOMATIQUE DES FEUX[0m
+  VIN      : [36mMBHWDBC20SG346917[0m
+  TypeCode : [36mA3L415-TYPE1[0m
+  VehicleNo: [36mVN0207812[0m
+  DB Ref   : [36m37410M55TH0[0m
+  Stock    : consolide=1 ÔåÆ [31munavailable[0m
+  Price TTC: [36m1683.384 TND[0m
+  Turns    : 2
+[90m[HTTP] --> POST http://localhost:8000/verification/vin[0m
+[90m[HTTP] <-- 201 http://localhost:8000/verification/vin[0m
+
+  VIN validation response: {"success":true,"vehicleInfo":{"vin":"MBHWDBC20SG346917","vehicleNo":"VN0207812","marque":"SUZUKI","modele":"FRONX","modeleDescription":"FRONX GLX BVA","typeCode":"A3L415-TYPE1","immatriculation":"37261","vinValidated":true,"source":"VIN direct"}}
+
+  [1mACCURACY SCORE[0m Case 12 VIN: [32mÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûê 100%[0m
+  Checks: 8/8 passed
+
+
+  [34m[1mTurn 1[0m: "Je cherche SPIRALE DE VOLANT  ALLUMAGE AUTOMATIQUE DES FEUX pour ma FRONX."
+[90m[HTTP] --> POST http://localhost:8000/chat/message[0m
+[90m[HTTP] <-- 201 http://localhost:8000/chat/message[0m
+
+  [1mEXACT UI RESPONSE (POST /chat/message response field):[0m
+Je ne peux pas confirmer cette pi├¿ce avec un niveau de fiabilit├® suffisant pour votre SUZUKI FRONX.
+
+­ƒÆí Veuillez contacter Car Pro ÔÇô Comptoir Pi├¿ces de Rechange T├®l N┬░ 70 603 518 ÔÇô 70 603 519
+[90m
+  ÔöîÔöÇ DEBUG Case 12 Turn 1 ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ[0m
+[90m  Ôöé HTTP status       : 201[0m
+[90m  Ôöé intent            : SECURISATION[0m
+[90m  Ôöé confidence        : LOW[0m
+[90m  Ôöé sessionId         : 3816ac8d-0c93-46ca-816a-a2eb99f861f3[0m
+[90m  Ôöé productsFound     : 1[0m
+[90m  Ôöé duration          : 2065 ms[0m
+[90m  Ôöé redirectedToCount : true[0m
+[90m  Ôö£ÔöÇ SEARCH DEBUG[0m
+[90m  Ôöé searchType        : text[0m
+[90m  Ôöé originalQuery     : spiraale de volant allumage automatique des feux[0m
+[90m  Ôöé normalizedQuery   : spiraale de volant allumage automatique des feux[0m
+[90m  Ôöé dialectDetected   : false[0m
+[90m  Ôöé rawTokens         : spiraale, volant, allumage, automatique, des, feux[0m
+[90m  Ôöé expandedTerms     : spiraale, volant, volantmoteur, volant moteur, volant bimasse, flywheel, bimasse, allumage, bougie, bougies, spark plug, bougi, sparkplug, automatique, feux, feu, antibrouillard, feux stop, stop, cligno, feu position[0m
+[90m  Ôöé mainPartType      : volantmoteur[0m
+[90m  Ôöé retrievalMode     : relaxed[0m
+[90m  Ôöé truncated         : false[0m
+[90m  Ôöé dbRawCount        : 1[0m
+[90m  Ôöé qualifiedCount    : 1[0m
+[90m  Ôöé finalCount        : 1[0m
+[90m  Ôöé stockDisponible   : 0[0m
+[90m  Ôöé stockIndisponible : 1[0m
+[90m  Ôö£ÔöÇ VEHICLE SCOPE[0m
+[90m  Ôöé active            : true[0m
+[90m  Ôöé vin               : MBHWDBC20SG346917[0m
+[90m  Ôöé vehicleNo         : VN0207812[0m
+[90m  Ôöé model             : FRONX[0m
+[90m  Ôöé modelDescription  : FRONX GLX BVA[0m
+[90m  Ôöé typeCodes         : A3L415-TYPE1[0m
+[90m  Ôöé primaryTypeCodes  : A3L415-TYPE1[0m
+[90m  Ôöé typeCodeSource    : explicit[0m
+[90m  Ôö£ÔöÇ CONSTRAINT GATE[0m
+[90m  Ôöé identityMode      : inactive-no-standalone-form[0m
+[90m  Ôöé requestedPart     : volant allumage automatique feux[0m
+[90m  Ôöé kept              : 1[0m
+[90m  Ôöé rejectedIdentity  : 0[0m
+[90m  Ôöé rejectedPosition  : 0[0m
+[90m  Ôöé noExactMatch      : false[0m
+[90m  Ôö£ÔöÇ CATALOG VERIFICATION[0m
+[90m  Ôöé compatibility     : NON_VERIFIEE[0m
+[90m  Ôöé identity          : unverifiable[0m
+[90m  Ôöé position          : not-applicable[0m
+[90m  Ôöé qualifiers        : not-applicable[0m
+[90m  Ôöé vehicle           : confirmed[0m
+[90m  Ôöé stockPrice        : not-applicable[0m
+[90m  Ôöé aiAudit           : skipped[0m
+[90m  Ôöé withheld reason   : identity unverified by the catalog: redirect instead of guessing[0m
+[90m  Ôöé withheld reason   : identity: designation contains "bougie" but not as its head noun[0m
+[90m  Ôö£ÔöÇ ANSWER TRACE[0m
+[90m  Ôöé identifiedPart    : bougie[0m
+[90m  Ôöé modelCode         : A3L415-TYPE1[0m
+[90m  ÔööÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ[0m
+
+  [1mACCURACY SCORE[0m Case 12 T1: [31mÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûæÔûæÔûæÔûæÔûæÔûæÔûæÔûæÔûæÔûæÔûæÔûæÔûæ 38%[0m
+  Checks: 18/47 passed
+  [04] [31mÔ£ÿ[0m Intent is not a refusal/error
+       [31mExpected[0m: resolved parts intent
+       [31mGot[0m     : SECURISATION
+  [05] [31mÔ£ÿ[0m Exactly one expected product is returned
+       [31mExpected[0m: 1
+       [31mGot[0m     : 0
+  [18] [31mÔ£ÿ[0m Product DB id exact
+       [31mExpected[0m: 2836
+       [31mGot[0m     : ÔÇö
+  [19] [31mÔ£ÿ[0m Product reference exact
+       [31mExpected[0m: 37410M55TH0
+       [31mGot[0m     : ÔÇö
+  [20] [31mÔ£ÿ[0m French designation exact
+       [31mExpected[0m: SPIRALE DE VOLANT  ALLUMAGE AUTOMATIQUE DES FEUX
+       [31mGot[0m     : ÔÇö
+  [21] [31mÔ£ÿ[0m Display name exact French designation
+       [31mExpected[0m: SPIRALE DE VOLANT  ALLUMAGE AUTOMATIQUE DES FEUX
+       [31mGot[0m     : ÔÇö
+  [22] [31mÔ£ÿ[0m OEM designation exact
+       [31mExpected[0m: SET,CONTACT COIL & AUTO LIGHT
+       [31mGot[0m     : ÔÇö
+  [23] [31mÔ£ÿ[0m Search description exact
+       [31mExpected[0m: SPIRALE DE VOLANT ALLUMAGE AUTOMATIQUE DES FEUX ; SET,CONTACT COIL & AUTO LIGHT
+       [31mGot[0m     : ÔÇö
+  [24] [31mÔ£ÿ[0m Unit exact
+       [31mExpected[0m: PCS
+       [31mGot[0m     : ÔÇö
+  [25] [31mÔ£ÿ[0m Category exact
+       [31mExpected[0m: ELECTRIQUE
+       [31mGot[0m     : ÔÇö
+  [26] [31mÔ£ÿ[0m Manufacturer exact
+       [31mExpected[0m: SUZUKI
+       [31mGot[0m     : ÔÇö
+  [27] [31mÔ£ÿ[0m Supplier code exact
+       [31mExpected[0m: CAR PRO PARTS
+       [31mGot[0m     : ÔÇö
+  [28] [31mÔ£ÿ[0m Source exact
+       [31mExpected[0m: 01_PROD
+       [31mGot[0m     : ÔÇö
+  [29] [31mÔ£ÿ[0m Public TTC exact DB value
+       [31mExpected[0m: 1683.38352
+       [31mGot[0m     : ÔÇö
+  [30] [31mÔ£ÿ[0m Wholesale HT exact DB value
+       [31mExpected[0m: 1414.608
+       [31mGot[0m     : ÔÇö
+  [31] [31mÔ£ÿ[0m Stock totalQuantity exact
+       [31mExpected[0m: 1
+       [31mGot[0m     : ÔÇö
+  [32] [31mÔ£ÿ[0m Stock stockDisponible exact
+       [31mExpected[0m: 1
+       [31mGot[0m     : ÔÇö
+  [33] [31mÔ£ÿ[0m Stock stockConsolide exact
+       [31mExpected[0m: 1
+       [31mGot[0m     : ÔÇö
+  [34] [31mÔ£ÿ[0m Availability status follows stockConsolide rule
+       [31mExpected[0m: Indisponible
+       [31mGot[0m     : ÔÇö
+  [35] [31mÔ£ÿ[0m Complete fitment rows exact
+       [31mExpected[0m: A3L415-TYPE1|A3L415-TYPE1,A3L415-TYPE2|A3L415-TYPE2,APQ415|APQ415-TYPE2
+       [31mGot[0m     : 
+  [37] [31mÔ£ÿ[0m Product identification VIN exact
+       [31mExpected[0m: MBHWDBC20SG346917
+       [31mGot[0m     : ÔÇö
+  [38] [31mÔ£ÿ[0m Product identification vehicleNo exact
+       [31mExpected[0m: VN0207812
+       [31mGot[0m     : ÔÇö
+  [39] [31mÔ£ÿ[0m Product identification model exact
+       [31mExpected[0m: FRONX
+       [31mGot[0m     : ÔÇö
+  [40] [31mÔ£ÿ[0m Product identification modelDescription exact
+       [31mExpected[0m: FRONX GLX BVA
+       [31mGot[0m     : ÔÇö
+  [41] [31mÔ£ÿ[0m Product identification typeCodes exact
+       [31mExpected[0m: A3L415-TYPE1
+       [31mGot[0m     : ÔÇö
+  [42] [31mÔ£ÿ[0m Product identification articleNumber exact
+       [31mExpected[0m: 37410M55TH0
+       [31mGot[0m     : ÔÇö
+  [43] [31mÔ£ÿ[0m UI response contains the exact French designation
+       [31mExpected[0m: SPIRALE DE VOLANT  ALLUMAGE AUTOMATIQUE DES FEUX
+       [31mGot[0m     : false
+  [44] [31mÔ£ÿ[0m UI response is not a false security refusal
+       [31mExpected[0m: no security refusal for known exact row
+       [31mGot[0m     : Je ne peux pas confirmer cette pi├¿ce avec un niveau de fiabilit├® suffisant pour votre SUZUKI FRONX.
+
+­ƒÆí Veuillez contacter Car Pro ÔÇô Comptoir Pi├¿ces de Rechange T├®l N┬░ 70 603 518 ÔÇô 70 603 519
+  [45] [31mÔ£ÿ[0m UI response states unavailable
+       [31mExpected[0m: unavailable
+       [31mGot[0m     : Je ne peux pas confirmer cette pi├¿ce avec un niveau de fiabilit├® suffisant pour votre SUZUKI FRONX.
+
+­ƒÆí Veuillez contacter Car Pro ÔÇô Comptoir Pi├¿ces de Rechange T├®l N┬░ 70 603 518 ÔÇô 70 603 519
+
+  [31mÔ£ÿ FAIL ÔÇö score 38% < 100% (29 check(s) failed)[0m
+
+  [34m[1mTurn 2[0m: "Vous l'avez en stock ? Et c'est combien ?"
+[90m[HTTP] --> POST http://localhost:8000/chat/message[0m
+[90m[HTTP] <-- 201 http://localhost:8000/chat/message[0m
+
+  [1mEXACT UI RESPONSE (POST /chat/message response field):[0m
+Je ne peux pas confirmer cette pi├¿ce avec un niveau de fiabilit├® suffisant pour votre SUZUKI FRONX.
+
+­ƒÆí Veuillez contacter Car Pro ÔÇô Comptoir Pi├¿ces de Rechange T├®l N┬░ 70 603 518 ÔÇô 70 603 519
+[90m
+  ÔöîÔöÇ DEBUG Case 12 Turn 2 ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ[0m
+[90m  Ôöé HTTP status       : 201[0m
+[90m  Ôöé intent            : SECURISATION[0m
+[90m  Ôöé confidence        : LOW[0m
+[90m  Ôöé sessionId         : 3816ac8d-0c93-46ca-816a-a2eb99f861f3[0m
+[90m  Ôöé productsFound     : 1[0m
+[90m  Ôöé duration          : 2289 ms[0m
+[90m  Ôöé redirectedToCount : true[0m
+[90m  Ôö£ÔöÇ SEARCH DEBUG[0m
+[90m  Ôöé searchType        : text[0m
+[90m  Ôöé originalQuery     : spiraale de volant allumage automatique des feux[0m
+[90m  Ôöé normalizedQuery   : spiraale de volant allumage automatique des feux[0m
+[90m  Ôöé dialectDetected   : false[0m
+[90m  Ôöé rawTokens         : spiraale, volant, allumage, automatique, des, feux[0m
+[90m  Ôöé expandedTerms     : spiraale, volant, volantmoteur, volant moteur, volant bimasse, flywheel, bimasse, allumage, bougie, bougies, spark plug, bougi, sparkplug, automatique, feux, feu, antibrouillard, feux stop, stop, cligno, feu position[0m
+[90m  Ôöé mainPartType      : volantmoteur[0m
+[90m  Ôöé retrievalMode     : relaxed[0m
+[90m  Ôöé truncated         : false[0m
+[90m  Ôöé dbRawCount        : 1[0m
+[90m  Ôöé qualifiedCount    : 1[0m
+[90m  Ôöé finalCount        : 1[0m
+[90m  Ôöé stockDisponible   : 0[0m
+[90m  Ôöé stockIndisponible : 1[0m
+[90m  Ôö£ÔöÇ VEHICLE SCOPE[0m
+[90m  Ôöé active            : true[0m
+[90m  Ôöé vin               : MBHWDBC20SG346917[0m
+[90m  Ôöé vehicleNo         : VN0207812[0m
+[90m  Ôöé model             : FRONX[0m
+[90m  Ôöé modelDescription  : FRONX GLX BVA[0m
+[90m  Ôöé typeCodes         : A3L415-TYPE1[0m
+[90m  Ôöé primaryTypeCodes  : A3L415-TYPE1[0m
+[90m  Ôöé typeCodeSource    : explicit[0m
+[90m  Ôö£ÔöÇ CONSTRAINT GATE[0m
+[90m  Ôöé identityMode      : inactive-no-standalone-form[0m
+[90m  Ôöé requestedPart     : volant allumage automatique feux[0m
+[90m  Ôöé kept              : 1[0m
+[90m  Ôöé rejectedIdentity  : 0[0m
+[90m  Ôöé rejectedPosition  : 0[0m
+[90m  Ôöé noExactMatch      : false[0m
+[90m  Ôö£ÔöÇ CATALOG VERIFICATION[0m
+[90m  Ôöé compatibility     : NON_VERIFIEE[0m
+[90m  Ôöé identity          : unverifiable[0m
+[90m  Ôöé position          : not-applicable[0m
+[90m  Ôöé qualifiers        : not-applicable[0m
+[90m  Ôöé vehicle           : confirmed[0m
+[90m  Ôöé stockPrice        : not-applicable[0m
+[90m  Ôöé aiAudit           : skipped[0m
+[90m  Ôöé withheld reason   : understanding confidence below 0.6[0m
+[90m  Ôöé withheld reason   : identity unverified by the catalog: redirect instead of guessing[0m
+[90m  Ôöé withheld reason   : identity: designation contains "volant" but not as its head noun[0m
+[90m  Ôö£ÔöÇ ANSWER TRACE[0m
+[90m  Ôöé identifiedPart    : null[0m
+[90m  Ôöé modelCode         : A3L415-TYPE1[0m
+[90m  ÔööÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ[0m
+
+  [1mACCURACY SCORE[0m Case 12 T2: [31mÔûêÔûêÔûêÔûêÔûêÔûêÔûêÔûæÔûæÔûæÔûæÔûæÔûæÔûæÔûæÔûæÔûæÔûæÔûæÔûæ 38%[0m
+  Checks: 18/47 passed
+  [04] [31mÔ£ÿ[0m Intent is not a refusal/error
+       [31mExpected[0m: resolved parts intent
+       [31mGot[0m     : SECURISATION
+  [05] [31mÔ£ÿ[0m Exactly one expected product is returned
+       [31mExpected[0m: 1
+       [31mGot[0m     : 0
+  [18] [31mÔ£ÿ[0m Product DB id exact
+       [31mExpected[0m: 2836
+       [31mGot[0m     : ÔÇö
+  [19] [31mÔ£ÿ[0m Product reference exact
+       [31mExpected[0m: 37410M55TH0
+       [31mGot[0m     : ÔÇö
+  [20] [31mÔ£ÿ[0m French designation exact
+       [31mExpected[0m: SPIRALE DE VOLANT  ALLUMAGE AUTOMATIQUE DES FEUX
+       [31mGot[0m     : ÔÇö
+  [21] [31mÔ£ÿ[0m Display name exact French designation
+       [31mExpected[0m: SPIRALE DE VOLANT  ALLUMAGE AUTOMATIQUE DES FEUX
+       [31mGot[0m     : ÔÇö
+  [22] [31mÔ£ÿ[0m OEM designation exact
+       [31mExpected[0m: SET,CONTACT COIL & AUTO LIGHT
+       [31mGot[0m     : ÔÇö
+  [23] [31mÔ£ÿ[0m Search description exact
+       [31mExpected[0m: SPIRALE DE VOLANT ALLUMAGE AUTOMATIQUE DES FEUX ; SET,CONTACT COIL & AUTO LIGHT
+       [31mGot[0m     : ÔÇö
+  [24] [31mÔ£ÿ[0m Unit exact
+       [31mExpected[0m: PCS
+       [31mGot[0m     : ÔÇö
+  [25] [31mÔ£ÿ[0m Category exact
+       [31mExpected[0m: ELECTRIQUE
+       [31mGot[0m     : ÔÇö
+  [26] [31mÔ£ÿ[0m Manufacturer exact
+       [31mExpected[0m: SUZUKI
+       [31mGot[0m     : ÔÇö
+  [27] [31mÔ£ÿ[0m Supplier code exact
+       [31mExpected[0m: CAR PRO PARTS
+       [31mGot[0m     : ÔÇö
+  [28] [31mÔ£ÿ[0m Source exact
+       [31mExpected[0m: 01_PROD
+       [31mGot[0m     : ÔÇö
+  [29] [31mÔ£ÿ[0m Public TTC exact DB value
+       [31mExpected[0m: 1683.38352
+       [31mGot[0m     : ÔÇö
+  [30] [31mÔ£ÿ[0m Wholesale HT exact DB value
+       [31mExpected[0m: 1414.608
+       [31mGot[0m     : ÔÇö
+  [31] [31mÔ£ÿ[0m Stock totalQuantity exact
+       [31mExpected[0m: 1
+       [31mGot[0m     : ÔÇö
+  [32] [31mÔ£ÿ[0m Stock stockDisponible exact
+       [31mExpected[0m: 1
+       [31mGot[0m     : ÔÇö
+  [33] [31mÔ£ÿ[0m Stock stockConsolide exact
+       [31mExpected[0m: 1
+       [31mGot[0m     : ÔÇö
+  [34] [31mÔ£ÿ[0m Availability status follows stockConsolide rule
+       [31mExpected[0m: Indisponible
+       [31mGot[0m     : ÔÇö
+  [35] [31mÔ£ÿ[0m Complete fitment rows exact
+       [31mExpected[0m: A3L415-TYPE1|A3L415-TYPE1,A3L415-TYPE2|A3L415-TYPE2,APQ415|APQ415-TYPE2
+       [31mGot[0m     : 
+  [37] [31mÔ£ÿ[0m Product identification VIN exact
+       [31mExpected[0m: MBHWDBC20SG346917
+       [31mGot[0m     : ÔÇö
+  [38] [31mÔ£ÿ[0m Product identification vehicleNo exact
+       [31mExpected[0m: VN0207812
+       [31mGot[0m     : ÔÇö
+  [39] [31mÔ£ÿ[0m Product identification model exact
+       [31mExpected[0m: FRONX
+       [31mGot[0m     : ÔÇö
+  [40] [31mÔ£ÿ[0m Product identification modelDescription exact
+       [31mExpected[0m: FRONX GLX BVA
+       [31mGot[0m     : ÔÇö
+  [41] [31mÔ£ÿ[0m Product identification typeCodes exact
+       [31mExpected[0m: A3L415-TYPE1
+       [31mGot[0m     : ÔÇö
+  [42] [31mÔ£ÿ[0m Product identification articleNumber exact
+       [31mExpected[0m: 37410M55TH0
+       [31mGot[0m     : ÔÇö
+  [43] [31mÔ£ÿ[0m UI response contains the exact French designation
+       [31mExpected[0m: SPIRALE DE VOLANT  ALLUMAGE AUTOMATIQUE DES FEUX
+       [31mGot[0m     : false
+  [44] [31mÔ£ÿ[0m UI response is not a false security refusal
+       [31mExpected[0m: no security refusal for known exact row
+       [31mGot[0m     : Je ne peux pas confirmer cette pi├¿ce avec un niveau de fiabilit├® suffisant pour votre SUZUKI FRONX.
+
+­ƒÆí Veuillez contacter Car Pro ÔÇô Comptoir Pi├¿ces de Rechange T├®l N┬░ 70 603 518 ÔÇô 70 603 519
+  [45] [31mÔ£ÿ[0m UI response states unavailable
+       [31mExpected[0m: unavailable
+       [31mGot[0m     : Je ne peux pas confirmer cette pi├¿ce avec un niveau de fiabilit├® suffisant pour votre SUZUKI FRONX.
+
+­ƒÆí Veuillez contacter Car Pro ÔÇô Comptoir Pi├¿ces de Rechange T├®l N┬░ 70 603 518 ÔÇô 70 603 519
+
+  [31mÔ£ÿ FAIL ÔÇö score 38% < 100% (29 check(s) failed)[0m
+
+[1m[36mÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ[0m

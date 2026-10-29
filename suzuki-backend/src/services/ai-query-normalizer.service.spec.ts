@@ -28,6 +28,7 @@ function createNormalizer(
     getTypoMap: () => ({}),
     getStopWords: () => new Set<string>(),
     findClosestVocabularyWord: () => undefined,
+    findClosestCatalogWord: async () => null,
     hasCatalogDesignationConcept: () => Promise.resolve(catalogConceptExists),
     getInterpretationCandidates: () => ({
       retroviseur: ['retroviseur', 'miroir'],
@@ -37,6 +38,9 @@ function createNormalizer(
       joint: ['joint', 'seal'],
       vitre: ['vitre', 'glass', 'window'],
       lecheur: ['lecheur'],
+      coussinet: ['coussinet'],
+      palier: ['palier'],
+      'vilebrequin': ['vilebrequin', 'crankshaft'],
     }),
   } as unknown as SynonymsService;
   return { service: new AIQueryNormalizerService(openai, synonyms), completeJson };
@@ -57,6 +61,51 @@ describe('AIQueryNormalizerService conversation context', () => {
       confidence: 1,
     });
     expect(completeJson).not.toHaveBeenCalled();
+  });
+
+  it('repairs unknown words against catalog vocabulary while preserving vehicle and intent words', async () => {
+    const { service } = createNormalizer(() => false);
+    const findClosestCatalogWord = jest.fn(async (word: string) =>
+      word.toLowerCase() === 'condutceur' ? 'conducteur' : null,
+    );
+    (service as any).synonymsService.findClosestCatalogWord = findClosestCatalogWord;
+
+    await expect(service.repairTypos('CADRE SIEGE CONDUTCEUR pour BALENO', { modele: 'BALENO' }))
+      .resolves.toBe('CADRE SIEGE conducteur pour BALENO');
+    expect(findClosestCatalogWord).toHaveBeenCalledTimes(3);
+  });
+
+  it('does not typo-repair conversational words or contextual price follow-ups', async () => {
+    const { service } = createNormalizer(() => false);
+    const findClosestCatalogWord = jest.fn(async () => 'raccord');
+    (service as any).synonymsService.findClosestCatalogWord = findClosestCatalogWord;
+
+    await expect(service.repairTypos("D'accord. Et le prix, s'il vous plaît ?")).resolves.toBe(
+      "D'accord. Et le prix, s'il vous plaît ?",
+    );
+    await expect(service.repairTypos('accord')).resolves.toBe('accord');
+    expect(findClosestCatalogWord).not.toHaveBeenCalled();
+  });
+
+  it('raises accepted follow-up confidence to the known-part floor', async () => {
+    const { service } = createNormalizer(
+      () => false,
+      true,
+      {
+        normalized: 'combien',
+        intent: 'PRICE_INQUIRY',
+        catalogPart: null,
+        positions: { axes: [], sides: [], levels: [] },
+        qualifiers: [],
+        isGreeting: false,
+        isThanks: false,
+        confidence: 0.3,
+        uncertainty: 0.7,
+      },
+    );
+
+    await expect(service.normalizeQuery('Et combien ?', [{ role: 'user', content: 'retroviseur' }]))
+      .resolves.toMatchObject({ source: 'ai', confidence: 0.75, uncertainty: 0.25 });
   });
 
   it('still interprets a part request that includes courtesy thanks', async () => {
@@ -130,11 +179,13 @@ describe('AIQueryNormalizerService conversation context', () => {
       confidence: 0.9,
       uncertainty: 0.1,
     });
+    (service as any).synonymsService.findClosestVocabularyWord = (word: string) =>
+      word === 'parbrize' ? 'parebrise' : null;
 
     const result = await service.normalizeQuery('parbrize');
 
     expect(result.normalized).toBe('pare brise');
-    expect(completeJson.mock.calls[0][0]).toContain('pare brise: pare brise, pare-brise, windshield');
+    expect(completeJson.mock.calls[0][0]).toContain('pare brise: pare-brise, windshield');
   });
 
   it('rejects a model-selected part concept that is not in the catalog vocabulary', async () => {
@@ -200,6 +251,30 @@ describe('AIQueryNormalizerService conversation context', () => {
     expect(completeJson.mock.calls[0][1]).toContain('CURRENT MESSAGE: "Filtre à air"');
   });
 
+  it('limits AI interpretation to concepts represented by vehicle-compatible candidates', async () => {
+    const { service, completeJson } = createNormalizer(() => true, true, {
+      normalized: 'pare choc avant',
+      intent: 'SEARCH',
+      catalogPart: 'pare brise',
+      positions: { axes: ['AV'], sides: [], levels: [] },
+      qualifiers: [],
+      isGreeting: false,
+      isThanks: false,
+      confidence: 0.95,
+      uncertainty: 0.05,
+    });
+
+    const result = await service.normalizeQuery('pare choc avant', [], undefined, [
+      { reference: 'BUMPER-AV', designation: 'PARE CHOC AV' },
+    ]);
+
+    expect(result.catalogPart).toBe('pare choc');
+    expect(result.source).toBe('deterministic');
+    expect(completeJson.mock.calls[0][0]).toContain('- PARE CHOC AV');
+    expect(completeJson.mock.calls[0][0]).not.toContain('BUMPER-AV');
+    expect(completeJson.mock.calls[0][0]).not.toContain('pare brise:');
+  });
+
   it('returns only DB-grounded aliases for accepted OpenAI part interpretations', async () => {
     const { service } = createNormalizer(() => true);
 
@@ -212,7 +287,7 @@ describe('AIQueryNormalizerService conversation context', () => {
 
   it('keeps a DB-known part usable when OpenAI is unavailable', async () => {
     const { service, completeJson } = createNormalizer((text) => /retroviseur/.test(text));
-    completeJson.mockRejectedValue(new Error('OpenAI unavailable'));
+    completeJson.mockRejectedValue(new Error('OpenAI unavailable') as unknown);
 
     await expect(service.normalizeQuery('retroviseur droit')).resolves.toMatchObject({
       intent: 'SEARCH',
@@ -223,9 +298,69 @@ describe('AIQueryNormalizerService conversation context', () => {
     });
   });
 
+  it('accepts AI dialect cleanup while restoring a position from the customer text', async () => {
+    const query = 'Salem, n7eb COUSSINET PALIER VILEBREQUIN SUP 0,25 ROUGE/MARRON lel BALENO. Mawjoud ? W ch7al ?';
+    const { service, completeJson } = createNormalizer((text) => /coussinet|palier|vilebrequin/.test(text), true, {
+      normalized: 'coussinet palier vilebrequin 0,25 rouge marron',
+      intent: 'SEARCH',
+      catalogPart: 'palier',
+      positions: { axes: [], sides: [], levels: ['SUP'] },
+      qualifiers: [],
+      isGreeting: false,
+      isThanks: false,
+      confidence: 0.55,
+      uncertainty: 0.45,
+    });
+
+    await expect(service.normalizeQuery(query, [], { marque: 'SUZUKI', modele: 'BALENO' }, [
+      {
+        reference: '12341M74L00-0BA',
+        designation: 'COUSSINET PALIER VILEBREQUIN SUP 0,25 ROUGE/VIOLET',
+      },
+    ])).resolves.toMatchObject({
+      normalized: expect.stringContaining('sup'),
+      positions: { axes: [], sides: [], levels: ['SUP'] },
+      catalogPart: 'palier',
+      confidence: 0.55,
+      source: 'ai',
+    });
+    expect(completeJson.mock.calls[0][0]).not.toContain('12341M74L00-0CA');
+  });
+
+  it('sends the original spelling to OpenAI instead of applying the typo dictionary first', async () => {
+    const { service, completeJson } = createNormalizer(() => false, true, {
+      normalized: 'vilebrequin',
+      intent: 'SEARCH',
+      catalogPart: 'vilebrequin',
+      positions: { axes: [], sides: [], levels: [] },
+      qualifiers: [],
+      isGreeting: false,
+      isThanks: false,
+      confidence: 0.9,
+      uncertainty: 0.1,
+    });
+
+    const result = await service.normalizeQuery('vilbrequin');
+
+    expect(result).toMatchObject({ normalized: 'vilebrequin', catalogPart: 'vilebrequin', source: 'ai' });
+    expect(completeJson.mock.calls[0][1]).toContain('vilbrequin');
+  });
+
+  it('uses the typo dictionary only as an emergency fallback when OpenAI is unavailable', async () => {
+    const { service, completeJson } = createNormalizer((text) => /vilebrequin/.test(text));
+    completeJson.mockRejectedValue(new Error('OpenAI unavailable') as unknown);
+
+    await expect(service.normalizeQuery('vilbrequin')).resolves.toMatchObject({
+      normalized: 'vilebrequin',
+      catalogPart: 'vilebrequin',
+      intent: 'SEARCH',
+      source: 'deterministic',
+    });
+  });
+
   it('keeps unknown queries below the answer confidence gate when OpenAI is unavailable', async () => {
     const { service, completeJson } = createNormalizer(() => false);
-    completeJson.mockRejectedValue(new Error('OpenAI unavailable'));
+    completeJson.mockRejectedValue(new Error('OpenAI unavailable') as unknown);
 
     await expect(service.normalizeQuery('zorglub truc')).resolves.toMatchObject({
       confidence: 0.5,

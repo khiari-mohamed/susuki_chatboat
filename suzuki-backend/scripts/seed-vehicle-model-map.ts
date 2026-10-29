@@ -3,6 +3,7 @@ import * as path from 'path';
 import { PrismaClient } from '@prisma/client';
 import { VehicleModelsService } from '../src/constants/vehicle-models.service';
 import { PrismaService } from '../src/prisma/prisma.service';
+const { assertLegacyErpWritesEnabled } = require('./lib/legacy-erp-write-guard');
 
 type VehicleTypeMasterRow = {
   typeCode: string;
@@ -102,6 +103,7 @@ async function main() {
       console.log('Dry run only. Re-run with --apply to insert new mappings.');
       return;
     }
+    assertLegacyErpWritesEnabled();
 
     const backupDir = path.resolve(__dirname, '..', 'backups', 'vehicle-model-map');
     const backupPath = await writeBackup(prisma, backupDir);

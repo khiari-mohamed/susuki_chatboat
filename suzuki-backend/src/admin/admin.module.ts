@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Logger, Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule, JwtModuleOptions } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
@@ -24,6 +24,8 @@ import { DiagnosticsService } from './diagnostics/diagnostics.service';
 import { SearchLogsController } from './search-logs/search-logs.controller';
 import { ChatModule } from '../chat/chat.module';
 
+const MIN_JWT_SECRET_LENGTH = 32;
+
 @Module({
   imports: [
     ConfigModule,
@@ -31,10 +33,17 @@ import { ChatModule } from '../chat/chat.module';
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (config: ConfigService): JwtModuleOptions => ({
-        secret: config.get<string>('JWT_SECRET'),
-        signOptions: { expiresIn: (config.get<string>('JWT_EXPIRES_IN') || '12h') as any },
-      }),
+      useFactory: (config: ConfigService): JwtModuleOptions => {
+        const secret = config.get<string>('JWT_SECRET')?.trim();
+        if (!secret) throw new Error('Missing required environment variable: JWT_SECRET');
+        if (secret.length < MIN_JWT_SECRET_LENGTH) {
+          new Logger('AdminModule').warn(`JWT_SECRET is shorter than ${MIN_JWT_SECRET_LENGTH} characters: use a longer random secret`);
+        }
+        return {
+          secret,
+          signOptions: { expiresIn: (config.get<string>('JWT_EXPIRES_IN') || '12h') as any },
+        };
+      },
     }),
     ChatModule,
   ],

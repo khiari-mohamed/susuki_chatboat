@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const csv = require('csv-parser');
 const { PrismaClient } = require('@prisma/client');
+const { assertLegacyErpWritesEnabled } = require('./lib/legacy-erp-write-guard');
 
 const prisma = new PrismaClient();
 
@@ -89,6 +90,7 @@ async function importRows(csvPath, options) {
       message: 'No database writes performed. Re-run with --apply to import.',
     };
   }
+  assertLegacyErpWritesEnabled();
 
   backupPath = await writeBackup([...new Set(references)]);
 
@@ -106,7 +108,7 @@ async function importRows(csvPath, options) {
     const prixTtc = numberOrNull(row.prix_ttc);
     const stockDisponible = intOrZero(row.stock_disponible);
     const stockConsolide = intOrZero(row.stock_consolide);
-    const statut = stockConsolide > 2 ? 'Disponible' : 'Indisponible';
+    const statut = stockConsolide >= 2 ? 'Disponible' : 'Indisponible';
 
     const existingPart = await prisma.part.findUnique({ where: { reference } });
     if (existingPart && !options.overwriteExisting) {

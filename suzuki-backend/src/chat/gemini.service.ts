@@ -8,6 +8,7 @@ export class GeminiService {
   private readonly logger = new Logger(GeminiService.name);
   private readonly apiKey: string;
   private readonly apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
+  private readonly fallbackApiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
 
   // Rate limiting
   private readonly RATE_LIMIT_DELAY = 1000; // ms between calls
@@ -56,7 +57,7 @@ export class GeminiService {
 
       this.logger.log(`📷 Processing OCR for ${detectedMimeType}, size: ${(base64Data.length / 1024).toFixed(2)}KB`);
 
-      const response = await axios.post(`${this.apiUrl}?key=${this.apiKey}`, {
+      const requestBody = {
         contents: [{
           parts: [
             { text: prompt },
@@ -69,10 +70,20 @@ export class GeminiService {
           topP: 0.8,
           maxOutputTokens: 2048
         }
-      }, {
-        headers: { 'Content-Type': 'application/json' },
-        timeout: 60000
-      });
+      };
+      const requestConfig = { headers: { 'Content-Type': 'application/json' }, timeout: 60000 };
+
+      let response;
+      try {
+        response = await axios.post(`${this.apiUrl}?key=${this.apiKey}`, requestBody, requestConfig);
+      } catch (primaryError: any) {
+        if (primaryError?.response?.status === 503) {
+          this.logger.warn('⚠️ gemini-2.5-flash unavailable (503), retrying with gemini-1.5-flash');
+          response = await axios.post(`${this.fallbackApiUrl}?key=${this.apiKey}`, requestBody, requestConfig);
+        } else {
+          throw primaryError;
+        }
+      }
 
       const text = response.data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
       this.logger.log(`🤖 Gemini raw response (full): ${text}`);

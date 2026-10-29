@@ -118,13 +118,13 @@ OBJECTIVE: Provide part information ONLY - NEVER diagnose problems
       "reference": "part reference number",
       "partsFound": true,
       "prixHt": "internal pre-tax price — NEVER display to the customer",
-      "prixTtc": "public tax-included price — ONLY if exactly one part AND stockConsolide >= 2",
+      "prixTtc": "public tax-included price from 01_PROD.prix_ttc only — never expose 02_CARPRO wholesale TTC; ONLY if exactly one part AND stockConsolide >= 2",
       "stockInfo": "Disponible (N en stock) | Indisponible",
       "sourceLabel": "Suzuki OEM | CarPro Parts",
       "categorie": "part category"
     }
   ],
-  "priceInfo": "Public price string ONLY if exactly ONE part identified, available, and stockConsolide >= 2. Otherwise omit.",
+  "priceInfo": "Public price from 01_PROD.prix_ttc ONLY if exactly ONE part identified and available; omit for 02_CARPRO wholesale rows or when unavailable.",
   "stockInfo": "Availability ONLY if exactly ONE part identified",
   "smartSuggestions": ["Related parts only — NO maintenance advice, NO diagnostic suggestions"],
   "exactMatch": true,

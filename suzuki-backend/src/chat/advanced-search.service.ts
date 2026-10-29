@@ -1,24 +1,39 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { ConfigService } from '@nestjs/config';
 import { SynonymsService } from '../synonyms/synonyms.service';
 import { VehicleModelsService } from '../constants/vehicle-models.service';
 import { OpenAIService } from './openai.service';
-import {
-  ACCESSORY_KEYWORDS,
-  MAIN_PART_KEYWORDS,
-} from '../constants/part-classification.constants';
-import axios from 'axios';
+import { pickBestVehicleRow, vinLookupVariants } from './chat/vehicle-lookup';
+import { hasKnownStock, isQuantityAvailable } from '../constants/business-rules.constants';
 import {
   applyCatalogConstraints,
   buildIdentityKeys,
   buildRequestedPartTokens,
+  compactKey,
+  extractColorTokens,
+  extractNumericSpecifications,
   extractRequestedPositions,
   getCatalogPositions,
+  hasNumericSpecifications,
   hasAnyPosition,
+  isFillerToken,
+  isColorToken,
+  isPositionToken,
+  keysMatch,
+  normalizeTypeCode,
   tokenizeName,
 } from './part-constraints';
 import type { ConstraintOutcome } from './part-constraints';
+
+// ═══════════════════════════════════════════════════════════════════
+// Retrieval design
+//   1. RECALL  — DB query: every requested word (or one of its synonyms /
+//                corrections) must occur in a designation. If that finds
+//                nothing, fall back to "any word".
+//   2. RANK    — relevance orders candidates. It never accepts or rejects.
+//   3. PRECISION — applyCatalogConstraints (identity head noun + position),
+//                then the catalog verifier and AdaptiveDecisionEngine.
+// ═══════════════════════════════════════════════════════════════════
 
 interface PositionRequirements {
   avant: boolean;
@@ -27,64 +42,46 @@ interface PositionRequirements {
   droite: boolean;
 }
 
-interface SearchContext {
-  rawTokens: string[];
-  expandedTerms: string[];
-  filteredQueryWords: string[];
-  positionInfo: PositionRequirements;
-  mainPartType: string | undefined;
-  originalQuery: string;
-  normalizedQuery: string;
-  hasTunisianDialect: boolean;
-  userTypedTokens: Set<string>;
-}
-
 export interface VehicleSearchScope {
   active: boolean;
   vin: string | null;
   vehicleNo: string | null;
   model: string | null;
   modelDescription: string | null;
-  typeCodes: string[];        // all compatible type codes (broad scope)
+  typeCodes: string[]; // all compatible type codes (broad scope)
   primaryTypeCodes: string[]; // type codes for the exact identified model
+  /**
+   * Where the type codes came from. 'model-map' means the VIN/vehicle row had
+   * no model code and the codes were inferred from the model NAME: weaker
+   * evidence than a real model code (CarPro email 2026-09-18).
+   */
+  typeCodeSource: 'explicit' | 'vehicle-row' | 'model-map' | 'none';
 }
 
 // ─── API response shape ───────────────────────────────────────────
 export interface PartResult {
   id: number;
   reference: string;
-
-  // ★ PRIMARY display name — always French when available
+  /** PRIMARY display name — French when available. */
   displayName: string;
-
-  // Raw fields — both returned so UI can choose
-  designation: string;        // English OEM name
+  designation: string; // English OEM name
   designation2: string | null; // French name (designation_2)
   searchDescription: string | null;
-
-  // Pricing
   prixHt: string | null;
   prixTtc: string | null;
   unite: string | null;
-
-  // Classification
   categorie: string | null;
   fabricant: string | null;
   fournisseurCode: string | null;
-  source: string;   // '01_PROD' | '02_CARPRO'
+  source: string; // '01_PROD' | '02_CARPRO'
   sourceLabel: string; // 'Suzuki OEM' | 'CarPro Parts'
-
-  // Stock
   stock: {
     statut: string;
     totalQuantity: number;
     stockDisponible: number;
     stockConsolide: number;
   } | null;
-
-  // Fitments
   fitments: { modelName: string; typeCode: string }[];
-
   itemReferences?: { referenceNo: string; referenceType: string | null }[];
   identificationSource?: {
     vin: string | null;
@@ -94,10 +91,10 @@ export interface PartResult {
     typeCodes: string[];
     articleNumber: string;
   };
-
-  // Internal score (useful for debugging)
+  /** Ranking value (debugging only). */
   score: number;
 }
+
 export interface SearchDebugInfo {
   searchType: 'text' | 'reference';
   originalQuery: string;
@@ -107,121 +104,145 @@ export interface SearchDebugInfo {
   expandedTerms: string[];
   mainPartType: string | null;
   positionInfo: PositionRequirements;
-  // Which DB columns this query actually ran against, in priority order
   fieldsSearched: string[];
-  // Which Prisma/DB tables were touched to build this response
   tablesQueried: string[];
-  dbRawCount: number;      // rows returned by the raw DB query, before scoring
-  qualifiedCount: number;  // rows left after scoring/filtering/dedup
-  finalCount: number;      // rows actually sent back to the client (max 10)
+  dbRawCount: number;
+  qualifiedCount: number;
+  finalCount: number;
   sourceBreakdown: { suzukiOem: number; carproParts: number };
   stockBreakdown: { disponible: number; indisponible: number };
   vehicleScope?: VehicleSearchScope;
-  // Result of the deterministic identity + position gate (see part-constraints.ts)
   constraint?: ConstraintOutcome | null;
+  /** 'and' = every word matched, 'or' = fallback, 'none' = nothing to search. */
+   retrievalMode?: 'and' | 'relaxed' | 'or' | 'none';
+  /** True when the DB cap was hit: some candidates were not examined. */
+  truncated?: boolean;
+}
+
+interface RankContext {
+  groups: string[][];
+  positionInfo: PositionRequirements;
+  compactQuery: string;
+}
+
+// ─── Constants ────────────────────────────────────────────────────
+const DB_CANDIDATE_LIMIT = 1500;
+const TOP_N = 10;
+const MAX_TERM_VARIANTS = 12;
+const MAX_SEGMENT_TOKEN_LENGTH = 40;
+const AI_SEGMENT_FAIL_THRESHOLD = 3;
+const AI_SEGMENT_COOLDOWN_MS = 60_000;
+
+/**
+ * Ranking tiers. Order of importance:
+ *   full coverage of the requested words  >  in stock + vehicle fit  >  tie-breakers.
+ * FULL_COVERAGE_BONUS is larger than STOCK + best vehicle fit, so an out-of-stock
+ * row that matches every word still beats a partial match that happens to be in
+ * stock, while among equally relevant compatible rows the in-stock one wins
+ * (CarPro rule: "privilégier la référence disponible en stock").
+ */
+const RANK = {
+  REFERENCE_EXACT: 200_000,
+  REFERENCE_CONTAINS: 40_000,
+  FULL_COVERAGE_BONUS: 100_000,
+  COVERAGE_MAX: 100_000,
+  EXACT_DESIGNATION: 50_000,
+  STOCK_AVAILABLE: 40_000,
+  FIT_EXCLUSIVE: 30_000,
+  FIT_PRIMARY_BASE: 20_000,
+  FIT_PRIMARY_SPAN: 9_000,
+  FIT_SCOPE_ONLY: 10_000,
+  FIT_SCOPE_PARTIAL_SPAN: 5_000,
+  POSITION_MATCH: 500,
+  TIGHTNESS_MAX: 1_000,
+  TIGHTNESS_PER_EXTRA_WORD: 50,
+} as const;
+
+/** How much a match in each text field counts toward coverage. */
+const FIELD_WEIGHT = { french: 1, searchDescription: 0.6, english: 0.6, auxiliary: 0.3 } as const;
+
+const PART_INCLUDE = {
+  stock: {
+    select: { statut: true, totalQuantity: true, stockDisponible: true, stockConsolide: true },
+  },
+  fitments: { select: { modelName: true, typeCode: true } },
+  itemReferences: { select: { referenceNo: true, referenceType: true } },
+} as const;
+
+const VEHICLE_SELECT = {
+  id: true,
+  vin: true,
+  vehicleNo: true,
+  modele: true,
+  modeleDescription: true,
+  typeCode: true,
+} as const;
+
+const VIN_SHAPE = /^[A-HJ-NPR-Z0-9]{17}$/i;
+
+/**
+ * Single reference detector shared by the search and the orchestrator
+ * (SearchService.isReferenceQuery delegates here). A reference is a
+ * ≥ 8 character alphanumeric token containing a digit, hyphens allowed
+ * ("09482-30010"). A bare 17-character VIN is not a part reference.
+ * "référence XXXXX" is accepted from 5 characters.
+ */
+export function extractReferenceCandidate(text: string): string | null {
+  const input = String(text ?? '');
+
+  const labeled = input.match(/\bref[eé]rence[\s:]*([A-Z0-9][A-Z0-9_-]{4,})/i);
+  if (labeled && /\d/.test(labeled[1])) return labeled[1];
+
+  const candidates = input.match(/[A-Z0-9]+(?:[-_][A-Z0-9]+)*/gi) ?? [];
+  for (const candidate of candidates) {
+    const clean = candidate.replace(/[^A-Z0-9]/gi, '');
+    if (clean.length < 8 || !/\d/.test(clean)) continue;
+    if (!/[-_]/.test(candidate) && VIN_SHAPE.test(clean)) continue;
+    return candidate;
+  }
+  return null;
 }
 
 @Injectable()
-export class AdvancedSearchService implements OnModuleInit {
-  private readonly logger = console;
-  private readonly openaiKey: string;
+export class AdvancedSearchService {
+  private readonly logger = new Logger(AdvancedSearchService.name);
 
-  private synonymsMap: Record<string, string[]> = {};
-
-  private readonly typeWeights: Record<string, number> = {
-    'porte': 1.2, 'joint': 1.2, 'vitesse': 1.2, 'roulement': 1.3, 'culbuteur': 1.2, 'support': 1.3,
-    'bielle': 1.2, 'vitre': 1.2, 'capteur': 1.2, 'pare': 1.0, 'synchro': 1.15, 'cache': 1.2,
-    'sup': 1.15, 'bouchon': 1.15, 'radiateur': 1.3, 'charniere': 1.15, 'inf': 1.15, 'feu': 1.15,
-    'boite': 1.15, 'huile': 1.15, 'aile': 1.2, 'glace': 1.15, 'moteur': 1.2, 'serrure': 1.15,
-    'frein': 1.5, 'agrafe': 1.2, 'agrafes': 1.2, 'agraffe': 1.3, 'agraffes': 1.3, 'agraphe': 1.3,
-    'agraphes': 1.3, 'roue': 1.1, 'capot': 1.2, 'baguette': 1.1, 'choc': 1.1, 'garniture': 1.1,
-    'tableau': 1.1, 'bord': 1.1, 'toit': 1.1, 'arbre': 1.1, 'soupape': 1.1, 'essuie': 1.1,
-    'cable': 1.1, 'circlip': 1.1, 'pompe': 1.2, 'panneau': 1.1, 'stdt': 1.1, 'amortisseur': 1.5,
-    'bas': 1.1, 'filtre': 1.3, 'embrayage': 1.3, 'carburant': 1.1, 'montant': 1.1, 'ust': 1.1,
-    'traverse': 1.2, 'int': 1.1, 'air': 1.1, 'malle': 1.1, 'corps': 1.1, 'dhuile': 1.1,
-    'reservoir': 1.1, 'deau': 1.1, 'retroviseur': 1.5, 'plaque': 1.1, 'abs': 1.1, 'batterie': 1.3,
-    'moyeu': 1.1, 'durite': 1.4, 'coussinet': 1.1, 'extension': 1.1, 'roulment': 1.1, 'ressort': 1.1,
-    'siege': 1.1, 'plancher': 1.1, 'tige': 1.1, 'clim': 1.1, 'eau': 1.1, 'carter': 1.2, 'cle': 1.1,
-    'longeron': 1.1, 'moustache': 1.1, 'adhesif': 1.1, 'volant': 1.2, 'anneau': 1.1, 'contre': 1.1,
-    'appareil': 1.8, 'monte': 1.1, 'balai': 1.1, 'caisse': 1.1, 'thermostat': 1.1, 'bouton': 1.4,
-    'direction': 1.1, 'pression': 1.1, 'central': 1.1, 'haute': 1.1, 'disque': 1.5, 'ecrou': 1.1,
-    'flexible': 1.1, 'jeu': 1.1, 'echappement': 1.2, 'passage': 1.1, 'pignonarbre': 1.1,
-    'dentree': 1.1, 'poignee': 1.1, 'renfort': 1.1, 'relais': 1.1, 'sigle': 1.1, 'tete': 1.1,
-    'para': 1.1, 'moulure': 1.1, 'bague': 1.1, 'boulon': 1.1, 'remorquage': 1.2, 'bras': 1.3,
-    'calculateur': 1.2, 'lampe': 1.2, 'ensemble': 1.1, 'leve': 1.1, 'caoutchouc': 1.1,
-    'collecteur': 1.1, 'admission': 1.1, 'ceinture': 1.1, 'synchroniseur': 1.1, 'lateral': 1.1,
-    'condenseur': 1.1, 'remplissage': 1.1, 'courroie': 1.3, 'faisceau': 1.1, 'complet': 1.1,
-    'gardeboue': 1.1, 'tablier': 1.1, 'interieur': 1.1, 'goupille': 1.1, 'jante': 1.1,
-    'manchon': 1.1, 'brise': 1.1, 'boue': 1.1, 'differentiel': 1.1, 'rail': 1.1, 'absorbeur': 1.1,
-    'rondelle': 1.1, 'soleil': 1.1, 'bag': 1.1, 'alimentateur': 1.1, 'antenne': 1.1,
-    'transmission': 1.1, 'dallumage': 1.1, 'boitier': 1.1, 'douille': 1.1, 'vidange': 1.1,
-    'ventilateur': 1.1, 'butee': 1.1, 'stationnement': 1.1, 'trappe': 1.1, 'airbag': 1.1,
-    'troisieme': 1.1, 'stop': 1.1, 'calandre': 1.2, 'cale': 1.1, 'calle': 1.1, 'poigne': 1.1,
-    'position': 1.1, 'vilebrequin': 1.1, 'dembrayage': 1.1, 'frenage': 1.1, 'dair': 1.1,
-    'cardan': 1.3, 'catadioptre': 1.1, 'injecteur': 1.2, 'darbre': 1.1, 'collier': 1.1,
-    'compresseur': 1.1, 'conduite': 1.1, 'papillon': 1.1, 'couvercle': 1.1, 'cremaillere': 1.3,
-    'cric': 1.1, 'culasse': 1.1, 'durit': 1.1, 'seuil': 1.1, 'etrier': 1.3, 'cote': 1.1,
-    'canister': 1.1, 'fourchette': 1.1, 'fusee': 1.1, 'qtr': 1.1, 'goujon': 1.1, 'chaine': 1.1,
-    'distribution': 1.1, 'piston': 1.1, 'acier': 1.1, 'interrieur': 1.1, 'dechappement': 1.1,
-    'torique': 1.1, 'eme': 1.1, 'synchronisation': 1.1, 'membre': 1.1, 'miroire': 1.1,
-    'module': 1.1, 'basse': 1.1, 'optique': 1.1, 'assemblage': 1.1, 'secour': 1.1, 'vase': 1.1,
-    'poulie': 1.1, 'tendeur': 1.1, 'demarreur': 1.2, 'section': 1.1, 'sonde': 1.1, 'lambda': 1.1,
-    'soufflet': 1.1, 'tocs': 1.2, 'toc': 1.2, 'tolle': 1.1, 'triangle': 1.3, 'tube': 1.1,
-    'tuyau': 1.2, 'vis': 1.1, 'clip': 1.1, 'plaquette': 1.5, 'coffre': 1.1, 'passager': 1.1,
-    'alternateur': 1.2, 'assiette': 1.1, 'attache': 1.1, 'spirale': 1.1, 'droit': 1.1,
-    'base': 1.1, 'berceau': 1.1, 'bloc': 1.1, 'bobine': 1.1, 'body': 1.1, 'socket': 1.1,
-    'outils': 1.1, 'bouchant': 1.1, 'purge': 1.1, 'suspension': 1.3, 'bougie': 1.2,
-    'detresse': 1.1, 'buse': 1.1, 'glasse': 1.1, 'butte': 1.1, 'selecteur': 1.1, 'fusible': 1.1,
-    'poussiere': 1.1, 'usb': 1.1, 'epi': 1.1, 'caprteur': 1.1, 'camme': 1.1, 'recule': 1.1,
-    'marche': 1.1, 'gaz': 1.1, 'mettre': 1.1, 'sortie': 1.1, 'evaporateur': 1.1, 'temp': 1.1,
-    'refroidissement': 1.1, 'temperature': 1.1, 'causse': 1.1, 'cerclip': 1.1, 'comptage': 1.1,
-    'circlips': 1.1, 'clavette': 1.1, 'demilune': 1.1, 'queue': 1.1, 'clignotant': 1.1,
-    'colone': 1.1, 'dinstrument': 1.1, 'commande': 1.1, 'commodo': 1.1, 'comodo': 1.1,
-    'lumiere': 1.1, 'contacteur': 1.1, 'controleur': 1.1, 'parking': 1.1, 'climatiseur': 1.1,
-    'colonne': 1.1, 'recul': 1.1, 'deflecteur': 1.1, 'enjoliveur': 1.1, 'otr': 1.1, 'mbr': 1.1,
-    'lwr': 1.1, 'actuateur': 1.1, 'feutre': 1.1, 'garnitrur': 1.1, 'bochon': 1.1, 'ctr': 1.1,
-    'gauge': 1.1, 'essence': 1.1, 'gaugon': 1.1, 'grille': 1.1, 'guide': 1.1, 'jauge': 1.1,
-    'niveau': 1.1, 'goupilles': 1.1, 'glissantes': 1.1, 'machoires': 1.1, 'plaquettes': 1.1,
-    'segments': 1.1, 'soupappe': 1.1, 'echappment': 1.1, 'corp': 1.1, 'interieure': 1.1,
-    'leche': 1.1, 'lecheur': 1.1, 'tampon': 1.1, 'jupe': 1.1, 'kasarole': 1.1, 'kasaroule': 1.1,
-    'klaxon': 1.1, 'loquet': 1.1, 'lunette': 1.1, 'manette': 1.1, 'marmite': 1.1, 'eps': 1.1,
-    'monogramme': 1.1, 'presso': 1.1, 'centrale': 1.1, 'feux': 1.1, 'rouge': 1.1, 'bour': 1.1,
-    'villebrequin': 1.1, 'vilbrequin': 1.1, 'ard': 1.1, 'pin': 1.1, 'plage': 1.1, 'planche': 1.1,
-    'claison': 1.1, 'poste': 1.1, 'radio': 1.1, 'protecteur': 1.1, 'chauffage': 1.1,
-    'retenue': 1.1, 'revettment': 1.1, 'ring': 1.1, 'rotule': 1.3, 'axial': 1.1, 'usust': 1.1,
-    'ustwhite': 1.1, 'ustblanc': 1.1, 'diff': 1.1, 'manivelle': 1.1, 'damortisseur': 1.1,
-    'sangle': 1.1, 'laterale': 1.1, 'sensor': 1.1, 'assyclutch': 1.1, 'speed': 1.1, 'male': 1.1,
-    'dammortisseur': 1.1, 'suzuki': 1.1, 'supp': 1.1, 'actionneur': 1.1, 'crochet': 1.1,
-    'inferieur': 1.1, 'tambour': 1.3, 'frien': 1.1, 'tensionneur': 1.1, 'tiran': 1.2,
-    'tirant': 1.2, 'train': 1.2, 'valve': 1.1, 'longerons': 1.1, 'boudain': 1.1, 'pedale': 1.1,
-    'plateau': 1.3, 'maitre': 1.3, 'cylindre': 1.3, 'std': 1.2, 'us': 1.2, 'white': 1.2, 'blanc': 1.2,
-    // FIX-1: Additional French terms from designation_2 field (previously unsearchable)
-    'pare brise': 1.2, 'parebrise': 1.2, 'mecanisme': 1.1,
-    'leve vitre': 1.2, 'leve-vitre': 1.2, 'porte avant': 1.1,
-    'porte arriere': 1.1, 'porte reservoir': 1.1,
-    'radar recul': 1.2, 'radar': 1.2,
-  };
-
-  private static readonly SCORE_REJECTION = -1_000_000;
-  private static readonly SCORE_EXACT_FULL = 100_000;
-  private static readonly SCORE_EXACT_REFERENCE = 1_000;
-  private static readonly SCORE_REFERENCE_CONTAINS = 400;
-  private static readonly SCORE_MAIN_TYPE_PRESENT = 5_000;
-  private static readonly SCORE_ALL_WORDS_MATCH = 80_000;
-  private static readonly SCORE_NUMERIC_EXACT = 50_000;
-  private static readonly SCORE_FRENCH_FIELD_BONUS = 20_000;
-
-
-  private aiSegmentationAvailable = true;
   private aiSegmentationFailCount = 0;
-  private static readonly AI_FAIL_THRESHOLD = 3;
-
-  private normalizedSynonymLookup: Record<string, string> = {};
-  private fuzzyMatchCache: Map<string, string[]> = new Map();
+  private aiSegmentationDisabledUntil = 0;
+  private dialectCache: { source: Record<string, string>; lookup: Map<string, string>; pattern: RegExp | null } | null = null;
   private lastSearchDebug: SearchDebugInfo | null = null;
+
+  constructor(
+    private prisma: PrismaService,
+    private synonymsService: SynonymsService,
+    private vehicleModels: VehicleModelsService,
+    private openaiService: OpenAIService,
+  ) {}
+
+  // The synonym index is read live: SynonymsService swaps its tables on reload.
+  private get synonymsMap(): Record<string, string[]> {
+    return this.synonymsService.getCategoryVariants();
+  }
+
+  private get normalizedSynonymLookup(): Record<string, string> {
+    return this.synonymsService.getNormalizedLookup();
+  }
 
   getLastSearchDebug(): SearchDebugInfo | null {
     return this.lastSearchDebug;
+  }
+
+  /** Kept for callers of the old snapshot API: the index is read live now, so nothing is stale. */
+  refreshSynonymIndex(): void {
+    this.dialectCache = null;
+  }
+
+  getSearchStats(): { totalSynonyms: number } {
+    return { totalSynonyms: Object.keys(this.synonymsMap).length };
+  }
+
+  getSynonymMap(): Record<string, string[]> {
+    return this.synonymsMap;
   }
 
   /** Resolve vehicle compatibility codes without reading shared last-search state. */
@@ -230,338 +251,58 @@ export class AdvancedSearchService implements OnModuleInit {
     return scope.active ? [...scope.typeCodes] : [];
   }
 
-  private computeSourceAndStockBreakdown(results: PartResult[]): {
-    sourceBreakdown: { suzukiOem: number; carproParts: number };
-    stockBreakdown: { disponible: number; indisponible: number };
-  } {
-    const sourceBreakdown = { suzukiOem: 0, carproParts: 0 };
-    const stockBreakdown  = { disponible: 0, indisponible: 0 };
-    for (const r of results) {
-      if (r.source === '02_CARPRO') sourceBreakdown.carproParts++;
-      else sourceBreakdown.suzukiOem++;
-      if (this.isStockAvailable(r.stock)) stockBreakdown.disponible++;
-      else stockBreakdown.indisponible++;
-    }
-    return { sourceBreakdown, stockBreakdown };
-  }
-
-  constructor(
-    private prisma: PrismaService,
-    private config: ConfigService,
-    private synonymsService: SynonymsService,
-    private vehicleModels: VehicleModelsService,
-    private openaiService: OpenAIService,
-  ) {
-    this.openaiKey = this.config.get<string>('OPENAI_API_KEY') || '';
-  }
-
-  async onModuleInit(): Promise<void> {
-    this.synonymsMap = this.synonymsService.getCategoryVariants();
-    this.normalizedSynonymLookup = this.synonymsService.getNormalizedLookup();
-    this.logger.log(
-      `[AdvancedSearchService] Synonym index ready — ${Object.keys(this.synonymsMap).length} categories, ${Object.keys(this.normalizedSynonymLookup).length} normalized tokens`,
-    );
-  }
-
-  // ─── PUBLIC: refreshSynonymIndex ────────────────────────────────
-  // Re-pulls the in-memory synonym snapshot from SynonymsService and
-  // clears the fuzzy-match cache. onModuleInit() only ran once at
-  // boot, so this snapshot goes stale after SynonymsService.reload()
-  // is called (e.g. from the admin dashboard or /chat/synonyms/reload).
-  // Call this right after synonymsService.reload() to keep search
-  // results in sync with the synonyms table in real time.
-  refreshSynonymIndex(): void {
-    this.synonymsMap = this.synonymsService.getCategoryVariants();
-    this.normalizedSynonymLookup = this.synonymsService.getNormalizedLookup();
-    this.fuzzyMatchCache.clear();
-    this.logger.log(
-      `[AdvancedSearchService] Synonym index refreshed — ${Object.keys(this.synonymsMap).length} categories, ${Object.keys(this.normalizedSynonymLookup).length} normalized tokens`,
-    );
-  }
-
-  // ─── PUBLIC: getDisplayName ─────────────────────────────────────
-  // FIX-1: Always return French name (designation_2) when available
+  // ─── Formatting ─────────────────────────────────────────────────
   getDisplayName(part: { designation: string; designation2?: string | null }): string {
-    return (part.designation2 && part.designation2.trim().length > 0)
-      ? part.designation2.trim()
-      : part.designation.trim();
+    const french = part.designation2?.trim();
+    return french ? french : (part.designation ?? '').trim();
   }
 
-  // ─── PUBLIC: getSourceLabel ─────────────────────────────────────
-  // FIX-5: Human-readable source label
   getSourceLabel(source: string): string {
     switch (source) {
-      case '01_PROD':    return 'Suzuki OEM';
-      case '02_CARPRO':  return 'CarPro Parts';
-      default:           return source;
+      case '01_PROD':
+        return 'Suzuki OEM';
+      case '02_CARPRO':
+        return 'CarPro Parts';
+      default:
+        return source;
     }
   }
 
-  // ─── PUBLIC: formatPartResult ───────────────────────────────────
   private isStockAvailable(stock: any): boolean {
-    const consolidated = Number(
-      stock?.stockConsolide ?? stock?.stock_consolide ?? 0,
-    );
-    return consolidated >= 2;
+    return isQuantityAvailable(stock?.stockConsolide ?? stock?.stock_consolide);
   }
 
-  private formatStock(stock: any): {
-    statut: string;
-    totalQuantity: number;
-    stockDisponible: number;
-    stockConsolide: number;
-  } {
-    const totalQuantity = Number(stock?.totalQuantity ?? stock?.total_quantity ?? 0);
-    const stockDisponible = Number(stock?.stockDisponible ?? stock?.stock_disponible ?? 0);
-    const stockConsolide = Number(
-      stock?.stockConsolide ?? stock?.stock_consolide ?? 0,
-    );
-
+    private formatStock(stock: any): PartResult['stock'] {
+    // Unknown stock is NOT zero: null lets the response layer redirect to the Comptoir.
+    if (!hasKnownStock(stock)) return null;
+    const stockConsolide = Number(stock.stockConsolide ?? stock.stock_consolide);
     return {
-      statut: stockConsolide >= 2 ? 'Disponible' : 'Indisponible',
-      totalQuantity,
-      stockDisponible,
+      statut: isQuantityAvailable(stockConsolide) ? 'Disponible' : 'Indisponible',
+      totalQuantity: Number(stock?.totalQuantity ?? stock?.total_quantity ?? 0),
+      stockDisponible: Number(stock?.stockDisponible ?? stock?.stock_disponible ?? 0),
       stockConsolide,
     };
   }
 
-  private pickVehicleValue(vehicle: any, keys: string[]): string | null {
-    for (const key of keys) {
-      const value = vehicle?.[key];
-      if (typeof value === 'string' && value.trim()) return value.trim();
-    }
-    return null;
-  }
-
-  private generateModelVariants(value: string): string[] {
-    const upper = value.toUpperCase().trim();
-    const variants = new Set<string>([
-      upper,
-      upper.replace(/-/g, ''),
-      upper.replace(/\s+/g, ''),
-      upper.replace(/[-\s]+/g, ''),
-      upper.replace(/-/g, ' '),
-      upper.replace(/\s+/g, '-'),
-    ]);
-    return [...variants].filter((v) => v.length > 0);
-  }
-
-  private async resolveVehicleScope(vehicle?: any): Promise<VehicleSearchScope> {
-    const empty: VehicleSearchScope = {
-      active: false,
-      vin: null,
-      vehicleNo: null,
-      model: null,
-      modelDescription: null,
-      typeCodes: [],
-      primaryTypeCodes: [],
-    };
-    if (!vehicle) return empty;
-
-    const vin = this.pickVehicleValue(vehicle, ['vin', 'VIN', 'numeroChassis', 'numChassis', 'chassis']);
-    const vehicleNo = this.pickVehicleValue(vehicle, ['vehicleNo', 'vehicle_no', 'numeroVehicule']);
-    let explicitTypeCode = this.pickVehicleValue(vehicle, ['typeCode', 'type_code', 'type']);
-
-    let dbVehicle: any = null;
-    if (vin) {
-      // FIX 2026-09-13: 109 confirmed duplicate VINs in the source data
-      // (two vehicle_no sharing the same VIN — confirmed present in
-      // CarPro's own raw export, not introduced by our import).
-      // findFirst() with no orderBy was non-deterministic about which
-      // duplicate it returned — could silently resolve the wrong
-      // modele/typeCode for that vehicle. Now: fetch every match and
-      // prefer the one that actually has a typeCode set (more useful
-      // for compatibility search), falling back to the most recently
-      // created row.
-      const vinMatches = await this.prisma.vehicle.findMany({
-        where: { vin: { equals: vin, mode: 'insensitive' } },
-        select: {
-          vin: true,
-          vehicleNo: true,
-          modele: true,
-          modeleDescription: true,
-          typeCode: true,
-        },
-        orderBy: { id: 'desc' },
-      });
-      dbVehicle = vinMatches.find((v) => v.typeCode) ?? vinMatches[0] ?? null;
-    }
-    if (!dbVehicle && vehicleNo) {
-      dbVehicle = await this.prisma.vehicle.findFirst({
-        where: { vehicleNo: { equals: vehicleNo, mode: 'insensitive' } },
-        select: {
-          vin: true,
-          vehicleNo: true,
-          modele: true,
-          modeleDescription: true,
-          typeCode: true,
-        },
-      });
-    }
-
-    explicitTypeCode = explicitTypeCode || dbVehicle?.typeCode || null;
-
-    // primaryCandidates: the most specific model identifiers — modeleDescription
-    // (e.g. "ALL NEW SW GL MT", "NEW CELERIO POP 6AB") comes first because it
-    // uniquely identifies the exact variant. modele (e.g. "SWIFT IV", "CELERIO")
-    // is a broader fallback used only for the wider compatibility scope.
-    const primaryCandidates = [
-      dbVehicle?.modeleDescription,
-      vehicle.modeleDescription,
-      vehicle.model,
-      vehicle.modelName,
-    ]
-      .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
-      .map((value) => value.trim());
-
-    const broadCandidates = [
-      dbVehicle?.modele,
-      vehicle.modele,
-    ]
-      .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
-      .map((value) => value.trim());
-
-    const modelCandidates = [...new Set([...primaryCandidates, ...broadCandidates])];
-
-    const normalizedModel = modelCandidates
-      .map((value) => this.vehicleModels.normalize(value))
-      .find((value): value is string => !!value) ?? null;
-
-    const modelValues = Array.from(new Set([
-      ...modelCandidates,
-      ...(normalizedModel ? [normalizedModel] : []),
-    ].map((value) => value.toUpperCase().trim())));
-
-    const typeCodes = new Set<string>();
-    const primaryTypeCodes = new Set<string>(); // codes for the exact identified model
-    if (explicitTypeCode) {
-      const normalizedTypeCode = explicitTypeCode.toUpperCase().replace(/\s+/g, '-').replace(/-TYPE-/g, '-TYPE');
-      typeCodes.add(normalizedTypeCode);
-      primaryTypeCodes.add(normalizedTypeCode);
-    }
-
-    if (!explicitTypeCode && modelValues.length > 0) {
-      // Primary: exact match on modeleDescription / specific model name only
-      // (e.g. "ALL NEW SW GL MT" → AON312, "NEW CELERIO" → AXM310)
-      if (primaryCandidates.length > 0) {
-        const exactPrimaryRows = await this.prisma.vehicleModelMap.findMany({
-          where: {
-            OR: primaryCandidates.map((modele) => ({
-              modele: { equals: modele, mode: 'insensitive' },
-            })),
-          },
-          select: { typeCode: true },
-        });
-        exactPrimaryRows.forEach((row) => {
-          typeCodes.add(row.typeCode);
-          primaryTypeCodes.add(row.typeCode);
-        });
-      }
-
-      // Broader: all candidates including modele (e.g. "SWIFT IV" → AVH310)
-      const modelMapRows = await this.prisma.vehicleModelMap.findMany({
-        where: {
-          OR: modelValues.map((modele) => ({
-            modele: { equals: modele, mode: 'insensitive' },
-          })),
-        },
-        select: { typeCode: true },
-      });
-      modelMapRows.forEach((row) => typeCodes.add(row.typeCode));
-
-      // FIX-8: normalize/strip hyphens & spaces before querying
-      // vehicle_type_master — the fallback `contains` lookup must not
-      // silently miss rows just because "S-PRESSO" is stored as
-      // "SPRESSO" or "S PRESSO" (or vice versa).
-      const modelValueVariants = Array.from(
-        new Set(modelValues.flatMap((value) => this.generateModelVariants(value))),
-      );
-
-      // FIX 2026-09-13: vehicle_type_master.modelName is unreliable for
-      // most rows — a live data sample showed it mirrors type_code
-      // itself ("A3K415-TYPE1" as its own "model name") rather than a
-      // real human-readable name, for roughly 86% of the table. That
-      // made the vehicleTypeMaster `contains` fallback below largely
-      // ineffective for anything but a code-shaped query.
-      // vehicle_model_map.modele has much richer data ("N SW GLX A
-      // SLDA", "CELERIO GL-POP", ...), so try a fuzzy (contains) pass
-      // against it too — same variant list, better-quality field —
-      // before falling through to vehicle_type_master. Gated on
-      // typeCodes still being empty so it never overrides a good exact
-      // match above; this only fires when the strict paths found
-      // nothing, exactly where a fuzzier net is safe to cast.
-      if (typeCodes.size === 0) {
-        const fuzzyModelMapRows = await this.prisma.vehicleModelMap.findMany({
-          where: {
-            OR: modelValueVariants.map((modele) => ({
-              modele: { contains: modele, mode: 'insensitive' },
-            })),
-          },
-          select: { typeCode: true },
-        });
-        fuzzyModelMapRows.forEach((row) => typeCodes.add(row.typeCode));
-      }
-
-      const typeRows = await this.prisma.vehicleTypeMaster.findMany({
-        where: {
-          OR: modelValueVariants.map((modelName) => ({
-            modelName: { contains: modelName, mode: 'insensitive' },
-          })),
-        },
-        select: { typeCode: true },
-      });
-      typeRows.forEach((row) => typeCodes.add(row.typeCode));
-    }
-
-    return {
-      active: typeCodes.size > 0,
-      vin: dbVehicle?.vin ?? vin ?? null,
-      vehicleNo: dbVehicle?.vehicleNo ?? vehicleNo ?? null,
-      model: normalizedModel ?? dbVehicle?.modele ?? vehicle.modele ?? null,
-      modelDescription: dbVehicle?.modeleDescription ?? vehicle.modeleDescription ?? null,
-      typeCodes: [...typeCodes],
-      primaryTypeCodes: primaryTypeCodes.size > 0 ? [...primaryTypeCodes] : [...typeCodes],
-    };
-  }
-
-
-  private buildCompatibilityWhere(scope: VehicleSearchScope): any {
-    if (!scope.active || scope.typeCodes.length === 0) return {};
-    return {
-      fitments: {
-        some: {
-          typeCode: { in: scope.typeCodes },
-        },
-      },
-    };
-  }
-
   formatPartResult(part: any, score: number, scope?: VehicleSearchScope): PartResult {
-    const frenchName  = (part.designation2 ?? '').trim();
-    const englishName = (part.designation  ?? '').trim();
-    const designationOem = (part.designationOem ?? '').trim() || englishName;
-
+    const french = (part.designation2 ?? '').trim();
     return {
-      id:               part.id,
-      reference:        part.reference,
-      displayName:      this.getDisplayName(part),         // ★ French first
-      designation:      designationOem,                    // English OEM (true)
-      designation2:     frenchName || null,                // French name
+      id: part.id,
+      reference: part.reference,
+      displayName: this.getDisplayName(part),
+      designation: (part.designation ?? '').trim(),
+      designation2: french || null,
       searchDescription: part.searchDescription ?? null,
-      prixHt:           part.prixHt  != null ? String(part.prixHt)  : null,
-      prixTtc:          part.prixTtc != null ? String(part.prixTtc) : null,
-      unite:            part.unite           ?? null,
-      categorie:        part.categorie       ?? null,
-      fabricant:        part.fabricant       ?? null,
-      fournisseurCode:  part.fournisseurCode ?? null,
-      source:           part.source,
-      sourceLabel:      this.getSourceLabel(part.source),  // ★ Human-readable
-      // BUGFIX-1: always return a stock object, never null
+      prixHt: part.prixHt != null ? String(part.prixHt) : null,
+      prixTtc: part.source === '01_PROD' && part.prixTtc != null ? String(part.prixTtc) : null,
+      unite: part.unite ?? null,
+      categorie: part.categorie ?? null,
+      fabricant: part.fabricant ?? null,
+      fournisseurCode: part.fournisseurCode ?? null,
+      source: part.source,
+      sourceLabel: this.getSourceLabel(part.source),
       stock: this.formatStock(part.stock),
-      fitments: (part.fitments ?? []).map((f: any) => ({
-        modelName: f.modelName,
-        typeCode:  f.typeCode,
-      })),
+      fitments: (part.fitments ?? []).map((f: any) => ({ modelName: f.modelName, typeCode: f.typeCode })),
       itemReferences: (part.itemReferences ?? []).map((r: any) => ({
         referenceNo: r.referenceNo,
         referenceType: r.referenceType ?? null,
@@ -580,773 +321,719 @@ export class AdvancedSearchService implements OnModuleInit {
     };
   }
 
+  private computeBreakdowns(results: PartResult[]) {
+    const sourceBreakdown = { suzukiOem: 0, carproParts: 0 };
+    const stockBreakdown = { disponible: 0, indisponible: 0 };
+    for (const r of results) {
+      if (r.source === '02_CARPRO') sourceBreakdown.carproParts++;
+      else sourceBreakdown.suzukiOem++;
+      if (this.isStockAvailable(r.stock)) stockBreakdown.disponible++;
+      else stockBreakdown.indisponible++;
+    }
+    return { sourceBreakdown, stockBreakdown };
+  }
+
+  // ─── Vehicle scope ──────────────────────────────────────────────
+  private pickVehicleValue(vehicle: any, keys: string[]): string | null {
+    for (const key of keys) {
+      const value = vehicle?.[key];
+      if (typeof value === 'string' && value.trim()) return value.trim();
+    }
+    return null;
+  }
+
+  private generateModelVariants(value: string): string[] {
+    const upper = value.toUpperCase().trim();
+    return [
+      ...new Set([
+        upper,
+        upper.replace(/-/g, ''),
+        upper.replace(/\s+/g, ''),
+        upper.replace(/[-\s]+/g, ''),
+        upper.replace(/-/g, ' '),
+        upper.replace(/\s+/g, '-'),
+      ]),
+    ].filter(Boolean);
+  }
+
+  private async findVehicleRow(vin: string | null, vehicleNo: string | null): Promise<any | null> {
+    if (vin) {
+      const matches = await this.prisma.vehicle.findMany({
+        where: { OR: vinLookupVariants(vin).map((variant) => ({ vin: { equals: variant, mode: 'insensitive' as const } })) },
+        select: VEHICLE_SELECT,
+      });
+      const row = pickBestVehicleRow(matches);
+      if (row) return row;
+    }
+    if (vehicleNo) {
+      return this.prisma.vehicle.findFirst({
+        where: { vehicleNo: { equals: vehicleNo, mode: 'insensitive' } },
+        select: VEHICLE_SELECT,
+      });
+    }
+    return null;
+  }
+
+  async resolveVehicleScope(vehicle?: any): Promise<VehicleSearchScope> {
+    const empty: VehicleSearchScope = {
+      active: false,
+      vin: null,
+      vehicleNo: null,
+      model: null,
+      modelDescription: null,
+      typeCodes: [],
+      primaryTypeCodes: [],
+      typeCodeSource: 'none',
+    };
+    if (!vehicle) return empty;
+
+    const vin = this.pickVehicleValue(vehicle, ['vin', 'VIN', 'numeroChassis', 'numChassis', 'chassis']);
+    const vehicleNo = this.pickVehicleValue(vehicle, ['vehicleNo', 'vehicle_no', 'numeroVehicule']);
+    const clientTypeCode = this.pickVehicleValue(vehicle, ['typeCode', 'type_code', 'type']);
+
+    const dbVehicle = await this.findVehicleRow(vin, vehicleNo);
+    const explicitTypeCode = clientTypeCode || dbVehicle?.typeCode || null;
+
+    const clean = (values: unknown[]) =>
+      values
+        .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+        .map((value) => value.trim());
+
+    // modeleDescription ("ALL NEW SW GL MT") identifies the exact variant; modele ("SWIFT IV") is the broader fallback.
+    const primaryCandidates = clean([
+      dbVehicle?.modeleDescription,
+      vehicle.modeleDescription,
+      vehicle.model,
+      vehicle.modelName,
+    ]);
+    const modelCandidates = [...new Set([...primaryCandidates, ...clean([dbVehicle?.modele, vehicle.modele])])];
+
+    const normalizedModel =
+      modelCandidates.map((value) => this.vehicleModels.normalize(value)).find((value): value is string => !!value) ??
+      null;
+    const modelValues = [
+      ...new Set([...modelCandidates, ...(normalizedModel ? [normalizedModel] : [])].map((v) => v.toUpperCase().trim())),
+    ];
+
+    const typeCodes = new Set<string>();
+    const primaryTypeCodes = new Set<string>();
+    let typeCodeSource: VehicleSearchScope['typeCodeSource'] = 'none';
+
+    if (explicitTypeCode) {
+      const code = normalizeTypeCode(explicitTypeCode);
+      typeCodes.add(code);
+      primaryTypeCodes.add(code);
+      typeCodeSource = clientTypeCode ? 'explicit' : 'vehicle-row';
+    } else if (modelValues.length > 0) {
+      const addRows = (rows: { typeCode: string }[], primary = false) => {
+        for (const row of rows) {
+          const code = normalizeTypeCode(row.typeCode);
+          typeCodes.add(code);
+          if (primary) primaryTypeCodes.add(code);
+        }
+      };
+      const equalsAny = (values: string[]) =>
+        values.map((modele) => ({ modele: { equals: modele, mode: 'insensitive' as const } }));
+
+      if (primaryCandidates.length > 0) {
+        addRows(
+          await this.prisma.vehicleModelMap.findMany({ where: { OR: equalsAny(primaryCandidates) }, select: { typeCode: true } }),
+          true,
+        );
+      }
+      addRows(await this.prisma.vehicleModelMap.findMany({ where: { OR: equalsAny(modelValues) }, select: { typeCode: true } }));
+
+      const variants = [...new Set(modelValues.flatMap((value) => this.generateModelVariants(value)))];
+
+      // vehicle_type_master.model_name mirrors type_code for ~86% of rows, so
+      // the richer vehicle_model_map.modele gets the fuzzy pass first.
+      if (typeCodes.size === 0) {
+        addRows(
+          await this.prisma.vehicleModelMap.findMany({
+            where: { OR: variants.map((modele) => ({ modele: { contains: modele, mode: 'insensitive' as const } })) },
+            select: { typeCode: true },
+          }),
+        );
+      }
+      addRows(
+        await this.prisma.vehicleTypeMaster.findMany({
+          where: { OR: variants.map((modelName) => ({ modelName: { contains: modelName, mode: 'insensitive' as const } })) },
+          select: { typeCode: true },
+        }),
+      );
+      if (typeCodes.size > 0) typeCodeSource = 'model-map';
+    }
+
+    return {
+      active: typeCodes.size > 0,
+      vin: dbVehicle?.vin ?? vin ?? null,
+      vehicleNo: dbVehicle?.vehicleNo ?? vehicleNo ?? null,
+      model: dbVehicle?.modele ?? normalizedModel ?? vehicle.modele ?? null,
+      modelDescription: dbVehicle?.modeleDescription ?? vehicle.modeleDescription ?? null,
+      typeCodes: [...typeCodes],
+      primaryTypeCodes: primaryTypeCodes.size > 0 ? [...primaryTypeCodes] : [...typeCodes],
+      typeCodeSource,
+    };
+  }
+
+  /** fitment.type_code mixes "AON312-TYPE1" and "AON312 TYPE1": match both spellings. */
+  private buildCompatibilityWhere(scope: VehicleSearchScope): any {
+    if (!scope.active || scope.typeCodes.length === 0) return {};
+    const codes = [...new Set(scope.typeCodes.flatMap((rawCode) => {
+      const code = normalizeTypeCode(rawCode);
+      return [
+        code,
+        code.replace(/-TYPE(\d)/g, '-TYPE-$1'),
+        code.replace(/-/g, ' '),
+        code.replace(/-TYPE(\d)/g, ' TYPE $1'),
+      ];
+    }))];
+    return { fitments: { some: { typeCode: { in: codes } } } };
+  }
+
   // ─── MAIN SEARCH ────────────────────────────────────────────────
-  // Kept for every existing caller: same signature, same return type.
   async searchParts(query: string, vehicle?: any): Promise<PartResult[]> {
     return (await this.searchPartsDetailed(query, vehicle)).results;
   }
 
-  // Same search, but ALSO returns what the identity/position gate did, so the
-  // caller can say "no exact match — this part only exists in AV / AR" instead
-  // of silently answering with a different part. The outcome is returned (not
-  // stored on the singleton) so concurrent requests cannot read each other's.
+  /**
+   * Same search, but also returns what the identity/position gate did so the
+   * caller can say "no exact match: this part only exists in AV / AR". The
+   * outcome is returned (not stored on the singleton) so concurrent requests
+   * cannot read each other's.
+   */
   async searchPartsDetailed(
     query: string,
     vehicle?: any,
-  ): Promise<{ results: PartResult[]; constraint: ConstraintOutcome | null }> {
+  ): Promise<{
+    results: PartResult[];
+    constraint: ConstraintOutcome | null;
+    scope: VehicleSearchScope | null;
+    truncated: boolean;
+  }> {
     if (!query || query.trim().length < 2) {
-      return { results: [], constraint: null };
+      return { results: [], constraint: null, scope: null, truncated: false };
     }
     this.logger.log(`[SEARCH] Input query: "${query}"`);
 
-    // ── Reference pattern detection ──────────────────────────────
-    const referencePatterns = [
-      /^\s*([A-Z0-9]{8,}(?:-[A-Z0-9]+)*)\s*$/i,
-      /^\s*([A-Z]{2}-\d{4,}-[A-Z0-9]{2,}(?:-[A-Z0-9]+)*)\s*$/i,
-      /\b([A-Z0-9]{8,})\b/i,
-      /\b([A-Z]{2}-?\d{4,}-?[A-Z0-9]{2,}(?:-[A-Z0-9]+)*)\b/i,
-      /\bref[eé]rence[\s:]*([A-Z0-9]{5,}[-_]?[A-Z0-9]*)\b/i,
-    ];
-
-    for (const pattern of referencePatterns) {
-      const refMatch = query.match(pattern);
-      if (refMatch) {
-        const reference = refMatch[1] || refMatch[0];
-        const isAlphaNumericRef = /[A-Z]/.test(reference) && /[0-9]/.test(reference) && reference.length >= 8;
-        const isNumericRef = /^\d{8,}$/.test(reference);
-        if ((isAlphaNumericRef || isNumericRef) && reference.length >= 8) {
-          this.logger.log(`[SEARCH] Reference pattern detected: "${reference}"`);
-          const refResults = await this.searchByReference(reference, vehicle);
-          this.logger.log(`[SEARCH] Reference search returned ${refResults.length} results`);
-          return { results: refResults, constraint: null };
-        }
-      }
-    }
-
-    // ── Tunisian dialect normalization ───────────────────────────
-    const tunisianNormalized = this.normalizeTunisian(query);
-    const tunisianValid = (() => {
-      if (!tunisianNormalized) return false;
-      const originalTokens = this.normalize(query).split(' ').filter(Boolean);
-      const normalizedTokens = this.normalize(tunisianNormalized).split(' ').filter(Boolean);
-      const allAlreadyKnown = originalTokens.every(
-        (t) => this.normalizedSynonymLookup[t] !== undefined || Object.keys(this.typeWeights).includes(t),
-      );
-      if (allAlreadyKnown) return false;
-      const seen = new Set<string>();
-      for (const t of normalizedTokens) {
-        if (t.length >= 4 && seen.has(t)) return false;
-        seen.add(t);
-      }
-      return true;
-    })();
-    const searchQuery = tunisianValid ? tunisianNormalized : query;
-    const hasTunisianDialect = tunisianValid;
-    if (tunisianValid) {
-      this.logger.log(`[SEARCH] Tunisian detected, normalized to: "${tunisianNormalized}"`);
-    }
-
-    const normalized = this.normalize(searchQuery);
-    this.logger.log(`[SEARCH] Normalized query: "${normalized}"`);
-
-    const allTokens = await this.tokenize(normalized, true);
-    const rawTokens = allTokens.filter((t) => t.length > 2);
-    this.logger.log(`[SEARCH] Raw tokens (>2 chars): [${rawTokens.join(', ')}]`);
-
-    const expandedTerms = this.expandWithSynonymsContextual(rawTokens, normalized);
-    this.logger.log(`[SEARCH] Expanded terms: [${expandedTerms.join(', ')}]`);
-    const positionInfo = this.detectPositionRequirements(searchQuery);
     const vehicleScope = await this.resolveVehicleScope(vehicle);
+    const reference = extractReferenceCandidate(query);
+    if (reference) {
+      this.logger.log(`[SEARCH] Reference detected: "${reference}"`);
+      const refResults = await this.searchByReference(reference, vehicleScope);
+      return { results: refResults, constraint: null, scope: vehicleScope, truncated: false };
+    }
+
+    const dialect = this.applyDialect(query);
+    const searchQuery = dialect.text;
+    const normalized = this.normalize(searchQuery);
+    const allTokens = await this.tokenize(normalized);
+    const rawTokens = allTokens.filter((token) => token.length > 2);
+
+    const ignore = this.buildIdentityIgnoreSet();
+    const groups = this.buildTermGroups(rawTokens, ignore);
+    const expandedTerms = [...new Set(groups.flat())];
+    const requestedPositions = this.requestedPositionsOf(searchQuery);
+    const positionInfo = this.toPositionRequirements(requestedPositions);
     if (vehicleScope.active) {
-      this.logger.log(`[SEARCH] Vehicle compatibility scope: typeCodes=[${vehicleScope.typeCodes.join(', ')}] vin=${vehicleScope.vin ?? 'n/a'}`);
+      this.logger.log(
+        `[SEARCH] Vehicle scope: typeCodes=[${vehicleScope.typeCodes.join(', ')}] source=${vehicleScope.typeCodeSource} vin=${vehicleScope.vin ?? 'n/a'}`,
+      );
     }
 
-    // ── FIX-2: Build search conditions across ALL three text fields ──
-    const searchConditions = this.buildSearchConditions(rawTokens, expandedTerms);
-    const whereParts = [
-      ...(searchConditions.length > 0 ? [{ OR: searchConditions }] : []),
-      ...(vehicleScope.active ? [this.buildCompatibilityWhere(vehicleScope)] : []),
-    ];
-    const whereCondition: any = whereParts.length > 0 ? { AND: whereParts } : {};
+    const { parts: fetchedParts, mode, truncated, droppedGroups } = await this.fetchCandidates(groups, vehicleScope);
+    // Words dropped because the catalog does not contain them are not part of the request's identity.
+    const droppedTerms = new Set(droppedGroups.flat());
+    const activeGroups = groups.filter((group) => !droppedGroups.includes(group));
+    this.logger.log(`[SEARCH] Retrieved ${fetchedParts.length} candidates (mode=${mode}${truncated ? ', TRUNCATED' : ''})`);
+    if (truncated) {
+      this.logger.warn(`[SEARCH] DB cap of ${DB_CANDIDATE_LIMIT} reached for "${normalized}": add a distinguishing word or a vehicle.`);
+    }
 
-    // ── FIX-3: No source filter — include both 01_PROD and 02_CARPRO ──
-    let parts = await this.prisma.part.findMany({
-      where: whereCondition,
-      include: {
-        stock: {
-          select: {
-            statut: true,
-            totalQuantity: true,  // FIX-5: include quantity
-            stockDisponible: true,
-            stockConsolide: true,
-          },
-        },
-        fitments: {
-          select: {
-            modelName: true,
-            typeCode: true,
-          },
-        },
-        itemReferences: {
-          select: {
-            referenceNo: true,
-            referenceType: true,
-          },
-        },
-      },
-      take: 500,
+    const numericSpecifications = extractNumericSpecifications(query);
+    const numericMatches = this.filterByNumericSpecifications(fetchedParts, numericSpecifications);
+    if (numericSpecifications.length > 0) {
+      this.logger.log(
+        `[SEARCH] Numeric specifications [${numericSpecifications.join(', ')}]: ${numericMatches.length}/${fetchedParts.length} candidates matched`,
+      );
+    }
+
+    const requestedColors = extractColorTokens(query);
+    const parts = this.filterByRequestedColors(numericMatches, requestedColors);
+    if (requestedColors.length > 0) {
+      this.logger.log(
+        `[SEARCH] Explicit colors [${requestedColors.join(', ')}]: ${parts.length}/${numericMatches.length} candidates matched`,
+      );
+    }
+
+    // Words that match nothing in the retrieved pool (greetings, dialect filler, "mawjoud", "ch7al")
+    // cannot identify a part: they must not stop a row from counting as fully covered.
+    const poolTexts = parts.map((part) => {
+      const text = this.normalize([part.designation2, part.searchDescription, part.designation].filter(Boolean).join(' '));
+      return { text, words: text.split(' ').filter(Boolean) };
     });
-
-    // Compound windshield searches must match the windshield term as well as
-    // the shared "pare" token; otherwise unrelated "pare huile" parts can
-    // survive because the DB conditions are intentionally broad OR clauses.
-    if (/\bpare\s*-?\s*brise\b/i.test(normalized) || /\bparebrise\b/i.test(normalized)) {
-      parts = parts.filter((part: any) => {
-        const text = this.normalize([
-          part.designation2,
-          part.searchDescription,
-          part.designation,
-        ].filter(Boolean).join(' '));
-        const windshieldText = text.includes('brise') || text.includes('windshield') || text.includes('windscreen');
-        const accessoryText = [
-          'moustache', 'garnish', 'garniture', 'joint', 'molding', 'moulure',
-          'trim', 'wiper', 'essuie', 'motor', 'moteur',
-        ].some((term) => text.includes(term));
-        return windshieldText && !accessoryText;
-      });
-    }
-    this.logger.log(`[SEARCH] Database returned ${parts.length} raw results`);
-
-    // ── Conflict filter ──────────────────────────────────────────
-    const positionWords = ['avant', 'arriere', 'gauche', 'droite', 'av', 'ar', 'g', 'd'];
-    const correctedTokens = expandedTerms.filter((t) => !positionWords.includes(t));
-
-    const accessoryWords = [
-      'support', 'sangle', 'cable', 'causse', 'fixation', 'adhesif', 'clip', 'vis', 'boulon',
-      'pare', 'boue', 'cache', 'baguette', 'joint', 'catadioptre', 'bouchon', 'couvercle', 'garniture',
-    ];
-    const firstToken = correctedTokens.find((t) => t.length >= 3 && !positionWords.includes(t));
-    const isFirstTokenAccessory = firstToken && accessoryWords.includes(firstToken);
-
-    const mainPartType = correctedTokens
-      .filter((token) => Object.keys(this.typeWeights).includes(token) && !positionWords.includes(token))
-      .sort((a, b) => {
-        if (isFirstTokenAccessory && (a === firstToken || b === firstToken)) {
-          return a === firstToken ? -1 : 1;
-        }
-        const weightA = this.typeWeights[a] || 1.0;
-        const weightB = this.typeWeights[b] || 1.0;
-        if (weightB !== weightA) return weightB - weightA;
-        return b.length - a.length;
-      })[0];
-
-    const queryLower = query.toLowerCase();
-    let forcedMainPartType = mainPartType;
-    if (queryLower.includes('monte glace') || queryLower.includes('monte-glace')) {
-      forcedMainPartType = 'appareil';
-    }
-
-    const filteredQueryWords = this.filterScoringQueryWords(expandedTerms);
-    if (/\btraverse\b/i.test(normalized) && /\b(arriere|arrière|ar|rear|rr)\b/i.test(normalized)) {
-      parts = parts.filter((part: any) => {
-        const text = this.normalize([
-          part.designation2,
-          part.searchDescription,
-          part.designation,
-        ].filter(Boolean).join(' '));
-        return text.includes('traverse') && /\b(arriere|ar|rear|rr)\b/.test(text);
-      });
-    }
-    const context: SearchContext = {
-      rawTokens: allTokens,
-      expandedTerms,
-      filteredQueryWords,
+    const informativeGroups = activeGroups.filter((group) => poolTexts.some((pool) => this.groupMatches(group, pool.text, pool.words)));
+    const rankContext: RankContext = {
+      groups: informativeGroups.length > 0 ? informativeGroups : groups,
       positionInfo,
-      mainPartType: forcedMainPartType,
-      originalQuery: query,
-      normalizedQuery: normalized,
-      hasTunisianDialect,
-      userTypedTokens: new Set(rawTokens),
+      compactQuery: this.normalizeForDB(query),
     };
-
-    // The database query intentionally uses broad OR conditions for recall,
-    // but that can fill the 500-row pool with parts matching only one word of
-    // a compound request. Prefer the narrower all-meaningful-terms set when
-    // it exists, so "buse eau essuie-glace" cannot be displaced by "pompe a
-    // eau" or another unrelated single-term match.
-    const positionTerms = new Set(['avant', 'arriere', 'arrière', 'gauche', 'droite', 'av', 'ar', 'g', 'd', 'sup', 'inf']);
-    const meaningfulSearchTerms = expandedTerms
-      .map((term) => this.normalize(term).replace(/-/g, ' ').trim())
-      .filter((term) => term.length >= 3 && !positionTerms.has(term));
-    if (meaningfulSearchTerms.length > 1) {
-      const compoundMatches = parts.filter((part: any) => {
-        const catalogText = this.normalize([
-          part.designation2,
-          part.searchDescription,
-          part.designation,
-          part.categorie,
-          part.fabricant,
-        ].filter(Boolean).join(' ')).replace(/-/g, ' ');
-        return meaningfulSearchTerms.every((term) => catalogText.includes(term));
-      });
-      if (compoundMatches.length > 0) parts = compoundMatches;
-    }
-
-    // ── Score and filter ─────────────────────────────────────────
-    const scored = parts.map((part) => ({
-      ...part,
-      _score: this.calculatePartScore(part, context, vehicleScope),
-    }));
-
-    const filtered = scored.filter((p) => {
-      const designation = this.normalize(p.designation);
-      const queryNorm = context.normalizedQuery;
-      const conflicts = [
-        { query: 'maitre', wrong: 'mettre' },
-        { query: 'cable', wrong: 'calle' },
-      ];
-      for (const conflict of conflicts) {
-        if (
-          queryNorm.includes(conflict.query) &&
-          designation.includes(conflict.wrong) &&
-          !designation.includes(conflict.query)
-        ) {
-          return false;
-        }
-      }
-      return true;
-    });
-
-    let results = filtered
-      .filter((p) => p._score >= 0)
-      .sort((a, b) => b._score - a._score);
-
-    // BUGFIX-3: Deduplicate by reference — the OR query across 4 fields
-    // (designation2, searchDescription, designation, reference) can return
-    // the same part multiple times if all fields match. Keep highest score.
-    const seenRefs = new Set<string>();
-    results = results.filter((p) => {
-      if (seenRefs.has(p.reference)) return false;
-      seenRefs.add(p.reference);
-      return true;
-    });
-
-    this.logger.log(`[SEARCH] After scoring/filtering/dedup: ${results.length} qualified results`);
+    let results = parts
+      .map((part) => ({ ...part, _score: this.rank(part, rankContext, vehicleScope) }))
+      .sort((a, b) => b._score - a._score || String(a.reference).localeCompare(String(b.reference)));
 
     // ── Catalog constraint gate (deterministic) ──────────────────
-    // The DB query above is intentionally broad (recall). This is where
-    // precision is enforced, BEFORE the top-N cut so rejected rows cannot
-    // occupy a slot:
-    //   1. identity — "SUPPORT PARE CHOC AV G" is a support, not a bumper
-    //   2. position — a position the customer typed must really exist on
-    //      the part (French name first; English only if there is none)
-    // The LLM / query text may propose a part and a position; the catalog
-    // decides whether a row satisfies them.
-    const requestedPositions = this.requestedPositionsOf(searchQuery);
-    const identityIgnore = this.buildIdentityIgnoreSet();
-    const requestedPartTokens = buildRequestedPartTokens(allTokens, identityIgnore);
-    const expandedPartTokens = buildRequestedPartTokens(expandedTerms, identityIgnore);
+    // Runs BEFORE the top-N cut so rejected rows cannot occupy a slot:
+    //   identity — "SUPPORT PARE CHOC AV G" is a support, not a bumper
+    //   position — a typed position must really exist on the part
+    const requestedPartTokens = this.requestedPartTokensForCandidates(
+      allTokens.filter((token) => !droppedTerms.has(token)),
+      ignore,
+      parts,
+    );
+    const canonicalTokens = requestedPartTokens.flatMap((token) =>
+      tokenizeName(this.findPrimaryCategory(token) ?? token),
+    );
     const identityKeys = buildIdentityKeys(
-      [requestedPartTokens, expandedPartTokens.length <= 3 ? expandedPartTokens : []],
+      [requestedPartTokens, canonicalTokens.length <= 3 ? canonicalTokens : []],
       (phrase) => this.synonymVariantsOf(phrase),
     );
-    const gate = applyCatalogConstraints(results, {
-      requestedPositions,
-      requestedPartTokens,
-      identityKeys,
-    });
+    const gate = applyCatalogConstraints(results, { requestedPositions, requestedPartTokens, identityKeys });
     if (gate.outcome.applied) {
       this.logger.log(
         `[SEARCH] Constraint gate: part="${gate.outcome.requestedPart ?? '-'}" ` +
-        `positions=[${hasAnyPosition(requestedPositions) ? JSON.stringify(requestedPositions) : '-'}] ` +
-        `identity=${gate.outcome.identityMode} ` +
-        `rejected(identity=${gate.outcome.rejectedByIdentity}, position=${gate.outcome.rejectedByPosition}) ` +
-        `kept=${gate.outcome.kept}`,
+          `positions=[${hasAnyPosition(requestedPositions) ? JSON.stringify(requestedPositions) : '-'}] ` +
+          `identity=${gate.outcome.identityMode} ` +
+          `rejected(identity=${gate.outcome.rejectedByIdentity}, position=${gate.outcome.rejectedByPosition}) kept=${gate.outcome.kept}`,
       );
     }
     results = gate.kept;
 
-    const TOP_N = Math.min(results.length, 10);
-    const finalResults = results.slice(0, TOP_N);
+    const mapped = results.slice(0, TOP_N).map((p) => this.formatPartResult(p, p._score, vehicleScope));
+    this.logger.log(`[SEARCH] Final results returned: ${mapped.length}`);
 
-    this.logger.log(`[SEARCH] Final results returned: ${finalResults.length}`);
-
-    // ── FIX-4 + FIX-5: Map to enriched PartResult ───────────────
-    const mappedResults = finalResults.map((p) => this.formatPartResult(p, p._score, vehicleScope));
-    // FIX-7 (debug): capture the full pipeline trace for the frontend
-    // debug panel — same numbers as the console logs above, structured.
+    const firstCategory = rawTokens.map((t) => this.findPrimaryCategory(t)).find((c): c is string => !!c);
     this.lastSearchDebug = {
-      searchType:         'text',
-      originalQuery:      query,
-      normalizedQuery:    normalized,
-      hasTunisianDialect,
+      searchType: 'text',
+      originalQuery: query,
+      normalizedQuery: normalized,
+      hasTunisianDialect: dialect.applied,
       rawTokens,
       expandedTerms,
-      mainPartType:       forcedMainPartType ?? null,
+      mainPartType: firstCategory ?? null,
       positionInfo,
-      fieldsSearched:     ['designation_2', 'search_description', 'designation', 'reference', 'categorie', 'fabricant', 'fournisseur_code', 'item_references.reference_no'],
-      tablesQueried:      vehicleScope.active
-        ? ['vehicles', 'vehicle_model_map', 'vehicle_type_master', 'parts', 'stock', 'fitment', 'item_references']
-        : ['parts', 'stock', 'fitment', 'item_references'],
-      dbRawCount:         parts.length,
-      qualifiedCount:     results.length,
-      finalCount:         mappedResults.length,
+      fieldsSearched: ['designation_2', 'search_description', 'designation', 'reference (numeric terms)', 'item_references.reference_no (numeric terms)'],
+      tablesQueried: this.tablesFor(vehicleScope),
+      dbRawCount: parts.length,
+      qualifiedCount: results.length,
+      finalCount: mapped.length,
       vehicleScope,
-      constraint:         gate.outcome,
-      ...this.computeSourceAndStockBreakdown(mappedResults),
+      constraint: gate.outcome,
+      retrievalMode: mode,
+      truncated,
+      ...this.computeBreakdowns(mapped),
     };
-    return { results: mappedResults, constraint: gate.outcome };
+    return { results: mapped, constraint: gate.outcome, scope: vehicleScope, truncated };
   }
 
-  // Synonym variants of a typed phrase (DB synonyms table) — lets "phare"
-  // find rows whose head noun is "OPTIQUE"/"OPTIC" without hardcoding it.
+  private tablesFor(scope: VehicleSearchScope): string[] {
+    return scope.active
+      ? ['vehicles', 'vehicle_model_map', 'vehicle_type_master', 'parts', 'stock', 'fitment', 'item_references']
+      : ['parts', 'stock', 'fitment', 'item_references'];
+  }
+
+  private toPositionRequirements(requested: ReturnType<typeof extractRequestedPositions>): PositionRequirements {
+    return {
+      avant: requested.axes.includes('AV'),
+      arriere: requested.axes.includes('AR'),
+      gauche: requested.sides.includes('G'),
+      droite: requested.sides.includes('D'),
+    };
+  }
+
+  /** Positions come only from the customer's own words (+ the DB dialect map), never from synonym expansion. */
+  private requestedPositionsOf(rawQuery: string) {
+    return extractRequestedPositions(rawQuery, (t) => this.normalizedSynonymLookup[t]);
+  }
+
+  /** Synonym variants of a typed phrase (DB): "phare" also finds a head noun "OPTIQUE". */
   private synonymVariantsOf(phrase: string): string[] {
     const category = this.normalizedSynonymLookup[phrase];
     if (!category) return [];
     return [category, ...(this.synonymsMap[category] ?? [])];
   }
 
-  // Tokens that are never part of a part's identity: DB stop-words, model
-  // names and the small conversational noise list used by the scoring layer.
+  /** Tokens that are never part of a part's identity: DB stop-words and vehicle names. */
   private buildIdentityIgnoreSet(): Set<string> {
-    const ignore = new Set<string>();
-    for (const w of this.synonymsService.getStopWords()) ignore.add(w);
-    for (const model of this.vehicleModels.getAll()) {
-      for (const t of tokenizeName(model)) ignore.add(t);
-    }
-    for (const w of ['new', 'all', 'swift', 'celerio', 'baleno', 'vitara', 'ciaz', 'fronx',
-      'ignis', 'jimny', 'spresso', 'dzire', 'ertiga', 'kizashi', 'samurai', 'splash', 'swace',
-      'alto', 'apv', 'eeco', 'sx4']) ignore.add(w);
+    const ignore = new Set<string>(this.synonymsService.getStopWords());
+    for (const token of this.vehicleModels.getNameTokens()) ignore.add(token);
     return ignore;
   }
 
-  // ── FIX-2: Search conditions now include designation_2 ─────────
-  private buildSearchConditions(rawTokens: string[], expandedTerms: string[]): any[] {
-    const positionWords = ['avant', 'arriere', 'gauche', 'droite', 'av', 'ar', 'g', 'd', 'sup', 'inf'];
-    const meaningfulTerms = expandedTerms.filter((t) => t.length >= 3 && !positionWords.includes(t));
-
-    // Also include short position abbreviations (av, ar) as search terms so
-    // designations like "AILE AV G" are matched by the DB query.
-    const positionAbbrevs = expandedTerms.filter((t) => t === 'av' || t === 'ar');
-    const allTerms = [...new Set([...meaningfulTerms, ...positionAbbrevs])];
-
-    if (allTerms.length === 0) return [];
-
-    return allTerms.flatMap((term) => [
-      { designation2:        { contains: term, mode: 'insensitive' } },
-      { searchDescription:   { contains: term, mode: 'insensitive' } },
-      { designation:         { contains: term, mode: 'insensitive' } },
-      { reference:           { contains: term, mode: 'insensitive' } },
-      { categorie:           { contains: term, mode: 'insensitive' } },
-      { fabricant:           { contains: term, mode: 'insensitive' } },
-      { fournisseurCode:     { contains: term, mode: 'insensitive' } },
-      { itemReferences:      { some: { referenceNo: { contains: term, mode: 'insensitive' } } } },
-    ]);
+  private requestedPartTokensForCandidates(tokens: string[], ignore: ReadonlySet<string>, candidates: any[]): string[] {
+    const candidateWords = new Set(
+      candidates.flatMap((part) => tokenizeName(
+        [part.designation2, part.searchDescription, part.designation].filter(Boolean).join(' '),
+      )),
+    );
+    return buildRequestedPartTokens(tokens, ignore).filter((token) =>
+      candidateWords.has(token) ||
+      this.isKnownCatalogTerm(token) ||
+      !!this.synonymsService.findClosestVocabularyWord(token),
+    );
   }
 
-  private filterScoringQueryWords(expandedTerms: string[]): string[] {
-    const noiseWords = ['bonjour', 'cherche', 'pour', 'new', 'all', 'swift', 'celerio', 'baleno',
-      'vitara', 'ciaz', 'fronx', 'ignis', 'jimny', 'spresso', 'dzire', 'ertiga', 'kizashi',
-      'samurai', 'splash', 'swace', 'alto', 'apv', 'eeco', 'merci', 'salut', 'bonsoir', 'avez',
-      'une', 'besoin', 'veux', 'voudrais', 'chercher', 'trouver', 'avoir', 'besoin',
-      'elle', 'est', 'disponible', 'dispo', 'ils', 'elles', 'vous', 'nous', 'ils'];
+  // ─── Retrieval ──────────────────────────────────────────────────
+  /** One group per requested word; a group lists that word and its corrections/synonyms. */
+  private buildTermGroups(tokens: string[], ignore: ReadonlySet<string>): string[][] {
+    const groups: string[][] = [];
+    const seen = new Set<string>();
+    for (const token of tokens) {
+      if (isColorToken(token) || isPositionToken(token) || isFillerToken(token) || ignore.has(token)) continue;
+      const group = this.expandToken(token);
+      const key = [...group].sort().join('|');
+      if (group.length === 0 || seen.has(key)) continue;
+      seen.add(key);
+      groups.push(group);
+    }
+    return groups;
+  }
 
-    return expandedTerms.filter((word) => {
-      if (word.length < 3 || noiseWords.includes(word)) return false;
-      for (const [category, synonyms] of Object.entries(this.synonymsMap)) {
-        if (synonyms.includes(word) && expandedTerms.includes(category) && word !== category) {
-          return false;
-        }
+  private expandToken(token: string): string[] {
+    const variants = new Set<string>([token]);
+    if (token.length > 4 && token.endsWith('s') && !token.endsWith('ss')) variants.add(token.slice(0, -1));
+
+    if (!this.isKnownCatalogTerm(token)) {
+      const corrected = this.synonymsService.findClosestVocabularyWord(token);
+      // "agraffe" must not be "corrected" into "agrafe": catalogs use both spellings.
+      if (corrected && this.sameDoubleLetters(token, corrected)) variants.add(corrected);
+    }
+
+    for (const seed of [...variants]) {
+      const category = this.findPrimaryCategory(seed);
+      if (!category) continue;
+      variants.add(this.termOf(category));
+      for (const alias of this.synonymsMap[category] ?? []) {
+        if (variants.size >= MAX_TERM_VARIANTS) break;
+        variants.add(this.termOf(alias));
       }
-      return true;
+    }
+    return [...variants].filter((variant) => variant.length >= 2);
+  }
+
+  private termOf(value: string): string {
+    return this.normalize(value).replace(/-/g, ' ');
+  }
+
+  private sameDoubleLetters(a: string, b: string): boolean {
+    return ['ff', 'pp', 'll'].every((pair) => a.includes(pair) === b.includes(pair));
+  }
+
+  private termConditions(group: string[]): any[] {
+    return group.flatMap((term) => {
+      const spaced = this.normalize(term).replace(/[-/]+/g, ' ').replace(/\s+/g, ' ').trim();
+      const variants = [...new Set([spaced, spaced.replace(/\s+/g, '-'), spaced.replace(/\s+/g, '')])]
+        .filter(Boolean);
+      return variants.flatMap((variant) => [
+        { designation2: { contains: variant, mode: 'insensitive' } },
+        { searchDescription: { contains: variant, mode: 'insensitive' } },
+        { designation: { contains: variant, mode: 'insensitive' } },
+        // Only numeric terms can be (part of) a reference.
+        ...(/\d/.test(variant)
+          ? [
+              { reference: { contains: variant, mode: 'insensitive' } },
+              { itemReferences: { some: { referenceNo: { contains: variant, mode: 'insensitive' } } } },
+            ]
+          : []),
+      ]);
     });
   }
 
-  // FIX 2026-09-20: positions are read ONLY from the words the customer
-  // typed (raw query, French elisions removed so "filtre d'air" no longer
-  // means "droite"), through the shared vocabulary in part-constraints.ts.
-  // Positions can no longer be invented by synonym expansion.
-  private detectPositionRequirements(rawQuery: string): PositionRequirements {
-    const requested = this.requestedPositionsOf(rawQuery);
-    return {
-      avant:   requested.axes.includes('AV'),
-      arriere: requested.axes.includes('AR'),
-      gauche:  requested.sides.includes('G'),
-      droite:  requested.sides.includes('D'),
-    };
-  }
+  private async fetchAccentInsensitiveCandidates(
+    groups: string[][],
+    scope: VehicleSearchScope,
+  ): Promise<any[]> {
+    const parameters: unknown[] = [];
+    const fields = ['p.designation_2', 'p.search_description', 'p.designation'];
+    const accentFold = (field: string) =>
+      `translate(lower(COALESCE(${field}, '')), 'àâçéèêëîïôùûüÿ', 'aaceeeeiiouuuy')`;
 
-  private requestedPositionsOf(rawQuery: string) {
-    return extractRequestedPositions(rawQuery, (t) => this.normalizedSynonymLookup[t]);
-  }
-
-  // ─── SCORING ────────────────────────────────────────────────────
-  private calculatePartScore(part: any, context: SearchContext, vehicleScope?: VehicleSearchScope): number {
-    const exactScore = this.calculateExactMatches(part, context);
-    const contentScore = this.calculateContentMatches(part, context);
-    if (contentScore <= AdvancedSearchService.SCORE_REJECTION) {
-      return AdvancedSearchService.SCORE_REJECTION;
-    }
-
-    const positionScore = this.calculatePositionMatches(part, context.positionInfo);
-    if (positionScore <= AdvancedSearchService.SCORE_REJECTION) {
-      return AdvancedSearchService.SCORE_REJECTION;
-    }
-
-    const businessScore = this.calculateBusinessScores(part, context, vehicleScope);
-    return exactScore + contentScore + positionScore + businessScore;
-  }
-
-  private calculateExactMatches(part: any, context: SearchContext): number {
-    let score = 0;
-    const ref = this.normalize(part.reference);
-    const alternateRefs = (part.itemReferences ?? [])
-      .map((itemRef: any) => this.normalize(itemRef.referenceNo || ''))
-      .filter(Boolean);
-    if (ref === context.normalizedQuery) {
-      score += AdvancedSearchService.SCORE_EXACT_REFERENCE;
-    } else if (ref.includes(context.normalizedQuery)) {
-      score += AdvancedSearchService.SCORE_REFERENCE_CONTAINS;
-    }
-    if (alternateRefs.some((altRef: string) => altRef === context.normalizedQuery)) {
-      score += AdvancedSearchService.SCORE_EXACT_REFERENCE;
-    } else if (alternateRefs.some((altRef: string) => altRef.includes(context.normalizedQuery))) {
-      score += AdvancedSearchService.SCORE_REFERENCE_CONTAINS;
-    }
-    return score;
-  }
-
-  private calculateContentMatches(part: any, context: SearchContext): number {
-    let score = 0;
-
-    // ── FIX-6: Check French field (designation_2) first ──────────
-    const frenchName      = this.normalize(part.designation2 || '');
-    const englishName     = this.normalize(part.designation);
-    const searchDesc      = this.normalize(part.searchDescription || '');
-    const auxiliaryText   = this.normalize([
-      part.reference || '',
-      part.categorie || '',
-      part.fabricant || '',
-      part.fournisseurCode || '',
-      ...(part.itemReferences ?? []).map((itemRef: any) => itemRef.referenceNo || ''),
-    ].join(' '));
-    const queryNormalized = this.normalizeForDB(context.originalQuery);
-
-    // Exact full match checks — prefer French field
-    if (frenchName && this.normalizeForDB(part.designation2 || '') === queryNormalized) {
-      return AdvancedSearchService.SCORE_EXACT_FULL + AdvancedSearchService.SCORE_FRENCH_FIELD_BONUS;
-    }
-    if (searchDesc && this.normalizeForDB(part.searchDescription || '') === queryNormalized) {
-      return AdvancedSearchService.SCORE_EXACT_FULL;
-    }
-    if (this.normalizeForDB(part.designation) === queryNormalized) {
-      return AdvancedSearchService.SCORE_EXACT_FULL;
-    }
-
-    // Determine which text fields to score against
-    // Compatibility is already scoped in the DB query; here we use every
-    // descriptive text field so search_description can add CarPro context.
-    const hasFrenchName = frenchName.length > 0;
-
-    const queryWords     = context.filteredQueryWords;
-    const frenchWords    = frenchName.split(' ').filter((w) => w.length >= 1);
-    const searchDescWords = searchDesc.split(' ').filter((w) => w.length >= 1);
-    const englishWords   = englishName.split(' ').filter((w) => w.length >= 1);
-    const primaryWords   = [...frenchWords, ...searchDescWords, ...englishWords];
-    const auxiliaryWords = auxiliaryText.split(' ').filter((w) => w.length >= 1);
-    const userTypedTokens = context.userTypedTokens;
-
-    // ── Accessory / main part filtering ─────────────────────────
-    // FIX 2026-09-15: now sourced from the single shared constants
-    // file (previously an independent, drifted-apart copy — see
-    // part-classification.constants.ts for the data-driven rationale
-    // and chat-orchestrator.service.ts for the authoritative
-    // post-search filter that uses the same list).
-    const accessoryWords = ACCESSORY_KEYWORDS;
-    const mainPartWords = MAIN_PART_KEYWORDS;
-
-    const userAskedForAccessory = queryWords.some((qw) => accessoryWords.includes(qw));
-    const userAskedForMainPart  = queryWords.some((qw) => mainPartWords.includes(qw));
-    const hasAccessoryWord      = accessoryWords.some((acc) => primaryWords.includes(acc));
-    const hasMainPartWord       = mainPartWords.some((main) => primaryWords.includes(main));
-
-    if (userAskedForAccessory && hasAccessoryWord) {
-      score += 50000;
-    } else if (userAskedForAccessory && !hasAccessoryWord) {
-      score -= 50000;
-    }
-    if (userAskedForMainPart && !userAskedForAccessory) {
-      if (hasAccessoryWord && hasMainPartWord) {
-        score -= 30000;
-      } else if (hasAccessoryWord && !hasMainPartWord) {
-        return AdvancedSearchService.SCORE_REJECTION;
-      } else if (!hasAccessoryWord && hasMainPartWord) {
-        score += 50000;
-      }
-    }
-
-    const meaningfulQueryWords = queryWords.filter(
-      (w) => w.length >= 3 && !['avant', 'arriere', 'gauche', 'droite', 'sup', 'inf',
-        'para', 'pour', 'avec', 'sans', 'tout', 'tous'].includes(w),
-    );
-
-    const mandatoryWords = meaningfulQueryWords.filter((w) => userTypedTokens.has(w));
-
-    const positionMap: Record<string, string[]> = {
-      avant: ['avant', 'av'], av: ['avant', 'av'],
-      arriere: ['arriere', 'ar'], ar: ['arriere', 'ar'],
-      gauche: ['gauche', 'g'], g: ['gauche', 'g'],
-      droite: ['droite', 'd', 'droit'], d: ['droite', 'd', 'droit'], droit: ['droite', 'd', 'droit'],
-      superieur: ['superieur', 'sup'], sup: ['superieur', 'sup'],
-      inferieur: ['inferieur', 'inf'], inf: ['inferieur', 'inf'],
-      de: ['de'],
-    };
-
-    const wordMatches = (qw: string, dw: string): boolean => {
-      if (qw === dw) return true;
-      if (dw.startsWith(qw + ' ') || dw.endsWith(' ' + qw) || dw.includes(' ' + qw + ' ')) return true;
-      if (dw.startsWith(qw) || qw.startsWith(dw)) return true;
-      if (qw.endsWith('s') && dw === qw.slice(0, -1)) return true;
-      if (dw.endsWith('s') && qw === dw.slice(0, -1)) return true;
-      if (qw.endsWith('es') && dw === qw.slice(0, -2)) return true;
-      if (dw.endsWith('es') && qw === dw.slice(0, -2)) return true;
-      if (qw === dw + 's' || dw === qw + 's') return true;
-      if (qw === dw + 'es' || dw === qw + 'es') return true;
-      if (this.levenshtein(qw, dw) <= 2) return true;
-      return false;
-    };
-
-    // Check mandatory words against primary text (French or fallback)
-    for (const qw of mandatoryWords) {
-      const hasExact  = primaryWords.some((dw) => dw === qw);
-      const hasPlural = primaryWords.some((dw) => dw === qw + 's' || dw === qw + 'es' || qw === dw + 's' || qw === dw + 'es');
-      const hasFuzzy  = primaryWords.some((dw) => this.levenshtein(qw, dw) <= 1);
-
-      // If not found in primary, check English OEM name as fallback
-      const hasInEnglish = englishWords.some((dw) => dw === qw || this.levenshtein(qw, dw) <= 1);
-      const hasInAuxiliary = auxiliaryWords.some((dw) => dw === qw || this.levenshtein(qw, dw) <= 1);
-
-      if (!hasExact && !hasPlural && !hasFuzzy && !hasInEnglish && !hasInAuxiliary) {
-        return AdvancedSearchService.SCORE_REJECTION;
-      }
-    }
-
-    if (context.mainPartType) {
-      const partTypeVariants = this.synonymsMap[context.mainPartType] || [context.mainPartType];
-      const hasMainType = partTypeVariants.some((v) =>
-        primaryWords.some((dw) => wordMatches(v, dw)) ||
-        englishWords.some((dw) => wordMatches(v, dw)),
-      );
-      if (!hasMainType) {
-        return AdvancedSearchService.SCORE_REJECTION;
-      }
-      score += AdvancedSearchService.SCORE_MAIN_TYPE_PRESENT;
-    }
-
-    // Numeric matching
-    const queryNumbers      = context.originalQuery.match(/\d+(?:[.,]\d+)?/g) || [];
-    const designationNumbers = [
-      part.designation2 || '',
-      part.searchDescription || '',
-      part.designation || '',
-    ].join(' ').match(/\d+(?:[.,]\d+)?/g) || [];
-
-    if (queryNumbers.length > 0 && designationNumbers.length > 0) {
-      const hasNumericMatch = queryNumbers.some((qn) =>
-        designationNumbers.some((dn) => {
-          const qNum = parseFloat(qn.replace(',', '.'));
-          const dNum = parseFloat(dn.replace(',', '.'));
-          const qNumAdjusted = qNum >= 100 ? qNum / 100 : qNum;
-          return Math.abs(qNumAdjusted - dNum) < 0.01;
-        }),
-      );
-      if (!hasNumericMatch) {
-        return AdvancedSearchService.SCORE_REJECTION;
-      }
-      const exactBonus = queryNumbers.filter((qn) =>
-        designationNumbers.some((dn) => {
-          const qNum = parseFloat(qn.replace(',', '.'));
-          const dNum = parseFloat(dn.replace(',', '.'));
-          const qNumAdjusted = qNum >= 100 ? qNum / 100 : qNum;
-          return Math.abs(qNumAdjusted - dNum) < 0.01;
-        }),
-      ).length * AdvancedSearchService.SCORE_NUMERIC_EXACT;
-      score += exactBonus;
-    }
-
-    // Word-level match count
-    let matchCount = 0;
-    const matchedWords = new Set<string>();
-
-    queryWords.forEach((qw) => {
-      const variants = positionMap[qw] || [qw];
-      const withPlural = [...variants, ...variants.map((v) => v + 's'), ...variants.map((v) => v + 'es')];
-      const fuzzyMatches = this.findFuzzyMatches(qw);
-      const allVariants = [...withPlural, ...fuzzyMatches];
-
-      // FIX-6: Check French field first, give bonus if matched there
-      const matchedInFrench = hasFrenchName && allVariants.some((v) =>
-        frenchWords.some((dw) => wordMatches(v, dw)),
-      );
-      const matchedInSearchDescription = allVariants.some((v) =>
-        searchDescWords.some((dw) => wordMatches(v, dw)),
-      );
-      const matchedInEnglish = allVariants.some((v) =>
-        englishWords.some((dw) => wordMatches(v, dw)),
-      );
-      const matchedInAuxiliary = allVariants.some((v) =>
-        auxiliaryWords.some((dw) => wordMatches(v, dw)),
-      );
-
-      if (matchedInFrench || matchedInSearchDescription || matchedInEnglish || matchedInAuxiliary) {
-        matchCount++;
-        matchedWords.add(qw);
-        if (matchedInFrench) {
-          score += AdvancedSearchService.SCORE_FRENCH_FIELD_BONUS / queryWords.length;
-        } else if (matchedInSearchDescription) {
-          score += 1000;
-        } else if (matchedInAuxiliary) {
-          score += 500;
-        }
-      }
-    });
-
-    if (matchCount === 0) {
-      return AdvancedSearchService.SCORE_REJECTION;
-    }
-
-    // Validate important mandatory words
-    const importantQueryWords = queryWords.filter(
-      (w) => w.length > 2 && !['avant', 'arriere', 'gauche', 'droite', 'av', 'ar', 'g', 'd', 'sup', 'inf', 'para', 'de'].includes(w),
-    );
-    const importantMandatory    = importantQueryWords.filter((w) => userTypedTokens.has(w));
-    const missingImportantWords = importantMandatory.filter((w) => !matchedWords.has(w));
-
-    if (missingImportantWords.length > 0) {
-      const hasFuzzyMatch = missingImportantWords.every((mw) => {
-        const fuzzy = this.findFuzzyMatches(mw);
-        return fuzzy.some((f) =>
-          primaryWords.some((dw) => wordMatches(f, dw)) ||
-          englishWords.some((dw) => wordMatches(f, dw)) ||
-          auxiliaryWords.some((dw) => wordMatches(f, dw)),
-        );
+    const groupConditions = groups.map((group) => {
+      const forms = [...new Set(group.flatMap((term) => {
+        const spaced = this.normalize(term).replace(/[-/]+/g, ' ').replace(/\s+/g, ' ').trim();
+        return [spaced, spaced.replace(/\s+/g, '-'), spaced.replace(/\s+/g, '')].filter(Boolean);
+      }))];
+      const alternatives = forms.flatMap((form) => {
+        parameters.push(`%${form}%`);
+        const parameter = `$${parameters.length}`;
+        return fields.map((field) => `${accentFold(field)} LIKE ${parameter}`);
       });
-      if (!hasFuzzyMatch) {
-        return AdvancedSearchService.SCORE_REJECTION;
+      return `(${alternatives.join(' OR ')})`;
+    });
+
+    if (scope.active && scope.typeCodes.length > 0) {
+      const codes = [...new Set(scope.typeCodes.flatMap((rawCode) => {
+        const code = normalizeTypeCode(rawCode);
+        return [
+          code,
+          code.replace(/-TYPE(\d)/g, '-TYPE-$1'),
+          code.replace(/-/g, ' '),
+          code.replace(/-TYPE(\d)/g, ' TYPE $1'),
+        ];
+      }))];
+      parameters.push(codes);
+      groupConditions.push(
+        `EXISTS (SELECT 1 FROM fitment f WHERE f.part_reference = p.reference AND f.type_code = ANY($${parameters.length}::text[]))`,
+      );
+    }
+
+    parameters.push(DB_CANDIDATE_LIMIT);
+    const rows = await this.prisma.$queryRawUnsafe<Array<{ id: number }>>(
+      `SELECT p.id FROM parts p WHERE ${groupConditions.join(' AND ')} LIMIT $${parameters.length}`,
+      ...parameters,
+    );
+    if (rows.length === 0) return [];
+
+    return this.prisma.part.findMany({
+      where: { id: { in: rows.map((row) => row.id) } },
+      include: PART_INCLUDE,
+      take: DB_CANDIDATE_LIMIT,
+    });
+  }
+
+  /** True when the word (or one of its variants) occurs in at least one catalog row of the vehicle scope. */
+  private async groupExistsInScope(group: string[], scope: VehicleSearchScope, compatibility: any[]): Promise<boolean> {
+    const count = await this.prisma.part.count({
+      where: { AND: [{ OR: this.termConditions(group) }, ...compatibility] },
+    });
+    if (count > 0) return true;
+    return (await this.fetchAccentInsensitiveCandidates([group], scope)).length > 0;
+  }
+
+  private async fetchCandidates(
+    groups: string[][],
+    scope: VehicleSearchScope,
+  ): Promise<{
+    parts: any[];
+    mode: 'and' | 'relaxed' | 'or' | 'none';
+    truncated: boolean;
+    droppedGroups: string[][];
+  }> {
+    if (groups.length === 0) return { parts: [], mode: 'none', truncated: false, droppedGroups: [] };
+
+    const compatibility = scope.active ? [this.buildCompatibilityWhere(scope)] : [];
+    const find = (where: any) =>
+      this.prisma.part.findMany({ where, include: PART_INCLUDE, take: DB_CANDIDATE_LIMIT });
+    const allOf = (subset: string[][]) => ({
+      AND: [...subset.map((group) => ({ OR: this.termConditions(group) })), ...compatibility],
+    });
+
+    let parts = await find(allOf(groups));
+    let mode: 'and' | 'relaxed' | 'or' = 'and';
+    let capHit: boolean | null = null;
+    let droppedGroups: string[][] = [];
+
+    // PostgreSQL ILIKE does not fold accents without an installed extension.
+    if (parts.length === 0) {
+      parts = await this.fetchAccentInsensitiveCandidates(groups, scope);
+    }
+
+    // Words that exist nowhere in the vehicle's catalog ("disponibilité", "compatible", "mawjoud"...)
+    // cannot identify a part. Drop ALL of them at once and require every remaining word.
+    if (parts.length === 0 && groups.length > 1) {
+      const known = await Promise.all(groups.map((group) => this.groupExistsInScope(group, scope, compatibility)));
+      const informative = groups.filter((_, index) => known[index]);
+      if (informative.length > 0 && informative.length < groups.length) {
+        let rows = await find(allOf(informative));
+        if (rows.length === 0) rows = await this.fetchAccentInsensitiveCandidates(informative, scope);
+        if (rows.length > 0) {
+          parts = rows;
+          mode = 'relaxed';
+          droppedGroups = groups.filter((_, index) => !known[index]);
+          capHit = rows.length >= DB_CANDIDATE_LIMIT;
+        }
       }
     }
 
-    // Double-letter checks (ff, pp, ll)
-    for (const qw of queryWords) {
-      if (qw.includes('ff') || qw.includes('pp') || qw.includes('ll')) {
-        const checkWords = [...primaryWords, ...englishWords];
-        if (qw.includes('ff') && !checkWords.some((dw) => dw.includes('ff'))) return AdvancedSearchService.SCORE_REJECTION;
-        if (qw.includes('pp') && !checkWords.some((dw) => dw.includes('pp'))) return AdvancedSearchService.SCORE_REJECTION;
-        if (qw.includes('ll') && !checkWords.some((dw) => dw.includes('ll'))) return AdvancedSearchService.SCORE_REJECTION;
+    // Relaxation: one word of the request may not exist in the catalog (a word added when the
+    // question was rephrased). Drop ONE word at a time and keep rows that satisfy all the others.
+    if (parts.length === 0 && groups.length > 2) {
+      const dropOne = await Promise.all(
+        groups.map((_, skipped) => find(allOf(groups.filter((__, index) => index !== skipped)))),
+      );
+      const merged = new Map<number, any>();
+      for (const rows of dropOne) for (const row of rows) merged.set(row.id, row);
+      if (merged.size > 0) {
+        parts = [...merged.values()];
+        mode = 'relaxed';
+        capHit = dropOne.some((rows) => rows.length >= DB_CANDIDATE_LIMIT);
       }
     }
 
-    if (matchCount === queryWords.length && primaryWords.length === queryWords.length) {
-      return AdvancedSearchService.SCORE_EXACT_FULL + (hasFrenchName ? AdvancedSearchService.SCORE_FRENCH_FIELD_BONUS : 0);
+    // Last resort: any word.
+    if (parts.length === 0 && groups.length > 1) {
+      parts = await find({ AND: [{ OR: groups.flatMap((group) => this.termConditions(group)) }, ...compatibility] });
+      mode = 'or';
     }
-    if (matchCount === queryWords.length) {
-      score += AdvancedSearchService.SCORE_ALL_WORDS_MATCH;
-    }
+    return { parts, mode, truncated: capHit ?? parts.length >= DB_CANDIDATE_LIMIT, droppedGroups };
+  }
 
-    const extraWords = primaryWords.length - queryWords.length;
-    score += 50000 - extraWords * 2000;
+  // ─── Ranking (never accepts or rejects) ─────────────────────────
+  private rank(part: any, ctx: RankContext, scope?: VehicleSearchScope): number {
+    return (
+      this.rankReference(part, ctx) +
+      this.rankRelevance(part, ctx) +
+      this.rankPosition(part, ctx.positionInfo) +
+      this.rankBusiness(part, scope)
+    );
+  }
+
+  private filterByNumericSpecifications(parts: any[], requested: string[]): any[] {
+    if (requested.length === 0) return parts;
+    return parts.filter((part) => hasNumericSpecifications(
+      [part.designation2, part.searchDescription, part.designation].filter(Boolean).join(' '),
+      requested,
+    ));
+  }
+
+  private filterByRequestedColors(parts: any[], requested: string[]): any[] {
+    if (requested.length === 0) return parts;
+    return parts.filter((part) => {
+      const catalogColors = extractColorTokens(part.designation2 || part.designation || '');
+      return requested.every((color) => catalogColors.includes(color));
+    });
+  }
+
+  private rankReference(part: any, ctx: RankContext): number {
+    if (!ctx.compactQuery) return 0;
+    const refs = [part.reference, ...(part.itemReferences ?? []).map((r: any) => r.referenceNo)]
+      .map((ref) => this.normalizeForDB(String(ref ?? '')))
+      .filter(Boolean);
+    if (refs.some((ref) => ref === ctx.compactQuery)) return RANK.REFERENCE_EXACT;
+    if (ctx.compactQuery.length >= 5 && refs.some((ref) => ref.includes(ctx.compactQuery))) return RANK.REFERENCE_CONTAINS;
+    return 0;
+  }
+
+  private rankRelevance(part: any, ctx: RankContext): number {
+    const designations = [part.designation2, part.searchDescription, part.designation].filter(
+      (value): value is string => typeof value === 'string' && value.trim().length > 0,
+    );
+    let score = 0;
+    if (ctx.compactQuery && designations.some((value) => this.normalizeForDB(value) === ctx.compactQuery)) {
+      score += RANK.EXACT_DESIGNATION;
+    }
+    if (ctx.groups.length === 0) return score;
+
+    const french = this.normalize(part.designation2 || '');
+    const english = this.normalize(part.designation || '');
+    const searchDescription = this.normalize(part.searchDescription || '');
+    const auxiliary = this.normalize(
+      [part.categorie, part.fabricant, part.fournisseurCode].filter(Boolean).join(' '),
+    );
+    const fields: Array<{ text: string; words: string[]; weight: number }> = [
+      { text: french, weight: FIELD_WEIGHT.french },
+      { text: searchDescription, weight: FIELD_WEIGHT.searchDescription },
+      { text: english, weight: FIELD_WEIGHT.english },
+      { text: auxiliary, weight: FIELD_WEIGHT.auxiliary },
+    ]
+      .filter((field) => field.text.length > 0)
+      .map((field) => ({ ...field, words: field.text.split(' ').filter(Boolean) }));
+
+    let coverage = 0;
+    let fullyCovered = true;
+    for (const group of ctx.groups) {
+      const best = fields.reduce((acc, field) => (this.groupMatches(group, field.text, field.words) ? Math.max(acc, field.weight) : acc), 0);
+      if (best === 0) fullyCovered = false;
+      coverage += best;
+    }
+    score += Math.round((coverage / ctx.groups.length) * RANK.COVERAGE_MAX);
+    if (fullyCovered) score += RANK.FULL_COVERAGE_BONUS;
+
+    // Tighter designations first: "PARE CHOC AV" before "PARE CHOC AV COMPLET AVEC ...".
+    const shownWords = (french || english).split(' ').filter((w) => w.length >= 2 && !isPositionToken(w) && !isFillerToken(w));
+    const extraWords = Math.max(0, shownWords.length - ctx.groups.length);
+    score += Math.max(0, RANK.TIGHTNESS_MAX - extraWords * RANK.TIGHTNESS_PER_EXTRA_WORD);
     return score;
   }
-  // FIX 2026-09-20: position is no longer decided here. This used to reject
-  // (SCORE_REJECTION) using a French/English mix that could grant a side from
-  // the English OEM name, and it ran BEFORE the part's identity was known — so
-  // "no exact match" could never list the positions that DO exist for the
-  // part. The hard constraint now lives in applyCatalogConstraints()
-  // (part-constraints.ts); here a satisfied position is only a ranking bonus.
-  private calculatePositionMatches(part: any, positionInfo: PositionRequirements): number {
+
+  private groupMatches(group: string[], text: string, words: string[]): boolean {
+    const padded = ` ${text} `;
+    const compactText = text.replace(/\s/g, '');
+    return group.some((variant) => {
+      if (variant.includes(' ')) return padded.includes(` ${variant} `);
+      if (words.some((word) => this.wordsMatch(variant, word))) return true;
+      return variant.length >= 4 && compactText.includes(variant);
+    });
+  }
+
+  private wordsMatch(a: string, b: string): boolean {
+    if (a === b) return true;
+    const keyA = compactKey([a]);
+    const keyB = compactKey([b]);
+    return keyA === keyB || keysMatch(keyA, keyB);
+  }
+
+  private rankPosition(part: any, info: PositionRequirements): number {
+    if (!info.avant && !info.arriere && !info.gauche && !info.droite) return 0;
     const actual = getCatalogPositions(part);
     let score = 0;
-    if (positionInfo.avant   && actual.axes.includes('AV')) score += 500;
-    if (positionInfo.arriere && actual.axes.includes('AR')) score += 500;
-    if (positionInfo.gauche  && actual.sides.includes('G')) score += 500;
-    if (positionInfo.droite  && actual.sides.includes('D')) score += 500;
+    if (info.avant && actual.axes.includes('AV')) score += RANK.POSITION_MATCH;
+    if (info.arriere && actual.axes.includes('AR')) score += RANK.POSITION_MATCH;
+    if (info.gauche && actual.sides.includes('G')) score += RANK.POSITION_MATCH;
+    if (info.droite && actual.sides.includes('D')) score += RANK.POSITION_MATCH;
     return score;
   }
 
-  private calculateBusinessScores(part: any, context: SearchContext, vehicleScope?: VehicleSearchScope): number {
-    let score = 0;
-    if (this.isStockAvailable(part.stock)) score += 8;
+  private rankBusiness(part: any, scope?: VehicleSearchScope): number {
+    let score = this.isStockAvailable(part.stock) ? RANK.STOCK_AVAILABLE : 0;
 
-    if (vehicleScope?.active && vehicleScope.typeCodes.length > 0 && part.fitments?.length > 0) {
-      const fitmentCodes = (part.fitments as any[]).map((f) => f.typeCode as string);
-      const primaryCodes = new Set(vehicleScope.primaryTypeCodes);
-      const allScopeCodes = new Set(vehicleScope.typeCodes);
-      const totalFitments = fitmentCodes.length;
-      const primaryMatches = fitmentCodes.filter((c) => primaryCodes.has(c)).length;
-      const scopeMatches   = fitmentCodes.filter((c) => allScopeCodes.has(c)).length;
+    const fitments: any[] = part.fitments ?? [];
+    if (scope?.active && scope.typeCodes.length > 0 && fitments.length > 0) {
+      const codes = fitments.map((f) => normalizeTypeCode(f.typeCode));
+      const primary = new Set(scope.primaryTypeCodes);
+      const inScope = new Set(scope.typeCodes);
+      const primaryMatches = codes.filter((c) => primary.has(c)).length;
+      const scopeMatches = codes.filter((c) => inScope.has(c)).length;
 
-      if (primaryMatches > 0 && primaryMatches === totalFitments) {
-        score += 60000; // exclusively fits the identified model
-      } else if (primaryMatches > 0) {
-        // Has at least one primary match — strong bonus regardless of total fitments
-        // (e.g. AON312 part that also fits AVH310 still beats a pure AVH310 part)
-        score += 50000 + Math.round((primaryMatches / totalFitments) * 10000);
-      } else if (scopeMatches === totalFitments) {
-        score += 10000; // fits only related/secondary models in scope
-      } else if (scopeMatches > 0) {
-        score += Math.round((scopeMatches / totalFitments) * 5000);
-      }
+      if (primaryMatches > 0 && primaryMatches === codes.length) score += RANK.FIT_EXCLUSIVE;
+      else if (primaryMatches > 0) score += RANK.FIT_PRIMARY_BASE + Math.round((primaryMatches / codes.length) * RANK.FIT_PRIMARY_SPAN);
+      else if (scopeMatches === codes.length) score += RANK.FIT_SCOPE_ONLY;
+      else if (scopeMatches > 0) score += Math.round((scopeMatches / codes.length) * RANK.FIT_SCOPE_PARTIAL_SPAN);
     }
-
     return score;
   }
 
   // ─── REFERENCE SEARCH ───────────────────────────────────────────
-  private async searchByReference(reference: string, vehicle?: any): Promise<PartResult[]> {
-    const cleanRef   = reference.replace(/[^A-Z0-9]/gi, '').toUpperCase();
+  private async searchByReference(reference: string, vehicleScope: VehicleSearchScope): Promise<PartResult[]> {
+    const cleanRef = reference.replace(/[^A-Z0-9]/gi, '').toUpperCase();
     const originalRef = reference.toUpperCase();
-    const vehicleScope = await this.resolveVehicleScope(vehicle);
-    const compatibilityWhere = this.buildCompatibilityWhere(vehicleScope);
+    const compatibility = this.buildCompatibilityWhere(vehicleScope);
 
-    this.logger.log(`[SEARCH] Searching for reference: original="${originalRef}", clean="${cleanRef}"`);
-
-    const include = {
-      stock: { select: { statut: true, totalQuantity: true, stockDisponible: true, stockConsolide: true } },
-      fitments: { select: { modelName: true, typeCode: true } },
-      itemReferences: { select: { referenceNo: true, referenceType: true } },
-    } as const;
-
-    let results = await this.prisma.part.findMany({
+    let results: any[] = await this.prisma.part.findMany({
       where: {
-        AND: [
-          {
-            OR: [
-              { reference: { equals: originalRef, mode: 'insensitive' } },
-              { reference: { equals: cleanRef,    mode: 'insensitive' } },
-            ],
-          },
+        OR: [
+          { reference: { equals: originalRef, mode: 'insensitive' } },
+          { reference: { equals: cleanRef, mode: 'insensitive' } },
         ],
       },
-      include,
+      include: PART_INCLUDE,
       take: 5,
     });
 
     if (results.length === 0) {
-      const altRefs = await this.prisma.itemReference.findMany({
+      const alternates = await this.prisma.itemReference.findMany({
         where: {
-          AND: [
-            {
-              OR: [
-                { referenceNo: { equals: originalRef, mode: 'insensitive' } },
-                { referenceNo: { equals: cleanRef,    mode: 'insensitive' } },
-              ],
-            },
+          OR: [
+            { referenceNo: { equals: originalRef, mode: 'insensitive' } },
+            { referenceNo: { equals: cleanRef, mode: 'insensitive' } },
           ],
         },
-        include: { part: { include } },
+        include: { part: { include: PART_INCLUDE } },
         take: 5,
       });
-      results = altRefs.map((r) => r.part);
+      const byReference = new Map<string, any>();
+      for (const alt of alternates) byReference.set(alt.part.reference, alt.part);
+      results = [...byReference.values()];
     }
 
     if (results.length === 0) {
@@ -1355,356 +1042,207 @@ export class AdvancedSearchService implements OnModuleInit {
           AND: [
             {
               OR: [
-                { reference: { contains: cleanRef,    mode: 'insensitive' } },
+                { reference: { contains: cleanRef, mode: 'insensitive' } },
                 { reference: { contains: originalRef, mode: 'insensitive' } },
                 { itemReferences: { some: { referenceNo: { contains: cleanRef, mode: 'insensitive' } } } },
                 { itemReferences: { some: { referenceNo: { contains: originalRef, mode: 'insensitive' } } } },
               ],
             },
-            ...(vehicleScope.active ? [compatibilityWhere] : []),
+            ...(vehicleScope.active ? [compatibility] : []),
           ],
         },
-        include,
+        include: PART_INCLUDE,
         take: 10,
       });
     }
 
     this.logger.log(`[SEARCH] Reference search found ${results.length} results`);
-    const mappedRefResults = results.map((part) => this.formatPartResult(part, 1000, vehicleScope));
-    // FIX-7 (debug): reference-lookup path gets its own trace shape —
-    // there are no tokens/synonyms/scoring here, just a direct lookup.
+    const mapped = results.map((part) => this.formatPartResult(part, RANK.REFERENCE_EXACT, vehicleScope));
     this.lastSearchDebug = {
-      searchType:         'reference',
-      originalQuery:      reference,
-      normalizedQuery:    cleanRef,
+      searchType: 'reference',
+      originalQuery: reference,
+      normalizedQuery: cleanRef,
       hasTunisianDialect: false,
-      rawTokens:          [reference],
-      expandedTerms:      [cleanRef],
-      mainPartType:       null,
-      positionInfo:       { avant: false, arriere: false, gauche: false, droite: false },
-      fieldsSearched:     ['reference', 'item_references.reference_no'],
-      tablesQueried:      vehicleScope.active
-        ? ['vehicles', 'vehicle_model_map', 'vehicle_type_master', 'parts', 'stock', 'fitment', 'item_references']
-        : ['parts', 'stock', 'fitment', 'item_references'],
-      dbRawCount:         mappedRefResults.length,
-      qualifiedCount:     mappedRefResults.length,
-      finalCount:         mappedRefResults.length,
+      rawTokens: [reference],
+      expandedTerms: [cleanRef],
+      mainPartType: null,
+      positionInfo: { avant: false, arriere: false, gauche: false, droite: false },
+      fieldsSearched: ['reference', 'item_references.reference_no'],
+      tablesQueried: this.tablesFor(vehicleScope),
+      dbRawCount: mapped.length,
+      qualifiedCount: mapped.length,
+      finalCount: mapped.length,
       vehicleScope,
-      ...this.computeSourceAndStockBreakdown(mappedRefResults),
+      ...this.computeBreakdowns(mapped),
     };
-    return mappedRefResults;
+    return mapped;
   }
 
-  // ─── TOKENIZATION ────────────────────────────────────────────────
-  private async tokenize(text: string, preserveShort = false): Promise<string[]> {
+  // ─── TOKENIZATION ───────────────────────────────────────────────
+  private async tokenize(text: string): Promise<string[]> {
     if (!text || text.trim().length === 0) return [];
 
-    if (!text.includes(' ') && text.length > 6) {
-      // FIX 2026-09-20: "parachoc"/"parechoc"/"parebrise"… are split
-      // deterministically. They used to be sent to an LLM whose answer varied
-      // ("pare choc" / "para choc" / "parachoc"), so the same request could
-      // retrieve different rows from one call to the next.
-      const pareCompound = text.match(/^par[ae](choc|brise|boue|soleil)s?$/);
-      if (pareCompound) {
-        text = `pare ${pareCompound[1]}`;
-      } else {
-        const segmented = await this.segmentConcatenatedQuery(text);
-        if (segmented.length > 1) {
-          text = segmented.join(' ');
-        }
-      }
-    }
-
-    // Split on spaces AND hyphens so "pare-brise" → ["pare", "brise"]
-    // and "pare-choc" → ["pare", "choc"] — both are already keys in
-    // typeWeights, so no fuzzy correction fires and the DB query uses
-    // the correct space-separated form that matches catalog values like
-    // "PARE BRISE AVANT" and "SUPPORT PARE CHOC AV D".
-    // strict-validator.service.ts already does this correctly with
-    // split(/[\s-]+/) — this aligns tokenize() with that behaviour.
-    let parts = text.split(/[\s-]+/).map((p) => p.trim()).filter(Boolean);
-    // FIX 2026-09-20: compact pare-* compounds are split PER TOKEN, so
-    // "parachoc g" is searched exactly like "pare choc g". Before, the split
-    // only ran when the whole query was a single word.
-    parts = parts.flatMap((p) => {
-      const compound = p.match(/^par[ae](choc|brise|boue|soleil)s?$/);
-      return compound ? ['pare', compound[1]] : [p];
-    });
+    // Split on spaces AND hyphens: "pare-brise" → ["pare", "brise"], matching "PARE BRISE AVANT".
     const stopWords = this.synonymsService.getStopWords();
-    parts = parts.filter((token) => !stopWords.has(token));
+    const parts = text
+      .split(/[\s-]+/)
+      .map((p) => p.trim())
+      .filter((p) => p && !stopWords.has(p));
 
-    if (preserveShort) return parts;
-    return parts.filter((t) => t.length > 2);
+    const tokens: string[] = [];
+    for (const part of parts) tokens.push(...(await this.splitCompound(part, parts.length === 1)));
+    return tokens;
   }
 
-  private async segmentConcatenatedQuery(text: string): Promise<string[]> {
-    if (!this.aiSegmentationAvailable) {
-      return this.fallbackSegmentation(text);
-    }
-    try {
-      const prompt = `You are a car parts query parser. Segment this concatenated French car parts query into separate words.
-
-Rules:
-- Recognize car part names: adhesif, porte, aile, capot, phare, filtre, plaquette, disque, amortisseur, etc.
-- Recognize positions: avant/av, arriere/ar, gauche/g, droite/d, superieur/sup, inferieur/inf
-- Return ONLY the segmented words separated by spaces
-- If already segmented, return as-is
-
-Query: "${text}"
-
-Segmented:`;
-
-      const response = await axios.post(
-        'https://api.openai.com/v1/chat/completions',
-        {
-          model: 'gpt-4o-mini',
-          messages: [{ role: 'user', content: prompt }],
-          temperature: 0.1,
-          max_tokens: 100,
-        },
-        {
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${this.openaiKey}` },
-          timeout: 5000,
-        },
-      );
-
-      this.aiSegmentationFailCount = 0;
-      this.aiSegmentationAvailable = true;
-      const segmented = response.data.choices?.[0]?.message?.content?.trim() || text;
-      const words = segmented.split(/\s+/).filter(Boolean);
-      // FIX 2026-09-20: a segmentation may only insert spaces. If the model
-      // added/removed/changed a letter (e.g. appended "avant"), its output is
-      // discarded and the deterministic segmentation is used instead.
-      const letters = (v: string) => v.toLowerCase().replace(/[^a-z0-9]/g, '');
-      if (letters(words.join('')) !== letters(text)) {
-        this.logger.warn(`[AI-SEGMENT] rejected "${segmented}" for "${text}" (letters changed)`);
-        return this.fallbackSegmentation(text);
-      }
-      this.logger.log(`[AI-SEGMENT] "${text}" → [${words.join(', ')}]`);
-      return words.length > 1 ? words : [text];
-    } catch (error: any) {
-      this.aiSegmentationFailCount++;
-      if (this.aiSegmentationFailCount >= AdvancedSearchService.AI_FAIL_THRESHOLD) {
-        this.aiSegmentationAvailable = false;
-        this.logger.error(`[AI-SEGMENT] Circuit open after ${this.aiSegmentationFailCount} failures`);
-      }
-      return this.fallbackSegmentation(text);
-    }
-  }
-
-  private fallbackSegmentation(text: string): string[] {
-    const knownWords = [
-      ...Object.keys(this.typeWeights),
-      ...Object.keys(this.synonymsMap),
-      'avant', 'arriere', 'gauche', 'droite', 'av', 'ar', 'sup', 'inf', 'int', 'ext', 'de',
-    ].sort((a, b) => b.length - a.length);
-
-    const segments: string[] = [];
-    let remaining = text.toLowerCase();
-    let attempts = 0;
-
-    while (remaining.length > 0 && attempts < 50) {
-      attempts++;
-      let found = false;
-      for (const word of knownWords) {
-        if (remaining.startsWith(word) && word.length >= 2) {
-          segments.push(word);
-          remaining = remaining.slice(word.length);
-          found = true;
-          break;
-        }
-      }
-      if (!found && remaining.length >= 1 && ['g', 'd', 'b', 'h'].includes(remaining[0])) {
-        segments.push(remaining[0]);
-        remaining = remaining.slice(1);
-        found = true;
-      }
-      if (!found && remaining.length >= 2 && ['av', 'ar'].includes(remaining.slice(0, 2))) {
-        segments.push(remaining.slice(0, 2));
-        remaining = remaining.slice(2);
-        found = true;
-      }
-      if (!found && remaining.length >= 3 && ['sup', 'inf', 'int', 'ext'].includes(remaining.slice(0, 3))) {
-        segments.push(remaining.slice(0, 3));
-        remaining = remaining.slice(3);
-        found = true;
-      }
-      if (!found) {
-        if (segments.length === 0) return [text];
-        if (remaining.length >= 2) segments.push(remaining);
-        break;
-      }
-    }
-
-    return segments.length > 1 ? segments : [text];
-  }
-  private expandWithSynonymsContextual(tokens: string[], originalQuery: string): string[] {
-    const expanded = new Set<string>();
-
-    // Model name tokens must never be expanded or replaced — they are vehicle identifiers,
-    // not part type synonyms. Expanding them corrupts the query (e.g. celerio → roue).
-    // Also includes common French filler/conversational words that must pass through unchanged.
-    const modelNameTokens = new Set(['new', 'all', 'swift', 'celerio', 'baleno', 'vitara', 'ciaz',
-      'fronx', 'ignis', 'jimny', 'spresso', 'dzire', 'ertiga', 'kizashi', 'samurai', 'splash',
-      'swace', 'alto', 'apv', 'eeco', 'sx4',
-      // French filler/conversational words that must not be synonym-expanded
-      'une', 'besoin', 'pour', 'cherche', 'bonjour', 'salut', 'bonsoir', 'merci',
-      'veux', 'voudrais', 'chercher', 'trouver', 'avoir',
-      'elle', 'est', 'disponible', 'dispo', 'ils', 'elles', 'vous', 'nous']);
-
-    tokens.forEach((token) => {
-      // Model name tokens are kept as-is — never expanded or replaced
-      if (modelNameTokens.has(token)) {
-        expanded.add(token);
-        return;
-      }
-
-      const hasDoubleLetters = token.includes('ff') || token.includes('pp') || token.includes('ll');
-      const normalizedToken  = this.normalize(token);
-      const isKnown          = this.normalizedSynonymLookup[normalizedToken] !== undefined;
-      const isPartType       = Object.keys(this.typeWeights).includes(token);
-      let addedByExpansion   = false;
-
-      // Catalog descriptions commonly store "pare choc" with a space,
-      // while customers often type the compact form "parchoc".
-      if (normalizedToken === 'parchoc' || normalizedToken === 'parechoc') {
-        expanded.add('pare');
-        expanded.add('choc');
-        expanded.add(normalizedToken);
-        return;
-      }
-      if (isPartType) {
-        expanded.add(token);
-        return;
-      }
-
-      if (!isKnown && !hasDoubleLetters) {
-        const fuzzyMatches = this.findFuzzyMatches(token);
-        if (fuzzyMatches.length > 0) {
-          const validFuzzy = fuzzyMatches.filter((fm) => {
-            return (
-              token.includes('ff') === fm.includes('ff') &&
-              token.includes('pp') === fm.includes('pp') &&
-              token.includes('ll') === fm.includes('ll')
-            );
-          });
-          if (validFuzzy.length > 0) {
-            expanded.add(validFuzzy[0]);
-            addedByExpansion = true;
-            return;
-          }
-        }
-      }
-      const primaryCategory = this.findPrimaryCategory(token);
-      if (primaryCategory) {
-        expanded.add(primaryCategory);
-        addedByExpansion = true;
-        return;
-      }
-
-      if (!addedByExpansion) {
-        expanded.add(token);
-      }
-    });
-
-    return Array.from(expanded);
-  }
-
-  private findFuzzyMatches(token: string): string[] {
-    if (token.length < 3) return [];
-    const cached = this.fuzzyMatchCache.get(token);
-    if (cached !== undefined) return cached;
-    const normalizedToken = this.normalize(token);
-    if (this.normalizedSynonymLookup[normalizedToken]) {
-      this.fuzzyMatchCache.set(token, []);
-      return [];
-    }
-
-    const matches: string[] = [];
-    const knownWords = [...new Set([...Object.keys(this.typeWeights), ...Object.keys(this.synonymsMap)])];
-
-    for (const word of knownWords) {
-      if (word === token || word.length < 3) continue;
-      if (word.length === token.length && word[0] === token[1] && word[1] === token[0] && word.slice(2) === token.slice(2)) { matches.push(word); continue; }
-      if (word.includes(token) && word.length - token.length <= 2) { matches.push(word); continue; }
-      if (token.includes(word) && token.length - word.length <= 2) { matches.push(word); continue; }
-      if (word.length === token.length + 1 && word.slice(1) === token) { matches.push(word); continue; }
-      if (token.length === word.length + 1 && token.slice(1) === word) { matches.push(word); continue; }
-      if (word.length === token.length && word.slice(1) === token.slice(1)) { matches.push(word); continue; }
-      if (token.length >= 4 && token[0] === token[1]) {
-        const withoutDouble = token[0] + token.slice(2);
-        if (word === withoutDouble || this.levenshtein(word, withoutDouble) <= 1) { matches.push(word); continue; }
-      }
-      const distance = this.levenshtein(word, token);
-      if (distance <= 2 && Math.abs(word.length - token.length) <= 2 && word.length >= 4) {
-        matches.push(word);
-      }
-    }
-
-    if (token.endsWith('s') && token.length > 3) {
-      const singular = token.slice(0, -1);
-      if (knownWords.includes(singular)) matches.push(singular);
-      if (token.endsWith('es') && token.length > 4) {
-        const singularEs = token.slice(0, -2);
-        if (knownWords.includes(singularEs)) matches.push(singularEs);
-      }
-    } else {
-      if (knownWords.includes(token + 's'))  matches.push(token + 's');
-      if (knownWords.includes(token + 'es')) matches.push(token + 'es');
-    }
-
-    const result = [...new Set(matches)];
-    this.fuzzyMatchCache.set(token, result);
-    return result;
-  }
-
-  private levenshtein(a: string, b: string): number {
-    if (a.length === 0) return b.length;
-    if (b.length === 0) return a.length;
-    const matrix: number[][] = [];
-    for (let i = 0; i <= b.length; i++) matrix[i] = [i];
-    for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
-    for (let i = 1; i <= b.length; i++) {
-      for (let j = 1; j <= a.length; j++) {
-        if (b.charAt(i - 1) === a.charAt(j - 1)) {
-          matrix[i][j] = matrix[i - 1][j - 1];
-        } else {
-          matrix[i][j] = Math.min(matrix[i - 1][j - 1] + 1, matrix[i][j - 1] + 1, matrix[i - 1][j] + 1);
-        }
-      }
-    }
-    return matrix[b.length][a.length];
+  private isKnownCatalogTerm(term: string): boolean {
+    const normalized = this.normalize(term);
+    return (
+      this.normalizedSynonymLookup[normalized] !== undefined ||
+      Object.prototype.hasOwnProperty.call(this.synonymsMap, normalized) ||
+      this.synonymsService.isKnownAutomotiveTerm(normalized)
+    );
   }
 
   private findPrimaryCategory(token: string): string | null {
-    const normalizedToken = this.normalize(token);
-    return this.normalizedSynonymLookup[normalizedToken] ?? null;
+    return this.normalizedSynonymLookup[this.normalize(token)] ?? null;
   }
 
-  private normalizeTunisian(query: string): string {
-    const normalized = this.normalize(query);
-    if (normalized.includes('triangle') || normalized.includes('triangl')) {
-      return '';
+  /**
+   * Splits a glued word deterministically, from the live vocabulary:
+   *   1. French "pare-" compounds: parachoc / parechoc / parebrises → pare + choc / brise
+   *   2. the shortest split into known words / positions ("plaquetteavg")
+   *   3. only for a one-word query: the AI, which may insert spaces and nothing else
+   */
+  private async splitCompound(token: string, allowAi: boolean): Promise<string[]> {
+    if (token.length <= 6 || token.length > MAX_SEGMENT_TOKEN_LENGTH || /\d/.test(token)) return [token];
+
+    const pare = token.match(/^par[ae](.{3,})$/);
+    if (pare) {
+      const rest = pare[1];
+      const singular = rest.endsWith('s') ? rest.slice(0, -1) : rest;
+      for (const candidate of [rest, singular]) {
+        if (this.isKnownCatalogTerm(candidate)) return ['pare', candidate];
+      }
     }
 
-    // Do not apply Tunisian normalization if the query contains a known model name
-    // that includes English words (e.g. "New Celerio", "New Swift", "All New Swift")
-    // — "new" would be wrongly translated to "neuf" corrupting the query.
-    const modelNameWords = ['new', 'all', 'swift', 'celerio', 'baleno', 'vitara', 'ciaz', 'fronx', 'ignis', 'jimny', 'spresso', 'dzire', 'ertiga', 'kizashi', 'samurai', 'splash', 'swace'];
-    const queryLower = query.toLowerCase();
-    const hasModelWord = modelNameWords.some((w) => queryLower.includes(w));
-    if (hasModelWord) return '';
+    if (this.isKnownCatalogTerm(token) || this.synonymsService.findClosestVocabularyWord(token)) return [token];
 
-    const tunisianMap = this.synonymsService.getTunisianMap();
-    let result = query.toLowerCase();
-    for (const [tunisian, french] of Object.entries(tunisianMap)) {
-      const escaped = tunisian.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const regex = new RegExp(`\\b${escaped}\\b`, 'gi');
-      result = result.replace(regex, french);
+    const segmented = this.segmentWithVocabulary(token);
+    if (segmented) return segmented;
+
+    if (allowAi) {
+      const viaAi = await this.segmentWithAi(token);
+      if (viaAi) return viaAi;
     }
-    return result !== query.toLowerCase() ? result : '';
+    return [token];
   }
 
+  private isSegmentWord(word: string): boolean {
+    return isPositionToken(word) || (word.length >= 2 && this.isKnownCatalogTerm(word));
+  }
+
+  /** Minimum-segment cover of the token by known words; null when none exists. */
+  private segmentWithVocabulary(token: string): string[] | null {
+    const n = token.length;
+    const best: Array<string[] | null> = new Array(n + 1).fill(null);
+    best[0] = [];
+    for (let end = 1; end <= n; end++) {
+      for (let start = 0; start < end; start++) {
+        const previous = best[start];
+        if (!previous) continue;
+        const word = token.slice(start, end);
+        if (!this.isSegmentWord(word)) continue;
+        const candidate = [...previous, word];
+        const current = best[end];
+        if (!current || candidate.length < current.length) best[end] = candidate;
+      }
+    }
+    const result = best[n];
+    return result && result.length >= 2 ? result : null;
+  }
+
+  private async segmentWithAi(text: string): Promise<string[] | null> {
+    if (Date.now() < this.aiSegmentationDisabledUntil) return null;
+    try {
+      const raw = await this.openaiService.completeJson(
+        'You split ONE concatenated French car-parts word into its words. Only insert spaces: never add, remove or change a letter. ' +
+          'Positions are avant/av, arriere/ar, gauche/g, droite/d, sup, inf. ' +
+          'Return JSON {"segments":["word", ...]}. If unsure, return the original word as a single segment.',
+        JSON.stringify({ query: text }),
+        100,
+        500,
+      );
+      this.aiSegmentationFailCount = 0;
+      const parsed = JSON.parse(raw);
+      const words: string[] = Array.isArray(parsed?.segments)
+        ? parsed.segments
+            .filter((w: unknown): w is string => typeof w === 'string' && w.trim().length > 0)
+            .map((w: string) => w.trim().toLowerCase())
+        : [];
+      const letters = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (words.length < 2 || letters(words.join('')) !== letters(text)) return null;
+      this.logger.log(`[AI-SEGMENT] "${text}" → [${words.join(', ')}]`);
+      return words;
+    } catch (error: any) {
+      this.aiSegmentationFailCount++;
+      if (this.aiSegmentationFailCount >= AI_SEGMENT_FAIL_THRESHOLD) {
+        this.aiSegmentationDisabledUntil = Date.now() + AI_SEGMENT_COOLDOWN_MS;
+        this.aiSegmentationFailCount = 0;
+        this.logger.error(`[AI-SEGMENT] paused for ${AI_SEGMENT_COOLDOWN_MS / 1000}s: ${error?.message ?? error}`);
+      }
+      return null;
+    }
+  }
+
+  // ─── Tunisian dialect ───────────────────────────────────────────
+  private dialectRules() {
+    const source = this.synonymsService.getTunisianMap();
+    if (this.dialectCache?.source === source) return this.dialectCache;
+
+    const lookup = new Map<string, string>();
+    for (const [dialect, french] of Object.entries(source)) {
+      const key = dialect.toLowerCase().trim();
+      if (key) lookup.set(key, french);
+    }
+    const alternation = [...lookup.keys()]
+      .sort((a, b) => b.length - a.length)
+      .map((key) => key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+      .join('|');
+    const pattern = alternation ? new RegExp(`(?<![\\p{L}\\p{N}])(?:${alternation})(?![\\p{L}\\p{N}])`, 'giu') : null;
+    this.dialectCache = { source, lookup, pattern };
+    return this.dialectCache;
+  }
+
+  /**
+   * DB dialect → French, whole words, one pass. A word that is a vehicle name
+   * ("new") or already a French catalog word is never translated.
+   */
+  private applyDialect(query: string): { text: string; applied: boolean } {
+    const { pattern, lookup } = this.dialectRules();
+    const lowered = query.toLowerCase().trim();
+    if (!pattern) return { text: query, applied: false };
+
+    const vehicleWords = this.vehicleModels.getNameTokens();
+    const translated = lowered.replace(pattern, (match) => {
+      const key = match.toLowerCase();
+      const normalized = this.normalize(key);
+      if (vehicleWords.has(normalized) || this.normalizedSynonymLookup[normalized] !== undefined) return match;
+      return lookup.get(key) ?? match;
+    });
+    if (translated === lowered) return { text: query, applied: false };
+
+    const seen = new Set<string>();
+    const tokens = translated.split(/\s+/).filter((token) => {
+      if (!token || seen.has(token)) return false;
+      seen.add(token);
+      return true;
+    });
+    this.logger.log(`[SEARCH] Dialect normalized to: "${tokens.join(' ')}"`);
+    return { text: tokens.join(' '), applied: true };
+  }
+
+  // ─── Text helpers ───────────────────────────────────────────────
+  /** MUST stay in sync with SynonymsService.normalize(). */
   private normalize(text: string): string {
     return text
       .toLowerCase()
@@ -1720,16 +1258,7 @@ Segmented:`;
       .toLowerCase()
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[(),:'\.\-]/g, '')
-      .replace(/\s+/g, '')
+      .replace(/[(),:'.\-\s]/g, '')
       .trim();
-  }
-
-  getSearchStats(): { totalSynonyms: number } {
-    return { totalSynonyms: Object.keys(this.synonymsMap).length };
-  }
-
-  getSynonymMap(): Record<string, string[]> {
-    return this.synonymsMap;
   }
 }

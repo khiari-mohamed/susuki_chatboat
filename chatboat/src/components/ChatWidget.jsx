@@ -59,10 +59,10 @@ const ProductDetailCard = ({ product, index }) => {
   const displayName  = resolveDisplayName(product);
   const sourceLabel  = resolveSourceLabel(product);
   const isAvailable  = product.stock?.statut === 'Disponible';
-  const price        = product.prixHt ? `${parseFloat(product.prixHt).toFixed(3)} TND` : null;
+  const price        = product.prixTtc ? `${parseFloat(product.prixTtc).toFixed(3)} TND` : null;
   const qty          = product.stock?.totalQuantity ?? 0;
   const stockDisponible = product.stock?.stockDisponible ?? 0;
-  const stockConsolide  = product.stock?.stockConsolide ?? qty;
+  const stockConsolide  = product.stock?.stockConsolide ?? null;
   const alternateRefs   = product.itemReferences?.map((r) => r.referenceNo).filter(Boolean).join(', ');
   const idSource        = product.identificationSource;
 
@@ -122,8 +122,8 @@ const ProductDetailCard = ({ product, index }) => {
                 ['Fabricant',      product.fabricant                                              ],
                 ['Source',         sourceLabel || product.source                                  ],
                 ['Stock disponible', stockDisponible                                             ],
-                ['Stock consolide',  stockConsolide                                              ],
-                ['Regle disponibilite', stockConsolide > 2 ? 'stock_consolide > 2' : 'stock_consolide <= 2'],
+                ['Stock consolide',  stockConsolide ?? '—'                                       ],
+                ['Regle disponibilite', stockConsolide == null ? 'Stock consolidé inconnu' : stockConsolide >= 2 ? 'stock_consolide >= 2' : 'stock_consolide < 2'],
                 ['Refs alternatives', alternateRefs                                              ],
                 ['VIN utilise',       idSource?.vin                                               ],
                 ['No vehicule',       idSource?.vehicleNo                                         ],
@@ -292,8 +292,11 @@ const PRODUCT_FIELD_GROUPS = [
       { label: 'Stock disponible source', get: (p) => p.stock?.stockDisponible },
       { label: 'Stock consolidé',    get: (p) => p.stock?.stockConsolide },
       { label: 'Règle disponibilité', get: (p) => {
-        const consolidated = Number(p.stock?.stockConsolide ?? p.stock?.totalQuantity ?? 0);
-        return consolidated > 2 ? 'Disponible car stock_consolide > 2' : 'Indisponible car stock_consolide <= 2';
+        const raw = p.stock?.stockConsolide;
+        if (raw == null || (typeof raw === 'string' && raw.trim() === '')) return 'Stock consolidé inconnu';
+        const consolidated = Number(raw);
+        if (!Number.isFinite(consolidated)) return 'Stock consolidé inconnu';
+        return consolidated >= 2 ? 'Disponible car stock_consolide >= 2' : 'Indisponible car stock_consolide < 2';
       } },
     ],
   },
@@ -622,7 +625,7 @@ const DB_SCHEMA = [
       { column: 'total_quantity', type: 'Int',         get: (p) => p?.stock?.totalQuantity },
       { column: 'stock_disponible', type: 'Int',       get: (p) => p?.stock?.stockDisponible },
       { column: 'stock_consolide',  type: 'Int',       get: (p) => p?.stock?.stockConsolide,
-        note: 'Règle client: disponible seulement si stock_consolide > 2' },
+        note: 'Règle client: disponible seulement si stock_consolide >= 2' },
       { column: 'statut',         type: 'VarChar(20)', get: (p) => p?.stock?.statut },
       { column: 'updated_at',     type: 'DateTime',    get: () => undefined,
         note: 'Métadonnée technique — jamais renvoyée dans la réponse API' },

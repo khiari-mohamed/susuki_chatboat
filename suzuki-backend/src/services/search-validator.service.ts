@@ -30,6 +30,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
 import { VehicleModelsService } from '../constants/vehicle-models.service';
+import { MIN_AVAILABLE_STOCK } from '../chat/catalog-verifier';
 
 interface ValidationResult {
   query: string;
@@ -491,7 +492,7 @@ export class SearchValidatorService {
           ORDER BY
             -- Prefer French field match for ranking
             CASE WHEN p.designation_2 ILIKE ${`%${normalized}%`} THEN 0 ELSE 1 END,
-            CASE WHEN COALESCE(s.stock_consolide, 0) >= 2 THEN 0 ELSE 1 END
+            CASE WHEN COALESCE(s.stock_consolide, 0) >= ${MIN_AVAILABLE_STOCK} THEN 0 ELSE 1 END
           LIMIT 100
         `;
       } catch (queryError) {

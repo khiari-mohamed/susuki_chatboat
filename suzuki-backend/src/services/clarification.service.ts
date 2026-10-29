@@ -1,568 +1,269 @@
-// src/services/clarification.service.ts
 // ═══════════════════════════════════════════════════════════════════
-// FIXES APPLIED (2026-06-25) aligned with advanced-search.service.ts:
-//
-// FIX-1: getCombinedText() helper — all text checks now scan BOTH
-//         designation_2 (French) AND designation (English OEM).
-//         Previously only designation was read, so French-named parts
-//         like "RETROVISEUR D" were invisible to position/type detection.
-//
-// FIX-2: filterBySpec() now checks combined text for position/side,
-//         so "RETROVISEUR GAUCHE" in designation_2 is correctly
-//         matched/rejected when filtering by side.
-//
-// FIX-3: extractDimensions() tokenizes combined text so position and
-//         side tokens present only in designation_2 are found.
-//
-// FIX-4: isBilateralPart() checks combined text so French-named
-//         bilateral parts trigger the bilateral detection correctly.
-//
-// FIX-5: isAnswer() type-dimension check now also looks at
-//         designation_2 when matching product names against the answer.
-//
-// FIX-6: extractPartName() extended with all French designation_2
-//         vocabulary — monte glace, leve glace, charniere, enjoliveur,
-//         and other French terms now present in the primary field.
+// Clarification questions, derived from the CANDIDATES (the catalog), not
+// from part-name lists:
+//   - position / side: asked only when the SAME part exists in several
+//     positions among the candidates. A capot yields no question, a
+//     charnière de capot yields only gauche/droite, a bare "pare-chocs"
+//     yields avant/arrière (CarPro email 2026-09-18, anomaly 1).
+//   - type: asked for a one-word query whose candidates are genuinely
+//     different parts, using the words that distinguish them.
 // ═══════════════════════════════════════════════════════════════════
 
 import { Injectable } from '@nestjs/common';
 import {
+  compactKey,
+  contentTokens,
   extractRequestedPositions,
+  formatPositionLabel,
   getCatalogPositions,
+  getCoreTokens,
   hasAnyPosition,
+  isFillerToken,
+  isPositionToken,
+  keysMatch,
   positionsSatisfy,
+  tokenizeName,
 } from '../chat/part-constraints';
+import type { Axis, Side } from '../chat/part-constraints';
 
-interface ClarificationContext {
+export type ClarificationDimension = 'position' | 'side' | 'type';
+
+export interface ClarificationContext {
   originalQuery: string;
-  dimension: 'position' | 'side' | 'type';
+  dimension: ClarificationDimension;
   products: any[];
   timestamp: number;
 }
 
+export type ClarificationNeed =
+  | { needed: false }
+  | { needed: true; variants: string[]; dimension: ClarificationDimension };
+
+const PENDING_TTL_MS = 600_000;
+const MAX_TYPE_VARIANTS = 5;
+const GENERIC_QUERY_EXAMPLES = ['Filtre à air', 'Plaquettes frein', 'Amortisseur', 'Batterie', 'Phare'];
+
+/** Words that turn an answer into "same as before" without naming anything new. */
+const FOLLOW_UP_WORDS = new Set(['aussi', 'egalement', 'pareil', 'idem', 'meme', 'chose']);
+/** Catalog words that never distinguish one part from another. */
+const NOISE_TOKENS = new Set(['assy', 'comp', 'set', 'oem']);
+
+const GENERIC_QUERY_PATTERNS = [
+  /^je cherche des pi[èe]ces/i,
+  /pi[èe]ces pour (?:ma|mon)?\s*suzuki/i,
+  /^besoin de pi[èe]ces/i,
+  /^quelles? pi[èe]ces/i,
+  /^aide.*pi[èe]ces/i,
+  /^des pi[èe]ces pour/i,
+  /^pi[èe]ces.*suzuki/i,
+];
+
+const AXIS_ORDER: Axis[] = ['AV', 'AR'];
+const SIDE_ORDER: Side[] = ['G', 'D'];
+
+interface PositionGroup {
+  key: string;
+  axes: Set<Axis>;
+  sides: Set<Side>;
+}
+
 @Injectable()
 export class ClarificationService {
-  private pending = new Map<string, ClarificationContext>();
+  private readonly pending = new Map<string, ClarificationContext>();
 
-  // ─────────────────────────────────────────────────────────────────
-  // FIX-1: Single source of truth for part text.
-  // Returns designation_2 (French) when available, else designation.
-  // ─────────────────────────────────────────────────────────────────
-  private getEffectiveText(p: any): string {
-    const french  = (p.designation2 ?? p.designation_2 ?? '').trim();
-    const english = (p.designation ?? '').trim();
-    return french.length > 0 ? french : english;
+  // ─── pending state ──────────────────────────────────────────────
+  setPending(sessionId: string, query: string, dimension: ClarificationDimension, products: any[]): void {
+    this.pending.set(sessionId, { originalQuery: query, dimension, products, timestamp: Date.now() });
   }
 
-  // Returns BOTH fields combined so a token only needs to appear in ONE.
-  private getCombinedText(p: any): string {
-    const french  = (p.designation2 ?? p.designation_2 ?? '').trim();
-    const english = (p.designation ?? '').trim();
-    if (french.toLowerCase() === english.toLowerCase()) return french;
-    return `${french} ${english}`.trim();
-  }
-
-  private getClarificationText(p: any): string {
-    const searchDescription = (p.searchDescription ?? p.search_description ?? '').trim();
-    if (searchDescription.length > 0) return searchDescription;
-    return this.getEffectiveText(p);
-  }
-
-  // ─────────────────────────────────────────────────────────────────
-  setPending(sessionId: string, query: string, dimension: string, products: any[]) {
-    this.pending.set(sessionId, {
-      originalQuery: query,
-      dimension:     dimension as any,
-      products,
-      timestamp:     Date.now(),
-    });
-  }
-
-  getPending(sessionId: string) {
+  getPending(sessionId: string): ClarificationContext | undefined {
     return this.pending.get(sessionId);
   }
 
-  clearPending(sessionId: string) {
+  clearPending(sessionId: string): void {
     this.pending.delete(sessionId);
   }
 
-  cleanup() {
+  cleanup(): void {
     const now = Date.now();
-    for (const [id, ctx] of this.pending.entries()) {
-      if (now - ctx.timestamp > 600000) this.pending.delete(id);
+    for (const [id, context] of this.pending.entries()) {
+      if (now - context.timestamp > PENDING_TTL_MS) this.pending.delete(id);
     }
   }
 
-  // ─────────────────────────────────────────────────────────────────
-  // FIX-5: isAnswer — type check now scans designation_2 too
-  // ─────────────────────────────────────────────────────────────────
+  // ─── is this message the answer to the pending question? ───────
+  /**
+   * A position ("avant gauche", "et pour l'arrière") always answers. For a
+   * type question the words that are not positions must come from the
+   * candidates themselves. Anything else is a NEW request: "plaquettes
+   * avant" must not be glued onto a pending bumper question.
+   */
   isAnswer(message: string, context: ClarificationContext): boolean {
-    const lower = message.toLowerCase().trim();
+    const hasPosition = hasAnyPosition(extractRequestedPositions(message));
+    const residual = this.contentWords(message).filter((token) => !FOLLOW_UP_WORDS.has(token));
+    if (residual.length === 0) return hasPosition;
+    if (context.dimension !== 'type') return false;
 
-    // Contextual follow-up queries
-    const isContextualQuery =
-      /\b(et pour|aussi|egalement|également|pareil|même chose)\b/i.test(lower);
-    if (isContextualQuery) {
-      const hasPosition = /\b(avant|arriere|arrière|av|ar)\b/i.test(lower);
-      const hasSide     = /\b(gauche|droite|g|d|droit|gosh)\b/i.test(lower);
-      return hasPosition || hasSide;
-    }
-
-    // Combined position + side answers
-    const hasBoth =
-      /\b(avant|arriere|arrière|av|ar)\s+(gauche|droite|g|d|droit)\b/i.test(lower) ||
-      /\b(gauche|droite|g|d|droit)\s+(avant|arriere|arrière|av|ar)\b/i.test(lower);
-    if (hasBoth) return true;
-
-    const hasPosition = /\b(avant|arriere|arrière|av|ar)\b/i.test(lower);
-    const hasSide     = /\b(gauche|droite|g|d|droit)\b/i.test(lower);
-    if (hasPosition || hasSide) return true;
-
-    if (context.dimension === 'position')
-      return ['avant', 'arriere', 'arrière', 'av', 'ar'].includes(lower);
-    if (context.dimension === 'side')
-      return ['gauche', 'droite', 'g', 'd', 'droit'].includes(lower);
-
-    if (context.dimension === 'type') {
-      const filterTypes = ['air', 'huile', 'gazoile', 'habitacle', 'carburant', 'essence', 'climatiseur'];
-      if (filterTypes.some((t) => lower.includes(t))) return true;
-      // Type answers should match the same text used to build type
-      // choices: curated searchDescription when available, otherwise
-      // the French display name. Do not accept random OEM-only words.
-      return context.products.some((p) => {
-        const combined = this.getClarificationText(p).toLowerCase();
-        return (
-          combined.includes(lower) ||
-          (['support', 'joint', 'roulement', 'toc', 'kit'].includes(lower) &&
-            combined.includes(lower))
-        );
-      });
-    }
-    return false;
+    return context.products.some((product) => this.containsAll(product, residual));
   }
 
-  // ─────────────────────────────────────────────────────────────────
-  checkNeeded(
-    products: any[],
-    message: string,
-  ): { needed: boolean; variants: string[]; dimension: string } {
-    if (!products || products.length === 0)
-      return { needed: false, variants: [], dimension: '' };
+  /** Keeps the articles whose designation contains every word of the type answer. */
+  applyTypeAnswer(products: any[], answer: string): any[] {
+    const wanted = this.contentWords(answer);
+    if (wanted.length === 0) return products;
+    const typed = products.filter((product) => this.containsAll(product, wanted));
+    return typed.length > 0 ? typed : products;
+  }
 
-    const lower = message.toLowerCase();
+  // ─── is a question needed? ──────────────────────────────────────
+  checkNeeded(products: any[], message: string): ClarificationNeed {
+    if (!Array.isArray(products) || products.length === 0) return { needed: false };
+    if (this.isGenericQuery(message)) {
+      return { needed: true, variants: [...GENERIC_QUERY_EXAMPLES], dimension: 'type' };
+    }
 
-    if (this.isGenericQuery(lower)) {
+    const requested = extractRequestedPositions(message);
+    let candidates = hasAnyPosition(requested)
+      ? products.filter((product) => positionsSatisfy(requested, getCatalogPositions(product)))
+      : products;
+    if (candidates.length === 0) candidates = products;
+    if (candidates.length === 1) return { needed: false };
+
+    const existing = this.existingPositions(candidates);
+    if (requested.axes.length === 0 && existing.axes.length > 1) {
       return {
-        needed:    true,
-        variants:  ['Filtre à air', 'Plaquettes frein', 'Amortisseur', 'Batterie', 'Phare'],
-        dimension: 'type',
+        needed: true,
+        variants: existing.axes.map((axis) => formatPositionLabel({ axes: [axis], sides: [], levels: [] })),
+        dimension: 'position',
+      };
+    }
+    if (requested.sides.length === 0 && existing.sides.length > 1) {
+      return {
+        needed: true,
+        variants: existing.sides.map((side) => formatPositionLabel({ axes: [], sides: [side], levels: [] })),
+        dimension: 'side',
       };
     }
 
-    // FIX 2026-09-20: shared parser — the old side regex had no plain "d".
-    const requestedPositions = extractRequestedPositions(message);
-    const hasPos  = requestedPositions.axes.length > 0;
-    const hasSide = requestedPositions.sides.length > 0;
-
-    // Parts that are single central pieces — never have a left/right side.
-    // Asking for side clarification on these is always wrong.
-    const noSideParts = [
-      'radiateur', 'calandre', 'capot', 'pare brise', 'parebrise',
-      'lunette', 'toit', 'reservoir', 'batterie', 'moteur', 'traverse',
-    ];
-    const queryHasNoSidePart = noSideParts.some((p) => lower.includes(p));
-
-    // FIX-2: filterBySpec now uses combined text
-    let candidates = this.filterBySpec(products, message);
-    if (candidates.length === 0) candidates = products;
-
-    if (candidates.length === 1) return { needed: false, variants: [], dimension: '' };
-
-    // BUGFIX: pass the normalized query tokens through so
-    // extractDimensions can tell the query term itself ("capot") apart
-    // from genuine distinguishing qualifiers ("tige", "serrure", "calle").
-    const queryTokens = lower
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .split(/[\s-]+/)
-      .filter((t) => t.length >= 3);
-    const explicitFilterType = queryTokens.some((token) =>
-      ['air', 'huile', 'gazoile', 'habitacle', 'carburant', 'essence', 'climatiseur'].includes(token),
-    );
-
-    // FIX-3: extractDimensions now uses combined text
-    const dims = this.extractDimensions(candidates, queryTokens);
-    const sideSensitivePart = this.isBilateralPart(candidates, queryTokens);
-
-    // BUSINESS RULE (email CarPro 2026-09-18, anomaly #1): a bare "pare
-    // choc" query with no stated position used to silently return a
-    // single guessed side (observed in PROD test: always came back as
-    // "arrière" with no way for the customer to know that was a guess).
-    // That is exactly the "no approximate answer without disclosure"
-    // rule this project keeps re-stating. Bumpers still have no
-    // left/right variant in this catalog, so `bumperQuery` is still
-    // used below to correctly skip the SIDE question — only the
-    // POSITION bypass is removed, falling through to the same generic
-    // "ask when 2+ positions exist among the actual compatible
-    // candidates" rule every other part already uses.
-    const bumperQuery = /\bpare\s*-?\s*choc\b/i.test(lower);
-
-    const windshieldQuery = /\bpare\s*-?\s*brise\b/i.test(lower);
-    if (windshieldQuery) return { needed: false, variants: [], dimension: '' };
-    const traverseQuery = /\btraverse\b/i.test(lower);
-    if (traverseQuery) {
-      if (!hasPos && dims.positions.length > 1) {
-        return { needed: true, variants: dims.positions, dimension: 'position' };
-      }
-      return { needed: false, variants: [], dimension: '' };
-    }
-
-    if (!hasPos && dims.positions.length > 1) {
-      return { needed: true, variants: dims.positions, dimension: 'position' };
-    }
-
-    // BUGFIX: side clarification was gated behind
-    // `candidates.length >= 2 && candidates.length <= 3`, which silently
-    // SKIPPED the side question whenever more than 3 position-filtered
-    // candidates remained — e.g. "amortisseur" → "Avant" → 10 results
-    // for "AMORTISSEUR AV *" containing both D and G variants. The user
-    // got zero side clarification and the bot returned them all mixed
-    // together as if there were no ambiguity. The cap had no principled
-    // justification: ambiguity (dims.sides.length > 1) is the only
-    // correct trigger condition, regardless of candidate count.
-    if (!hasSide && !bumperQuery && !queryHasNoSidePart && sideSensitivePart && dims.sides.length > 1) {
-      return { needed: true, variants: dims.sides, dimension: 'side' };
-    }
-
-    if (!hasPos && !hasSide && !explicitFilterType && dims.types.length > 1) {
-      return { needed: true, variants: dims.types, dimension: 'type' };
-    }
-    if (queryTokens.length <= 1 && !hasPos && !hasSide && dims.genericSubTypes.length >= 2) {
-      // Only ask if the candidates are genuinely split across these
-      // qualifiers — i.e. not all candidates share the exact same
-      // qualifier set (which would mean no real ambiguity).
-      const distinctQualifierSets = new Set(
-        candidates.map((p) => {
-          const text   = this.getClarificationText(p).toUpperCase();
-          const tokens = text.split(/[\s\-\/\(\),]+/).filter(Boolean);
-          const qualifiers = dims.genericSubTypes
-            .map((g) => g.toUpperCase())
-            .filter((g) => tokens.includes(g));
-          return qualifiers.sort().join('|');
-        }),
-      );
-      if (distinctQualifierSets.size > 1) {
-        return {
-          needed:    true,
-          variants:  dims.genericSubTypes.slice(0, 5).map(
-            (g) => g.charAt(0).toUpperCase() + g.slice(1),
-          ),
-          dimension: 'type',
-        };
-      }
-    }
-
-    return { needed: false, variants: [], dimension: '' };
+    // Distinct parts behind a one-word query ("capot" → tige, serrure, calle…).
+    // Request words ("je veux", "svp") and positions do not count as words of the query.
+    const queryWords = this.contentWords(message);
+    if (hasAnyPosition(requested) || queryWords.length > 1) return { needed: false };
+    const variants = this.distinguishingWords(candidates, new Set(queryWords.map((word) => compactKey([word]))));
+    return variants.length >= 2 ? { needed: true, variants, dimension: 'type' } : { needed: false };
   }
 
-  private isGenericQuery(message: string): boolean {
-    const patterns = [
-      /^je cherche des pi[èe]ces/i,
-      /pi[èe]ces pour (?:ma|mon)?\s*suzuki/i,
-      /^besoin de pi[èe]ces/i,
-      /^quelles? pi[èe]ces/i,
-      /^aide.*pi[èe]ces/i,
-      /^des pi[èe]ces pour/i,
-      /^pi[èe]ces.*suzuki/i,
-    ];
-    return patterns.some((pattern) => pattern.test(message.trim()));
-  }
-
-  // FIX-4: isBilateralPart checks combined text
-  private isBilateralPart(products: any[], queryTokens: string[] = []): boolean {
-    const bilateral = [
-      'retroviseur', 'feu', 'phare', 'aile', 'amortisseur', 'amorto', 'porte',
-      'clignotant', 'essuie', 'vitre', 'poignee', 'pognee',
-      // FIX-4: French designation_2 terms also bilateral
-      'optique', 'charniere', 'serrure', 'enjoliveur', 'custode',
-    ];
-
-    if (queryTokens.length > 0) {
-      // Use prefix match (length >= 5) so truncated tokens like
-      // "retroviseu" (missing the final 'r') still trigger bilateral
-      // detection — the user clearly typed a bilateral part name.
-      return queryTokens.some((token) =>
-        bilateral.some((b) =>
-          b === token ||
-          (token.length >= 5 && (b.startsWith(token) || token.startsWith(b))),
-        ),
-      );
-    }
-
-    const relevantProducts = queryTokens.length > 0
-      ? products.filter((p) => {
-          const text = this.getCombinedText(p).toLowerCase();
-          return queryTokens.every((token) => text.includes(token));
-        })
-      : products;
-
-    return relevantProducts.some((p) => {
-      const combined = this.getCombinedText(p).toLowerCase();
-      return bilateral.some((part) => combined.includes(part));
-    });
-  }
-
-  buildQuestion(partName: string, variants: string[], dimension: string): string {
-    const variantList = variants
-      .map((v) => `• ${v.charAt(0).toUpperCase() + v.slice(1)}`)
-      .join('\n');
-    const dimLabel =
-      dimension === 'position' ? 'la position' :
-      dimension === 'side'     ? 'le côté'     : 'le type';
+  buildQuestion(partLabel: string, variants: string[], dimension: ClarificationDimension): string {
+    const variantList = variants.map((variant) => `• ${variant.charAt(0).toUpperCase()}${variant.slice(1)}`).join('\n');
+    const dimensionLabel = dimension === 'position' ? 'la position' : dimension === 'side' ? 'le côté' : 'le type';
+    const label = (partLabel ?? '').trim();
+    const opening = label ? `Merci pour votre demande concernant ${label}.` : 'Merci pour votre demande.';
     return (
-      `Merci pour votre demande concernant ${partName}.\n\n` +
-      `Afin d'identifier précisément la pièce compatible, merci de préciser ${dimLabel} :\n` +
+      `${opening}\n\n` +
+      `Afin d'identifier précisément la pièce compatible, merci de préciser ${dimensionLabel} :\n` +
       `${variantList}\n\n` +
       `Dès confirmation, je pourrai vous communiquer la référence et le prix.`
     );
   }
 
-  // ─────────────────────────────────────────────────────────────────
-  // FIX-6: extractPartName — extended French vocabulary
-  // ─────────────────────────────────────────────────────────────────
-  extractPartName(query: string): string {
-    const lower = query.toLowerCase();
+  // ─── internals ──────────────────────────────────────────────────
+  private isGenericQuery(message: string): boolean {
+    const text = message.trim();
+    return GENERIC_QUERY_PATTERNS.some((pattern) => pattern.test(text));
+  }
 
-    // Multi-word compounds — check most specific first
-    if (lower.includes('plaquette')   && lower.includes('frein'))    return 'plaquettes frein';
-    if (lower.includes('disque')      && lower.includes('frein'))    return 'disque frein';
-    if (lower.includes('filtre')      && lower.includes('air'))      return 'filtre air';
-    if (lower.includes('filtre')      && lower.includes('huile'))    return 'filtre huile';
-    if (lower.includes('filtre')      && lower.includes('carburant')) return 'filtre carburant';
-    if (lower.includes('filtre')      && lower.includes('habitacle')) return 'filtre habitacle';
-    if (lower.includes('essuie')      && lower.includes('glace'))    return 'essuie-glace';
-    if (lower.includes('pare')        && lower.includes('choc'))     return 'pare-choc';
-    if (lower.includes('pare')        && lower.includes('brise'))    return 'pare-brise';
-    if ((lower.includes('maitre') || lower.includes('maître')) && lower.includes('cylindre')) return 'maitre cylindre';
-    if (lower.includes('monte')       && lower.includes('glace'))    return 'monte glace';
-    if (lower.includes('leve')        && lower.includes('glace'))    return 'leve glace';
-    if (lower.includes('lave')        && lower.includes('glace'))    return 'lave glace';
-
-    // Single-word French parts — extended FIX-6
-    const singleParts: [string, string][] = [
-      // Suspension / steering
-      ['amortisseur',  'amortisseur'],
-      ['cremaillere',  'crémaillère'],
-      ['crémaillère',  'crémaillère'],
-      ['rotule',       'rotule'],
-      ['triangle',     'triangle'],
-      ['biellette',    'biellette'],
-      ['roulement',    'roulement'],
-      ['stabilisatrice','stabilisatrice'],
-      ['ressort',      'ressort'],
-      ['silentbloc',   'silentbloc'],
-      ['cardan',       'cardan'],
-      ['moyeu',        'moyeu'],
-      ['soufflet',     'soufflet'],
-      // Braking
-      ['tambour',      'tambour'],
-      ['etrier',       'étrier'],
-      ['étrier',       'étrier'],
-      // Lighting
-      ['retroviseur',  'rétroviseur'],
-      ['rétroviseur',  'rétroviseur'],
-      ['phare',        'phare'],
-      ['optique',      'optique'],
-      ['feu',          'feu'],
-      ['clignotant',   'clignotant'],
-      // Body
-      ['aile',         'aile'],
-      ['capot',        'capot'],
-      ['porte',        'porte'],
-      ['vitre',        'vitre'],
-      ['lunette',      'lunette'],
-      ['calandre',     'calandre'],
-      ['charniere',    'charnière'],
-      ['charnière',    'charnière'],
-      ['serrure',      'serrure'],
-      ['enjoliveur',   'enjoliveur'],
-      ['moulure',      'moulure'],
-      ['baguette',     'baguette'],
-      ['garniture',    'garniture'],
-      ['seuil',        'seuil'],
-      ['hayon',        'hayon'],
-      ['poignee',      'poignée'],
-      ['poignée',      'poignée'],
-      ['grille',       'grille'],
-      ['longeron',     'longeron'],
-      ['traverse',     'traverse'],
-      // Electrical
-      ['batterie',     'batterie'],
-      ['alternateur',  'alternateur'],
-      ['demarreur',    'démarreur'],
-      ['démarreur',    'démarreur'],
-      ['bougie',       'bougie'],
-      ['bobine',       'bobine'],
-      ['capteur',      'capteur'],
-      ['calculateur',  'calculateur'],
-      ['faisceau',     'faisceau'],
-      ['relais',       'relais'],
-      ['fusible',      'fusible'],
-      ['radar',        'radar'],
-      // Cooling
-      ['radiateur',    'radiateur'],
-      ['durite',       'durite'],
-      ['thermostat',   'thermostat'],
-      ['condenseur',   'condenseur'],
-      ['compresseur',  'compresseur'],
-      // Engine / drivetrain
-      ['courroie',     'courroie'],
-      ['embrayage',    'embrayage'],
-      ['culasse',      'culasse'],
-      ['pompe',        'pompe'],
-      ['injecteur',    'injecteur'],
-      ['echappement',  'échappement'],
-      ['échappement',  'échappement'],
-      ['silencieux',   'silencieux'],
-      ['vilebrequin',  'vilebrequin'],
-      ['distribution', 'distribution'],
-      // Misc
-      ['joint',        'joint'],
-      ['agrafe',       'agrafe'],
-      ['agraffe',      'agraffe'],
-      ['agraphe',      'agraphe'],
-      ['adhesif',      'adhésif'],
-      ['adhésif',      'adhésif'],
-      ['support',      'support'],
-      ['tapis',        'tapis'],
-      ['siege',        'siège'],
-      ['siège',        'siège'],
-      ['ceinture',     'ceinture'],
-      ['volant',       'volant'],
-    ];
-
-    for (const [match, label] of singleParts) {
-      if (lower.includes(match)) return label;
+  /**
+   * Positions that really exist for the same part. Candidates are grouped by
+   * their name without positions (spelling variants such as PARE / PARA CHOC
+   * fall in the same group); a dimension counts only when one group exists
+   * in several values of it.
+   */
+  private existingPositions(candidates: any[]): { axes: Axis[]; sides: Side[] } {
+    const groups: PositionGroup[] = [];
+    for (const product of candidates) {
+      const key = this.groupKey(product);
+      let group = groups.find((existing) => keysMatch(existing.key, key));
+      if (!group) {
+        group = { key, axes: new Set<Axis>(), sides: new Set<Side>() };
+        groups.push(group);
+      }
+      const actual = getCatalogPositions(product);
+      actual.axes.forEach((axis) => group.axes.add(axis));
+      actual.sides.forEach((side) => group.sides.add(side));
     }
 
-    return query;
-  }
-
-  // ─────────────────────────────────────────────────────────────────
-  // FIX-2: filterBySpec — checks combined text (French + English)
-  // ─────────────────────────────────────────────────────────────────
-  private filterBySpec(products: any[], message: string): any[] {
-    const requested = extractRequestedPositions(message);
-    if (!hasAnyPosition(requested)) return products;
-    // FIX 2026-09-20: a part must really HAVE the requested position (French
-    // name first). The old version scanned French + English text together.
-    return products.filter((p) => positionsSatisfy(requested, getCatalogPositions(p)));
-  }
-
-  // ─────────────────────────────────────────────────────────────────
-  // FIX-3: extractDimensions — tokenizes combined text
-  // BUGFIX: added genericSubTypes detection. Previously this function
-  // only recognized position (avant/arrière), side (gauche/droite),
-  // and a tiny fixed list of filter-fluid / accessory "type" words
-  // (air, huile, support, joint...). Real catalog results for a query
-  // like "capot" return GENUINELY DIFFERENT PARTS that all contain the
-  // word "capot" — "TIGE CAPOT" (hood stay), "SERRURE CAPOT" (hood
-  // lock), "CALLE CAPOT" (hood wedge) — none of which differ by
-  // position or side. With no type detected either, checkNeeded()
-  // silently fell through to "no clarification needed" and dumped
-  // all of them together as if they were variants of one part.
-  // ─────────────────────────────────────────────────────────────────
-  private extractDimensions(products: any[], queryTokens: string[] = []) {
-    const positions = new Set<string>();
-    const sides     = new Set<string>();
-    const types     = new Set<string>();
-    const genericSubTypeCounts = new Map<string, { label: string; count: number }>();
-
-    // Words that never count as a meaningful distinguishing qualifier
-    const stopQualifiers = new Set([
-      'AV', 'AVANT', 'AVG', 'AVD', 'FRONT', 'FR',
-      'AR', 'ARRIERE', 'ARRIÈRE', 'ARG', 'ARD', 'REAR', 'RR',
-      'G', 'GH', 'GAUCHE', 'LEFT', 'LH', 'CONDUCTEUR',
-      'D', 'DR', 'DROITE', 'DROIT', 'RIGHT', 'RH', 'PASSAGER',
-      'DE', 'DU', 'LA', 'LE', 'LES', 'ET', 'ASSY', 'COMP', 'SET',
-      'PIECE', 'PIECES', 'SUZUKI', 'OEM',
-    ]);
-
-    products.forEach((p) => {
-      // FIX-3: use COMBINED text — tokenize both French and English fields
-      const combined = this.getCombinedText(p).toUpperCase();
-      const tokens   = combined.split(/[\s\-\/\(\),]+/).filter(Boolean);
-
-      // ── POSITION / SIDE ───────────────────────────────────────
-      // FIX 2026-09-20: read from the shared catalog parser instead of the
-      // combined French+English token list ("OUT REAR VIEW" is not a rear
-      // position, "D'AIR" is not a right side).
-      const actualPositions = getCatalogPositions(p);
-      if (actualPositions.axes.includes('AV')) positions.add('avant');
-      if (actualPositions.axes.includes('AR')) positions.add('arrière');
-      if (actualPositions.sides.includes('G')) sides.add('gauche');
-      if (actualPositions.sides.includes('D')) sides.add('droite');
-
-      // ── TYPE (filter fluid / accessory words) ──────────────────
-      tokens.forEach((w) => {
-        if (
-          ['AIR', 'HUILE', 'GAZOILE', 'HABITACLE', 'CARBURANT',
-           'ESSENCE', 'CLIMATISEUR'].includes(w)
-        ) {
-          types.add(w.toLowerCase());
-        }
-        if (
-          ['SUPPORT', 'JOINT', 'ROULEMENT', 'TOC', 'KIT', 'JEU'].includes(w)
-        ) {
-          types.add(w.toLowerCase());
-        }
-      });
-
-      // ── BUGFIX: GENERIC SUB-TYPE (the actual distinguishing word) ──
-      // Find tokens that are NOT the query term itself, NOT a position/
-      // side word, and NOT a generic stop-qualifier. These are the words
-      // that make "TIGE CAPOT" different from "SERRURE CAPOT" — they
-      // are the real signal that the results are different parts, not
-      // variants of the same part.
-      const queryTokensUpper = queryTokens.map((t) => t.toUpperCase());
-      const clarificationText = this.getClarificationText(p).toUpperCase();
-      const clarificationTokens = new Set(
-        clarificationText.split(/[\s\-\/\(\),]+/).filter(Boolean),
-      );
-      clarificationTokens.forEach((t) => {
-        if (t.length < 3) return;
-        if (stopQualifiers.has(t)) return;
-        if (queryTokensUpper.includes(t)) return;
-        if (/^\d+$/.test(t)) return;
-        if (/^[A-Z]*\d+[A-Z0-9]*$/.test(t)) return;
-        if (/^\d{4,}/.test(t)) return;
-
-        const normalizedToken = t
-          .toLowerCase()
-          .normalize('NFD')
-          .replace(/[\u0300-\u036f]/g, '');
-        const existing = genericSubTypeCounts.get(normalizedToken);
-        if (existing) {
-          existing.count += 1;
-        } else {
-          genericSubTypeCounts.set(normalizedToken, {
-            label: t.toLowerCase(),
-            count: 1,
-          });
-        }
-      });
-    });
-
-    const genericSubTypes = Array.from(genericSubTypeCounts.values())
-      .filter((entry) => entry.count > 0 && entry.count < products.length)
-      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
-      .map((entry) => entry.label);
-
+    const axes = new Set<Axis>();
+    const sides = new Set<Side>();
+    for (const group of groups) {
+      if (group.axes.size > 1) group.axes.forEach((axis) => axes.add(axis));
+      if (group.sides.size > 1) group.sides.forEach((side) => sides.add(side));
+    }
     return {
-      positions: Array.from(positions),
-      sides:     Array.from(sides),
-      types:     Array.from(types),
-      genericSubTypes,
+      axes: AXIS_ORDER.filter((axis) => axes.has(axis)),
+      sides: SIDE_ORDER.filter((side) => sides.has(side)),
     };
+  }
+
+  private groupKey(product: any): string {
+    const core = getCoreTokens(product);
+    if (core && core.length > 0) return compactKey(core);
+    // English OEM names are comma-separated: "SHOCK ABSORBER, FR, L" → the head field.
+    const head = tokenizeName(String(product.designation ?? '').split(',')[0]).filter((token) => !isPositionToken(token));
+    return head.length > 0 ? `en:${compactKey(head)}` : `ref:${product.reference ?? ''}`;
+  }
+
+  /** Words present in some candidates but not in all: what makes them different parts. */
+  private distinguishingWords(candidates: any[], queryKeys: ReadonlySet<string>): string[] {
+    const counts = new Map<string, { label: string; count: number }>();
+    for (const product of candidates) {
+      const seen = new Set<string>();
+      for (const raw of this.clarificationText(product).split(/[\s/(),-]+/)) {
+        const tokens = contentTokens(raw);
+        if (tokens.length !== 1) continue;
+        const token = tokens[0];
+        if (token.length < 3 || /\d/.test(token) || isPositionToken(token) || isFillerToken(token) || NOISE_TOKENS.has(token)) continue;
+        const key = compactKey([token]);
+        if (queryKeys.has(key) || seen.has(key)) continue;
+        seen.add(key);
+        const entry = counts.get(key);
+        if (entry) entry.count += 1;
+        else counts.set(key, { label: raw.toLowerCase(), count: 1 });
+      }
+    }
+    return [...counts.values()]
+      .filter((entry) => entry.count < candidates.length)
+      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
+      .slice(0, MAX_TYPE_VARIANTS)
+      .map((entry) => entry.label);
+  }
+
+  /** Words of a message that are neither positions nor conversational filler. */
+  private contentWords(text: string): string[] {
+    return contentTokens(text).filter(
+      (token) => token.length >= 2 && !isPositionToken(token) && !isFillerToken(token),
+    );
+  }
+
+  private containsAll(product: any, words: string[]): boolean {
+    const tokens = this.tokenSet(`${this.clarificationText(product)} ${this.combinedText(product)}`);
+    return words.every((word) => tokens.has(compactKey([word])));
+  }
+
+  private tokenSet(text: string): Set<string> {
+    return new Set(contentTokens(text).map((token) => compactKey([token])));
+  }
+
+  /** Curated search description when available, otherwise the French display name. */
+  private clarificationText(product: any): string {
+    const description = (product.searchDescription ?? product.search_description ?? '').trim();
+    if (description.length > 0) return description;
+    const french = (product.designation2 ?? product.designation_2 ?? '').trim();
+    return french.length > 0 ? french : (product.designation ?? '').trim();
+  }
+
+  private combinedText(product: any): string {
+    const french = (product.designation2 ?? product.designation_2 ?? '').trim();
+    const english = (product.designation ?? '').trim();
+    return french.toLowerCase() === english.toLowerCase() ? french : `${french} ${english}`.trim();
   }
 }

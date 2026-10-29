@@ -3,7 +3,7 @@
 // FIXES APPLIED (2026-06-25) aligned with advanced-search.service.ts:
 //
 // FIX-1: GET /stock/:reference now returns the enriched shape:
-//         { reference, statut, displayName, sourceLabel, categorie }
+//         { reference, statut, stockKnown, redirectMessage, displayName, sourceLabel, categorie }
 //         for the PUBLIC endpoint — quantity intentionally omitted
 //         to preserve the "never expose raw quantities publicly" rule.
 //
@@ -18,7 +18,7 @@
 //         Returns the public shape (no quantity) for each reference.
 //
 // ALL BUSINESS LOGIC PRESERVED:
-//   ✅ Disponible/Indisponible only on public endpoint
+//   ✅ Disponible/Indisponible/Inconnue on public endpoint
 //   ✅ Raw quantities NEVER exposed on public GET /stock/:reference
 //   ✅ Invalid reference guard (< 3 chars → 404)
 //   ✅ TODO: API key guard before public deployment
@@ -27,16 +27,22 @@
 import {
   Controller, Get, Post, Param, Body,
   HttpCode, HttpStatus, NotFoundException, BadRequestException,
-  Logger,
+  Logger, UseGuards,
 } from '@nestjs/common';
+import { JwtAuthGuard } from '../admin/auth/jwt-auth.guard';
+import { RolesGuard } from '../admin/auth/roles.guard';
+import { Roles } from '../admin/auth/roles.decorator';
 import { StockService } from './stock.service';
+import { COMPTOIR_REDIRECT_MESSAGE } from '../constants/business-rules.constants';
 
 // ─────────────────────────────────────────────────────────────────
 // Public response shape — quantity intentionally excluded
 // ─────────────────────────────────────────────────────────────────
 interface PublicStockResponse {
   reference:    string;
-  statut:       string;       // 'Disponible' | 'Indisponible'
+  statut:       string;       // 'Disponible' | 'Indisponible' | 'Inconnue'
+  stockKnown:   boolean;
+  redirectMessage: string | null;
   // FIX-1: French name
   displayName:  string;
   sourceLabel:  string | null; // 'Suzuki OEM' | 'CarPro Parts'
@@ -72,6 +78,8 @@ export class StockController {
     return {
       reference:   result.reference,
       statut:      result.statut,
+      stockKnown:  result.stockKnown,
+      redirectMessage: result.stockKnown ? null : COMPTOIR_REDIRECT_MESSAGE,
       displayName: result.displayName,
       sourceLabel: result.sourceLabel,
       categorie:   result.categorie,
@@ -84,6 +92,8 @@ export class StockController {
   // TODO: Add role guard / API key guard before exposing externally.
   // ─────────────────────────────────────────────────────────────────
   @Get(':reference/detail')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN', 'EDITOR')
   @HttpCode(HttpStatus.OK)
   async getStockDetail(
     @Param('reference') reference: string,
@@ -100,7 +110,9 @@ export class StockController {
       // Part not found in DB at all — return safe default
       return {
         reference:     reference.trim().toUpperCase(),
-        statut:        'Indisponible',
+        statut:        'Inconnue',
+        stockKnown:    false,
+        redirectMessage: COMPTOIR_REDIRECT_MESSAGE,
         totalQuantity: 0,
         stockDisponible: 0,
         stockConsolide:  0,
@@ -154,7 +166,9 @@ export class StockController {
     for (const [ref, entry] of bulkMap.entries()) {
       result[ref] = {
         reference:   ref,
-        statut:      entry.statut,
+        statut:      entry.stockKnown ? entry.statut : 'Inconnue',
+        stockKnown:  entry.stockKnown,
+        redirectMessage: entry.stockKnown ? null : COMPTOIR_REDIRECT_MESSAGE,
         displayName: entry.displayName,
         sourceLabel: null,  // BulkStockEntry doesn't carry sourceLabel — use /detail for that
         categorie:   null,

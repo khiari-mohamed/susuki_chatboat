@@ -24,7 +24,7 @@ export class ExplorerService {
   listTables() {
     return [
       { key: 'all', label: 'toutes les tables', columns: [] },
-      ...EXPLORER_TABLES.map(({ key, label, columns }) => ({ key, label, columns })),
+      ...EXPLORER_TABLES.map(({ key, label, origin, columns }) => ({ key, label, origin, columns })),
     ];
   }
 
@@ -46,7 +46,7 @@ export class ExplorerService {
     const tableRows = await Promise.all(
       EXPLORER_TABLES.map(async (table) => {
         const delegate = (this.prisma as any)[table.prismaModel];
-        const data = await delegate.findMany({ orderBy: { id: 'desc' } });
+        const data = await delegate.findMany({ orderBy: { [table.defaultSort ?? 'id']: 'desc' } });
         return data.map((row: Record<string, unknown>) => {
           const combined: Record<string, unknown> = {
             _rowKey: `${table.key}:${String(row.id)}`,
@@ -104,7 +104,7 @@ export class ExplorerService {
         const delegate = (this.prisma as any)[table.prismaModel];
         // When a limit is set and no search, we can cap each table fetch early
         const take = !search && limit ? limit + offset : undefined;
-        const data = await delegate.findMany({ orderBy: { id: 'desc' }, ...(take ? { take } : {}) });
+        const data = await delegate.findMany({ orderBy: { [table.defaultSort ?? 'id']: 'desc' }, ...(take ? { take } : {}) });
         return data.map((row: Record<string, unknown>) => {
           const combined: Record<string, unknown> = { _table: table.label };
           for (const col of table.columns) combined[`${table.key}.${col.key}`] = row[col.key];
@@ -135,7 +135,7 @@ export class ExplorerService {
         ? { OR: stringFields.map((f) => ({ [f]: { contains: search, mode: 'insensitive' as const } })) }
         : {};
     const [data, countTotal] = await Promise.all([
-      delegate.findMany({ where, orderBy: { id: 'desc' }, ...(limit ? { take: limit, skip: offset } : {}) }),
+      delegate.findMany({ where, orderBy: { [table.defaultSort ?? 'id']: 'desc' }, ...(limit ? { take: limit, skip: offset } : {}) }),
       delegate.count({ where }),
     ]);
     const result = { columns: table.columns, data, total: countTotal };
@@ -187,7 +187,7 @@ export class ExplorerService {
     const [data, total] = await Promise.all([
       delegate.findMany({
         where,
-        orderBy: validSort ? { [sortBy as string]: sortDir ?? 'asc' } : { id: 'desc' },
+        orderBy: validSort ? { [sortBy as string]: sortDir ?? 'asc' } : { [table.defaultSort ?? 'id']: 'desc' },
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),

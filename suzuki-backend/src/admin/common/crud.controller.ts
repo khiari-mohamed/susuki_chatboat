@@ -1,17 +1,21 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Post, Query, UseGuards } from '@nestjs/common';
 import { PrismaCrudService, ListResult } from './crud.service';
 import { AdminQueryDto } from './admin-query.dto';
 import { AdminGateway } from '../gateway/admin.gateway';
 import { Roles } from '../auth/roles.decorator';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
 
 /**
- * Every concrete admin entity controller (parts, stock, fitments, ...)
- * extends this. It supplies list/get/delete + realtime broadcasting for
- * free; each subclass only has to declare `tableName`, `searchFields`,
- * and its own `create`/`update` methods typed with the entity's DTO
- * (needed so class-validator actually knows which class to validate
- * against — see admin/common/crud.service.ts for why).
+ * Every concrete admin entity controller (parts, stock, fitments, ...) extends
+ * this. It supplies list/get/delete + realtime broadcasting; each subclass only
+ * declares `tableName`, `searchFields` and its own `create`/`update` methods
+ * typed with the entity's DTO.
+ *
+ * Authentication lives HERE, so no subclass can forget it. Writes on
+ * ERP-sourced tables are refused by PrismaCrudService (ERP → chatbot is one-way).
  */
+@UseGuards(JwtAuthGuard, RolesGuard)
 export abstract class AdminCrudController<T = Record<string, unknown>> {
   /** Websocket channel name, e.g. 'parts', 'stock', 'fitments'. */
   protected abstract readonly tableName: string;
@@ -22,6 +26,13 @@ export abstract class AdminCrudController<T = Record<string, unknown>> {
     protected readonly service: PrismaCrudService<T>,
     protected readonly gateway: AdminGateway,
   ) {}
+
+  /** Lets the dashboard disable edit buttons on ERP-sourced tables. Declared before ':id'. */
+  @Get('meta')
+  @Roles('ADMIN', 'EDITOR')
+  meta(): { table: string; erpSourced: boolean; readOnly: boolean } {
+    return { table: this.tableName, erpSourced: this.service.isErpSourced, readOnly: this.service.isReadOnly };
+  }
 
   @Get()
   @Roles('ADMIN', 'EDITOR')
@@ -42,20 +53,21 @@ export abstract class AdminCrudController<T = Record<string, unknown>> {
     return this.service.findById(id);
   }
 
-  // Deletion is ADMIN-only — an EDITOR can add/correct catalog data but
-  // can't remove rows outright (matches how the CarPro team works today).
+  // Deletion is ADMIN-only: an EDITOR can add/correct data but not remove rows.
   @Delete()
   @Roles('ADMIN')
   async bulkDelete(@Body() body: { ids: number[] }): Promise<{ count: number }> {
-    const result = await this.service.bulkDelete(body.ids);
+    const result = await this.service.bulkDelete(body?.ids);
     this.gateway.broadcast(this.tableName, 'bulk-deleted', { ids: body.ids });
     return result;
   }
 
   @Post('bulk-upsert')
   @Roles('ADMIN', 'EDITOR')
-  async bulkUpsert(@Body() body: { rows: object[]; uniqueKey: string }): Promise<{ created: number; updated: number }> {
-    const result = await this.service.bulkUpsert(body.rows, body.uniqueKey);
+  async bulkUpsert(
+    @Body() body: { rows: object[]; uniqueKey: string },
+  ): Promise<{ created: number; updated: number; skipped: number }> {
+    const result = await this.service.bulkUpsert(body?.rows, body?.uniqueKey);
     this.gateway.broadcast(this.tableName, 'bulk-upserted', {});
     return result;
   }

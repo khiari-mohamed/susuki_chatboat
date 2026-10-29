@@ -3,6 +3,7 @@ const path = require('path');
 const csv = require('csv-parser');
 const { PrismaClient } = require('@prisma/client');
 const { clean, normalizeTypeCode } = require('./lib/data-hygiene');
+const { assertLegacyErpWritesEnabled } = require('./lib/legacy-erp-write-guard');
 
 const prisma = new PrismaClient();
 const csvPath = path.resolve(process.argv.find((arg) => arg.endsWith('.csv')) || 'C:/Users/LENOVO/Downloads/Model_Vehicule_Pieces_de_rechange.csv');
@@ -107,6 +108,7 @@ async function main() {
     console.log('Dry-run only. No database changes were made. Use --apply after reviewing this summary.');
     return;
   }
+  assertLegacyErpWritesEnabled();
 
   const backupPath = writeBackup(existingFitments, typeMasters);
   let added = 0;

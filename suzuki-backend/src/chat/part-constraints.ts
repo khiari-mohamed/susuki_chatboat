@@ -21,9 +21,6 @@
 //  * The position of a catalog row is read from its FRENCH name
 //    (designation_2 — the name the customer actually sees). The English
 //    OEM name is used ONLY when there is no French name at all.
-//    (Old behaviour: French name "PARE CHOC AV" + English "BUMPER,FR,LH"
-//    → the row silently matched "gauche" although the customer would
-//    see no "G" anywhere in the answer.)
 //  * French elisions ("D'ALLUMAGE", "D'AIR") are removed BEFORE
 //    tokenizing. Otherwise the lone "d" left behind is read as the
 //    position "droite" (334 catalog rows were affected).
@@ -33,6 +30,9 @@
 //    otherwise (e.g. "essuie-glace", which only exists as "BALAI
 //    D'ESSUIE-GLACE", "BRAS D'ESSUIE-GLACE"…) it stays inactive and the
 //    legacy behaviour is preserved.
+//  * The positions that EXIST for a part are derived from the catalog
+//    (`availablePositions`), never from a hardcoded list: a capot yields
+//    none, a charnière de capot yields only G / D.
 // ═══════════════════════════════════════════════════════════════════
 
 export type Axis = 'AV' | 'AR';
@@ -74,11 +74,14 @@ export interface ConstraintOutcome {
   rejectedByIdentity: number;
   rejectedByPosition: number;
   kept: number;
-  /** Positions that DO exist for the requested part (from the catalog). */
+  /** Positions that DO exist for the requested part (from the catalog). Empty = none exist. */
   availablePositions: string[];
   /** True when something was requested, related parts exist, but none matches exactly. */
   noExactMatch: boolean;
 }
+
+/** Upper bound on listed positions (axis × side × level combinations stay far below it). */
+const MAX_AVAILABLE_POSITIONS = 12;
 
 // ─────────────────────────────────────────────────────────────────
 // Text helpers
@@ -111,6 +114,11 @@ const FUNCTION_WORDS = new Set([
   'de', 'du', 'des', 'la', 'le', 'les', 'un', 'une', 'a', 'au', 'aux', 'et', 'en', 'd', 'l',
 ]);
 
+/** Tokens without French function words ("filtre à air" ≡ "filtre d'air" → filtre, air). */
+export function contentTokens(text: string): string[] {
+  return tokenizeName(text).filter((token) => !FUNCTION_WORDS.has(token));
+}
+
 // Words that carry a REQUEST (not a part identity). Kept deliberately small
 // and purely linguistic — no part names in here.
 const REQUEST_WORDS = new Set([
@@ -132,12 +140,66 @@ function singular(token: string): string {
   return token;
 }
 
+const COLOR_TOKENS = new Set([
+  'rouge', 'rouges',
+  'bleu', 'bleue', 'bleus', 'bleues',
+  'vert', 'verte', 'verts', 'vertes',
+  'jaune', 'jaunes',
+  'noir', 'noire', 'noirs', 'noires',
+  'blanc', 'blanche', 'blancs', 'blanches',
+  'violet', 'violette', 'violets', 'violettes',
+  'rose', 'roses', 'marron',
+  'brun', 'brune', 'bruns', 'brunes',
+  'gris', 'grise', 'grises', 'beige', 'beiges',
+  'orange', 'oranges', 'cyan', 'magenta',
+  'red', 'blue', 'green', 'yellow', 'black', 'white',
+  'purple', 'pink', 'brown', 'grey', 'gray', 'silver', 'gold', 'golden',
+]);
+
+/** Cosmetic color descriptors do not identify a part or constrain its fitment. */
+export function isColorToken(token: string): boolean {
+  return COLOR_TOKENS.has(singular(token));
+}
+
+export function extractColorTokens(text: string): string[] {
+  return [...new Set(tokenizeName(text).filter(isColorToken).map(singular))];
+}
+
+export function stripColorTokens(text: string): string {
+  return tokenizeName(text).filter((token) => !isColorToken(token)).join(' ');
+}
+
+function canonicalNumericSpecification(value: string): string {
+  const numeric = Number(value.replace(/\s/g, '').replace(',', '.'));
+  return Number.isFinite(numeric) ? String(numeric) : value;
+}
+
+/** Decimal specifications such as 0,25 are exact variant constraints, not part identity. */
+export function extractNumericSpecifications(text: string): string[] {
+  const matches = text.match(/(?<![a-z0-9])\d+(?:[.,]\d+)(?![a-z0-9])/gi) ?? [];
+  return [...new Set(matches.map(canonicalNumericSpecification))];
+}
+
+export function hasNumericSpecifications(text: string, requested: string[]): boolean {
+  const available = new Set(extractNumericSpecifications(text));
+  return requested.every((specification) => available.has(canonicalNumericSpecification(specification)));
+}
+
 /** Compact comparison key: plural-insensitive, spacing/hyphen-insensitive. */
 export function compactKey(tokens: string[]): string {
   return tokens.map(singular).join('');
 }
 
-function levenshtein(a: string, b: string): number {
+/** Normalize the mixed vehicle-type spellings found in fitment data. */
+export function normalizeTypeCode(code: unknown): string {
+  return String(code ?? '')
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, '-')
+    .replace(/-TYPE-/g, '-TYPE');
+}
+
+export function levenshtein(a: string, b: string): number {
   if (a === b) return 0;
   if (a.length === 0) return b.length;
   if (b.length === 0) return a.length;
@@ -190,6 +252,11 @@ const POSITION_TOKENS: Record<string, PositionAtom> = {
   inf: { level: 'INF' }, inferieur: { level: 'INF' },
 };
 
+/** Own-property lookup: tokens such as "constructor" must never resolve to Object.prototype members. */
+function positionAtom(token: string): PositionAtom | undefined {
+  return Object.prototype.hasOwnProperty.call(POSITION_TOKENS, token) ? POSITION_TOKENS[token] : undefined;
+}
+
 const FUZZY_POSITION_TOKENS: Record<string, PositionAtom> = {
   avant: { axis: 'AV' },
   arriere: { axis: 'AR' },
@@ -200,45 +267,48 @@ const FUZZY_POSITION_TOKENS: Record<string, PositionAtom> = {
 };
 
 // Real catalog / French words that are one or two edits away from a position
-// word but are NOT a position ("feu ARRET" = brake light, not ARrière).
-const NOT_A_POSITION_TYPO = new Set(['arret', 'arrete', 'arrets', 'avance', 'avancee', 'avances', 'arrive']);
+// word but are NOT a position ("feu ARRET" = brake light, not ARrière;
+// "poignée INTERIEURE" = inside handle, not INFérieur).
+const NOT_A_POSITION_TYPO = new Set([
+  'arret', 'arrete', 'arrets', 'avance', 'avancee', 'avances', 'arrive', 'arrivee', 'arrivees', 'aval',
+  'interieur', 'interieure', 'interieurs', 'interieures',
+]);
 
 function fuzzyPositionAtom(token: string): PositionAtom | undefined {
   if (token.length < 4) return undefined;
   if (NOT_A_POSITION_TYPO.has(token)) return undefined;
 
-
-  let bestDistance = Number.POSITIVE_INFINITY;
+  let best: { word: string; atom: PositionAtom; distance: number } | undefined;
   let secondDistance = Number.POSITIVE_INFINITY;
-  let bestAtom: PositionAtom | undefined;
 
-  for (const [position, atom] of Object.entries(FUZZY_POSITION_TOKENS)) {
+  for (const [word, atom] of Object.entries(FUZZY_POSITION_TOKENS)) {
     let sharedPrefix = 0;
-    while (sharedPrefix < token.length && sharedPrefix < position.length && token[sharedPrefix] === position[sharedPrefix]) {
+    while (sharedPrefix < token.length && sharedPrefix < word.length && token[sharedPrefix] === word[sharedPrefix]) {
       sharedPrefix++;
     }
     if (sharedPrefix < 2) continue;
 
-    const distance = levenshtein(token, position);
-    if (distance < bestDistance) {
-      secondDistance = bestDistance;
-      bestDistance = distance;
-      bestAtom = atom;
+    const distance = levenshtein(token, word);
+    if (!best || distance < best.distance) {
+      secondDistance = best?.distance ?? Number.POSITIVE_INFINITY;
+      best = { word, atom, distance };
     } else if (distance < secondDistance) {
       secondDistance = distance;
     }
   }
 
-  const matchedPosition = Object.entries(FUZZY_POSITION_TOKENS)
-    .find(([position, atom]) => atom === bestAtom && levenshtein(token, position) === bestDistance)?.[0];
-  const maximumDistance = matchedPosition ? Math.floor(matchedPosition.length * 0.45) : 0;
-  return bestDistance <= maximumDistance && bestDistance < secondDistance
-    ? bestAtom
-    : undefined;
+  if (!best) return undefined;
+  const maximumDistance = Math.floor(best.word.length * 0.45);
+  return best.distance <= maximumDistance && best.distance < secondDistance ? best.atom : undefined;
 }
 
 export function isPositionToken(token: string): boolean {
   return Object.prototype.hasOwnProperty.call(POSITION_TOKENS, token);
+}
+
+/** Function words and conversational filler: never part of a part's identity. */
+export function isFillerToken(token: string): boolean {
+  return FUNCTION_WORDS.has(token) || REQUEST_WORDS.has(token);
 }
 
 function emptyRequest(): PositionRequest {
@@ -268,13 +338,13 @@ export function extractRequestedPositions(
   const result = emptyRequest();
   const tokens = tokenizeName(text);
   for (const [index, token] of tokens.entries()) {
-    let atom: PositionAtom | undefined = POSITION_TOKENS[token];
+    let atom = positionAtom(token);
     if (!atom && index === tokens.length - 1 && index > 0) {
       atom = fuzzyPositionAtom(token);
     }
     if (!atom && canonicalOf) {
       const canonical = canonicalOf(token);
-      if (canonical) atom = POSITION_TOKENS[normalizeForMatch(canonical)];
+      if (canonical) atom = positionAtom(normalizeForMatch(canonical));
     }
     if (atom) addAtom(result, atom);
   }
@@ -339,7 +409,7 @@ export function getCatalogPositions(part: CatalogPartLike): CatalogPositions {
   if (french.length > 0) {
     const result: CatalogPositions = { ...emptyRequest(), origin: 'french' };
     for (const token of tokenizeName(french)) {
-      const atom = POSITION_TOKENS[token];
+      const atom = positionAtom(token);
       if (atom) addAtom(result, atom);
     }
     if (!hasAnyPosition(result)) result.origin = 'none';
@@ -422,6 +492,7 @@ export function buildRequestedPartTokens(
   const normalizedTokens = tokens.flatMap((raw) => tokenizeName(raw));
   for (const [index, token] of normalizedTokens.entries()) {
     if (token.length < 2) continue;
+    if (isColorToken(token)) continue;
     if (isPositionToken(token)) continue;
     if (index === normalizedTokens.length - 1 && index > 0 && fuzzyPositionAtom(token)) continue;
     if (FUNCTION_WORDS.has(token) || REQUEST_WORDS.has(token)) continue;
@@ -432,10 +503,20 @@ export function buildRequestedPartTokens(
   return out;
 }
 
+/** Same cleaning for the typed phrase and for its synonym variants. */
+function identityTokens(tokens: string[]): string[] {
+  return tokens.filter((t) => !FUNCTION_WORDS.has(t) && !isPositionToken(t));
+}
+
 /**
  * Compact keys under which a catalog head may legitimately appear:
  * the typed phrase itself + every synonym variant of it.
  * `variantsOf(phrase)` is supplied by the caller (DB synonym table).
+ *
+ * Function words are stripped from the typed phrase too, exactly like
+ * `getCoreTokens` does for the catalog row — otherwise "barre de
+ * direction" (key "barrededirection") could never equal the catalog head
+ * "BARRE DIRECTION" (key "barredirection").
  */
 export function buildIdentityKeys(
   phrases: string[][],
@@ -444,11 +525,10 @@ export function buildIdentityKeys(
   const keys = new Set<string>();
   for (const phrase of phrases) {
     if (phrase.length === 0) continue;
-    keys.add(compactKey(phrase));
+    const base = identityTokens(phrase);
+    if (base.length > 0) keys.add(compactKey(base));
     for (const variant of variantsOf(phrase.join(' '))) {
-      const variantTokens = tokenizeName(variant).filter(
-        (t) => !FUNCTION_WORDS.has(t) && !isPositionToken(t),
-      );
+      const variantTokens = identityTokens(tokenizeName(variant));
       if (variantTokens.length > 0) keys.add(compactKey(variantTokens));
     }
   }
@@ -549,7 +629,7 @@ export function applyCatalogConstraints<T extends CatalogPartLike>(
   }
   outcome.availablePositions = [...available]
     .sort(comparePositionCodes)
-    .slice(0, 8);
+    .slice(0, MAX_AVAILABLE_POSITIONS);
 
   // ── 2. position ────────────────────────────────────────────────
   let kept = pool;

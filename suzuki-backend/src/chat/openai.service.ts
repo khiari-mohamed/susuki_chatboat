@@ -1,54 +1,65 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
+import { createHash } from 'crypto';
+import { COMPTOIR_REDIRECT_MESSAGE } from '../constants/business-rules.constants';
 import { GEMINI_CHAT_PROMPT, GEMINI_OCR_PROMPT } from './prompt-templates';
-const SUZUKI_MODELS_CANONICAL: Record<string, string> = {
-  // Core models
-  'CELERIO':       'CELERIO',
-  'NEWCELERIO':    'CELERIO',
-  'SWIFT':         'SWIFT',
-  'NEWSWIFT':      'SWIFT',
-  'SWIFTIV':       'SWIFT',
-  'SWIFT4':        'SWIFT',
-  'SPRESSO':       'S-PRESSO',
-  'VITARA':        'VITARA',
-  'JIMNY':         'JIMNY',
-  'JIMNY5D':       'JIMNY',
-  'BALENO':        'BALENO',
-  'NEWBALENO':     'BALENO',
-  'IGNIS':         'IGNIS',
-  'ALTO':          'ALTO',
-  'ERTIGA':        'ERTIGA',
-  'DZIRE':         'DZIRE',
-  'NEWDZIRE':      'DZIRE',
-  'CIAZ':          'CIAZ',
-  'NEWCIAZ':       'CIAZ',
-  'SCROSS':        'S-CROSS',
-  'WAGON':         'WAGON R',
-  'WAGONR':        'WAGON R',
-  'FRONX':         'FRONX',           // FIX-3: was missing
-  'NEWFRONX':      'FRONX',           // FIX-3: was missing
-  'GRAND':         'GRAND VITARA',    // FIX-3: was missing
-  'GRANDVITARA':   'GRAND VITARA',    // FIX-3: was missing
+
+/**
+ * Model names as they may appear on a registration card (spaces, dots and
+ * hyphens stripped). Matching tries the LONGEST key first, so "GRANDVITARA"
+ * is never swallowed by "VITARA". The catalog-side model resolution lives in
+ * VehicleModelsService; this map only cleans OCR output.
+ */
+const SUZUKI_MODELS_CANONICAL: Readonly<Record<string, string>> = {
+  CELERIO: 'CELERIO', NEWCELERIO: 'CELERIO',
+  SWIFT: 'SWIFT', NEWSWIFT: 'SWIFT', SWIFTIV: 'SWIFT', SWIFT4: 'SWIFT',
+  SPRESSO: 'S-PRESSO', SPRES: 'S-PRESSO',
+  VITARA: 'VITARA',
+  JIMNY: 'JIMNY', JIMNY5D: 'JIMNY',
+  BALENO: 'BALENO', NEWBALENO: 'BALENO',
+  IGNIS: 'IGNIS',
+  ALTO: 'ALTO',
+  ERTIGA: 'ERTIGA',
+  DZIRE: 'DZIRE', NEWDZIRE: 'DZIRE',
+  CIAZ: 'CIAZ', NEWCIAZ: 'CIAZ',
+  SCROSS: 'S-CROSS',
+  WAGON: 'WAGON R', WAGONR: 'WAGON R',
+  FRONX: 'FRONX', NEWFRONX: 'FRONX',
+  GRAND: 'GRAND VITARA', GRANDVITARA: 'GRAND VITARA',
 };
+const MODEL_KEYS_BY_SPECIFICITY = Object.entries(SUZUKI_MODELS_CANONICAL).sort(
+  ([a], [b]) => b.length - a.length,
+);
+
+const SUPPORTED_IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/gif']);
+const MAX_CACHE_ENTRIES = 500;
+
+export interface ExtractedVehicleInfo {
+  immatriculation: string | null;
+  marque: 'SUZUKI';
+  modele: string;
+  typeMoteur: string | null;
+  annee: string | number | null;
+  /** 17-character VIN when readable and valid, otherwise null. */
+  vin: string | null;
+}
 
 @Injectable()
 export class OpenAIService {
-  private readonly logger = new Logger(OpenAIService.name);   // FIX-4
-  private readonly apiKey:  string;
-  private readonly apiUrl   = 'https://api.openai.com/v1/chat/completions';
-  private readonly model    = 'gpt-4o-mini';
-  private readonly RATE_LIMIT_DELAY = 500;
-  private lastCallTime      = 0;
+  private readonly logger = new Logger(OpenAIService.name);
+  private readonly apiKey: string;
+  private readonly apiUrl = 'https://api.openai.com/v1/chat/completions';
+  private readonly model = 'gpt-4o-mini';
+  private readonly CACHE_TTL = 5 * 60 * 1000;
   private readonly responseCache = new Map<string, { response: string; timestamp: number }>();
-  private readonly CACHE_TTL     = 5 * 60 * 1000;
 
   private metrics = {
-    totalCalls:          0,
-    successfulCalls:     0,
-    failedCalls:         0,
+    totalCalls: 0,
+    successfulCalls: 0,
+    failedCalls: 0,
     averageResponseTime: 0,
-    cacheHits:           0,
+    cacheHits: 0,
   };
 
   constructor(private config: ConfigService) {
@@ -59,29 +70,26 @@ export class OpenAIService {
     }
     this.logger.log('✅ OpenAIService initialized with gpt-4o-mini');
   }
+
+  // ─────────────────────────────────────────────────────────────────
+  // Customer-facing chat
+  // ─────────────────────────────────────────────────────────────────
   async chat(
-    message:             string,
+    message: string,
     conversationHistory: Array<{ role: string; content: string; metadata?: any }>,
-    context?:            string,
+    context?: string,
     hasPendingClarification?: boolean,
   ): Promise<string> {
     this.metrics.totalCalls++;
 
-    // FIX-2: strip metadata before sending to OpenAI — it only accepts role + content
-    const cleanHistory = (conversationHistory || []).map((m) => ({
-      role:    m.role,
-      content: m.content,
-    }));
-
+    // OpenAI only accepts role + content: strip metadata.
+    const cleanHistory = (conversationHistory || []).map((m) => ({ role: m.role, content: m.content }));
     const { message: sanitizedMessage, conversationHistory: sanitizedHistory } =
       this.validateAndSanitizeInput(message, cleanHistory);
-
-    await this.enforceRateLimit();
 
     const isSimpleConversation =
       context && (context.includes('greeting') || context.includes('acknowledgment'));
 
-    // FIX-1: French-first instruction block appended to base system prompt
     const frenchFirstInstruction = `
 🇫🇷 FRENCH NAME RULE (CRITICAL):
 - The parts database has TWO name fields per part:
@@ -104,18 +112,16 @@ export class OpenAIService {
         `(position/côté/type). Traitez cette réponse comme une clarification, pas comme une nouvelle requête.`;
     }
 
-    // FIX-5: Include last bot intent in cache key to avoid cross-state cache hits
+    // The last bot intent is part of the cache key to avoid cross-state cache hits.
     const lastBotMeta = (conversationHistory || [])
       .filter((m) => m.role === 'bot' || m.role === 'assistant')
       .slice(-1)[0]?.metadata;
-    const intentHint = lastBotMeta?.intent ?? '';
-
     const cacheKey = this.generateCacheKey(
       sanitizedMessage,
       context,
       sanitizedHistory,
       hasPendingClarification,
-      intentHint,       // FIX-5
+      lastBotMeta?.intent ?? '',
     );
 
     const cached = this.getCachedResponse(cacheKey);
@@ -133,28 +139,23 @@ export class OpenAIService {
         this.cacheResponse(cacheKey, response);
       }
 
-      const duration = Date.now() - start;
       this.metrics.successfulCalls++;
       this.metrics.averageResponseTime =
-        (this.metrics.averageResponseTime * (this.metrics.successfulCalls - 1) + duration) /
+        (this.metrics.averageResponseTime * (this.metrics.successfulCalls - 1) + (Date.now() - start)) /
         this.metrics.successfulCalls;
-
       return response;
     } catch (error: any) {
       this.metrics.failedCalls++;
-      this.logger.error(
-        'OpenAI API error:',
-        error.response?.data || error.message || error,
-      );
+      this.logger.error('OpenAI API error:', error.response?.data || error.message || error);
       return this.getGracefulFallback();
     }
   }
 
-  // FIX 2026-09-20: dedicated JSON completion for machine tasks (query
-  // normalization). chat() wraps every prompt in the customer-facing catalog
-  // persona (whose own schema is {humanReadable, products…}), which
-  // contradicted the normalizer's {normalized…} schema. Here: no persona,
-  // temperature 0, JSON mode, small budget.
+  /**
+   * Machine-task JSON completion (query normalization, judge). No customer
+   * persona: temperature 0, JSON mode, small budget. Throws when the API keeps
+   * failing so callers can fall back deterministically.
+   */
   async completeJson(
     systemPrompt: string,
     userPrompt: string,
@@ -162,35 +163,30 @@ export class OpenAIService {
     maxInputChars = 4000,
   ): Promise<string> {
     this.metrics.totalCalls++;
-    const cacheKey = `json::${systemPrompt.length}::${userPrompt}`;
+    const boundedUserPrompt = String(userPrompt).slice(0, maxInputChars);
+    const cacheKey = `json::${createHash('sha256').update(systemPrompt).update('\u0000').update(boundedUserPrompt).digest('hex')}`;
     const cached = this.getCachedResponse(cacheKey);
     if (cached) {
       this.metrics.cacheHits++;
       return cached;
     }
-    await this.enforceRateLimit();
+
     let lastErr: any;
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
         const resp = await axios.post(
           this.apiUrl,
           {
-            model:           this.model,
-            messages:        [
+            model: this.model,
+            messages: [
               { role: 'system', content: systemPrompt },
-              { role: 'user',   content: String(userPrompt).slice(0, maxInputChars) },
+              { role: 'user', content: boundedUserPrompt },
             ],
-            temperature:     0,
-            max_tokens:      maxTokens,
+            temperature: 0,
+            max_tokens: maxTokens,
             response_format: { type: 'json_object' },
           },
-          {
-            headers: {
-              'Content-Type':  'application/json',
-              'Authorization': `Bearer ${this.apiKey}`,
-            },
-            timeout: 8000,
-          },
+          { headers: this.headers(), timeout: 8000 },
         );
         const content: string = resp.data.choices?.[0]?.message?.content ?? '';
         this.metrics.successfulCalls++;
@@ -198,7 +194,8 @@ export class OpenAIService {
         return content;
       } catch (err: any) {
         lastErr = err;
-        if (attempt === 0) await this.delay(400);
+        if (attempt === 0 && this.isRetryable(err)) await this.delay(this.retryDelay(err, 400));
+        else break;
       }
     }
     this.metrics.failedCalls++;
@@ -206,10 +203,10 @@ export class OpenAIService {
   }
 
   private async callWithRetry(
-    systemPrompt:        string,
-    message:             string,
+    systemPrompt: string,
+    message: string,
     conversationHistory: Array<{ role: string; content: string }>,
-    maxRetries           = 2,
+    maxRetries = 2,
   ): Promise<string> {
     let lastErr: any;
     for (let attempt = 0; attempt < maxRetries; attempt++) {
@@ -218,21 +215,22 @@ export class OpenAIService {
       } catch (err: any) {
         lastErr = err;
         this.logger.warn(`OpenAI API attempt ${attempt + 1} failed: ${err.message || err}`);
-        if (attempt < maxRetries - 1) await this.delay(500 * (attempt + 1));
+        if (!this.isRetryable(err)) break;
+        if (attempt < maxRetries - 1) await this.delay(this.retryDelay(err, 500 * (attempt + 1)));
       }
     }
     throw lastErr || new Error('All retry attempts failed');
   }
 
   private async callOpenAIAPI(
-    systemPrompt:        string,
-    message:             string,
+    systemPrompt: string,
+    message: string,
     conversationHistory: Array<{ role: string; content: string }>,
   ): Promise<string> {
     const messages = [
       { role: 'system', content: systemPrompt },
       ...conversationHistory.map((msg) => ({
-        role:    msg.role === 'user' ? 'user' : 'assistant',
+        role: msg.role === 'user' ? 'user' : 'assistant',
         content: msg.content,
       })),
       { role: 'user', content: message },
@@ -240,50 +238,44 @@ export class OpenAIService {
 
     const resp = await axios.post(
       this.apiUrl,
-      {
-        model:       this.model,
-        messages,
-        temperature: 0.3,
-        max_tokens:  1024,
-        top_p:       0.8,
-      },
-      {
-        headers: {
-          'Content-Type':  'application/json',
-          'Authorization': `Bearer ${this.apiKey}`,
-        },
-        timeout: 15000,
-      },
+      { model: this.model, messages, temperature: 0.3, max_tokens: 1024, top_p: 0.8 },
+      { headers: this.headers(), timeout: 15000 },
     );
+    return resp.data.choices?.[0]?.message?.content || "Désolé, je n'ai pas pu générer de réponse.";
+  }
 
-    return (
-      resp.data.choices?.[0]?.message?.content ||
-      "Désolé, je n'ai pas pu générer de réponse."
-    );
+  // ─────────────────────────────────────────────────────────────────
+  // HTTP helpers
+  // ─────────────────────────────────────────────────────────────────
+  private headers() {
+    return { 'Content-Type': 'application/json', Authorization: `Bearer ${this.apiKey}` };
+  }
+
+  /** Network errors, rate limits and server errors are worth a retry; 4xx are not. */
+  private isRetryable(err: any): boolean {
+    const status = err?.response?.status;
+    return status === undefined || status === 429 || status >= 500;
+  }
+
+  private retryDelay(err: any, fallbackMs: number): number {
+    const retryAfterSeconds = Number(err?.response?.headers?.['retry-after']);
+    return Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
+      ? Math.min(retryAfterSeconds * 1000, 2000)
+      : fallbackMs;
   }
 
   // ─────────────────────────────────────────────────────────────────
   // Cache helpers
-  // FIX-5: intentHint parameter added to generateCacheKey
   // ─────────────────────────────────────────────────────────────────
   private generateCacheKey(
-    message:                 string,
-    context?:                string,
-    history?:                Array<{ role: string; content: string }>,
+    message: string,
+    context?: string,
+    history?: Array<{ role: string; content: string }>,
     hasPendingClarification?: boolean,
-    intentHint?:             string,  // FIX-5
+    intentHint?: string,
   ): string {
-    const hist = (history || [])
-      .slice(-3)
-      .map((h) => `${h.role}:${h.content}`)
-      .join('|');
-    return [
-      message,
-      context || '',
-      hist,
-      hasPendingClarification ? 'pending' : 'no-pending',
-      intentHint || '',    // FIX-5
-    ].join('::');
+    const hist = (history || []).slice(-3).map((h) => `${h.role}:${h.content}`).join('|');
+    return [message, context || '', hist, hasPendingClarification ? 'pending' : 'no-pending', intentHint || ''].join('::');
   }
 
   private getCachedResponse(key: string): string | null {
@@ -297,40 +289,30 @@ export class OpenAIService {
   }
 
   private cacheResponse(key: string, response: string): void {
-    try {
-      this.responseCache.set(key, { response, timestamp: Date.now() });
-    } catch (e) {
-      this.logger.warn('Cache set failed', e as any);
+    // Bounded: evict the oldest entry (Map preserves insertion order).
+    while (this.responseCache.size >= MAX_CACHE_ENTRIES) {
+      const oldest = this.responseCache.keys().next().value;
+      if (oldest === undefined) break;
+      this.responseCache.delete(oldest);
     }
+    this.responseCache.set(key, { response, timestamp: Date.now() });
   }
 
   private validateAndSanitizeInput(
-    message:             string,
+    message: string,
     conversationHistory: Array<{ role: string; content: string }>,
-  ): {
-    message:             string;
-    conversationHistory: Array<{ role: string; content: string }>;
-  } {
-    const sanitizedMessage = String(message || '').trim().slice(0, 4000);
-    const sanitizedHistory = (conversationHistory || []).slice(-10).map((msg) => ({
-      role:    msg.role === 'user' ? 'user' : 'assistant',
-      content: String(msg.content || '').slice(0, 2000),
-    }));
-    return { message: sanitizedMessage, conversationHistory: sanitizedHistory };
-  }
-
-  private async enforceRateLimit(): Promise<void> {
-    const now   = Date.now();
-    const since = now - this.lastCallTime;
-    if (since < this.RATE_LIMIT_DELAY) await this.delay(this.RATE_LIMIT_DELAY - since);
-    this.lastCallTime = Date.now();
+  ): { message: string; conversationHistory: Array<{ role: string; content: string }> } {
+    return {
+      message: String(message || '').trim().slice(0, 4000),
+      conversationHistory: (conversationHistory || []).slice(-10).map((msg) => ({
+        role: msg.role === 'user' ? 'user' : 'assistant',
+        content: String(msg.content || '').slice(0, 2000),
+      })),
+    };
   }
 
   private getGracefulFallback(): string {
-    return (
-      'Je rencontre actuellement des difficultés techniques. ' +
-      'Veuillez réessayer dans quelques instants ou contacter CarPro au ☎️ 70 603 518 – 70 603 519 pour une assistance immédiate.'
-    );
+    return `Je rencontre actuellement des difficultés techniques. Veuillez réessayer dans quelques instants. ${COMPTOIR_REDIRECT_MESSAGE}`;
   }
 
   private delay(ms: number): Promise<void> {
@@ -338,11 +320,10 @@ export class OpenAIService {
   }
 
   getMetrics() {
+    const served = this.metrics.successfulCalls + this.metrics.cacheHits;
     return {
       ...this.metrics,
-      successRate: this.metrics.totalCalls > 0
-        ? (this.metrics.successfulCalls / this.metrics.totalCalls) * 100
-        : 0,
+      successRate: this.metrics.totalCalls > 0 ? (served / this.metrics.totalCalls) * 100 : 0,
       cacheSize: this.responseCache.size,
     };
   }
@@ -353,137 +334,110 @@ export class OpenAIService {
   }
 
   // ─────────────────────────────────────────────────────────────────
-  // extractVehicleInfo — OCR via gpt-4o-mini Vision
-  // FIX-3: Extended suzukiModels map
-  // FIX-4: console.log → this.logger
+  // OCR — registration card via gpt-4o-mini Vision
   // ─────────────────────────────────────────────────────────────────
-  async extractVehicleInfo(imageBase64: string, mimeType?: string): Promise<any> {
-    const prompt = GEMINI_OCR_PROMPT;
 
-    this.logger.log('🔍 Starting OCR extraction with OpenAI Vision...');    // FIX-4
+  /** Accepts a data URL, or raw base64 together with its mime type. */
+  private toImageDataUrl(imageBase64: string, mimeType?: string): { dataUrl: string; mime: string } {
+    const match = /^data:([\w.+/-]+);base64,/i.exec(imageBase64);
+    if (match) return { dataUrl: imageBase64, mime: match[1].toLowerCase() };
+    const mime = (mimeType || 'image/jpeg').toLowerCase();
+    return { dataUrl: `data:${mime};base64,${imageBase64}`, mime };
+  }
+
+  /**
+   * A VIN never contains I, O or Q: the usual OCR confusions are resolved
+   * (I→1, O→0, Q→0) before the 17-character check.
+   */
+  private normalizeVin(raw: unknown): string | null {
+    const vin = String(raw ?? '')
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, '')
+      .replace(/[OQ]/g, '0')
+      .replace(/I/g, '1');
+    return /^[A-HJ-NPR-Z0-9]{17}$/.test(vin) ? vin : null;
+  }
+
+  private canonicalModel(rawModel: string): { model: string; matched: boolean } {
+    const compact = rawModel.toUpperCase().replace(/[\s.-]+/g, '');
+    const hit = MODEL_KEYS_BY_SPECIFICITY.find(([key]) => compact.includes(key));
+    return hit ? { model: hit[1], matched: true } : { model: rawModel.toUpperCase(), matched: false };
+  }
+
+  async extractVehicleInfo(imageBase64: string, mimeType?: string): Promise<ExtractedVehicleInfo> {
+    this.logger.log('🔍 Starting OCR extraction with OpenAI Vision...');
+
+    const { dataUrl, mime } = this.toImageDataUrl(imageBase64, mimeType);
+    if (!SUPPORTED_IMAGE_TYPES.has(mime)) {
+      this.logger.warn(`❌ Unsupported OCR file type: ${mime}`);
+      throw new Error('OCR_FAILED');
+    }
 
     try {
-      // MIME type detection
-      let detectedMimeType = mimeType;
-      if (!detectedMimeType) {
-        if      (imageBase64.startsWith('data:image/png'))         detectedMimeType = 'image/png';
-        else if (imageBase64.startsWith('data:image/webp'))        detectedMimeType = 'image/webp';
-        else if (imageBase64.startsWith('data:application/pdf'))   detectedMimeType = 'application/pdf';
-        else                                                        detectedMimeType = 'image/jpeg';
-      }
-      this.logger.log(`📷 Detected MIME type: ${detectedMimeType}`);        // FIX-4
-
-      this.logger.log('🚀 Calling OpenAI Vision API...');                   // FIX-4
       const response = await axios.post(
         this.apiUrl,
         {
-          model: 'gpt-4o-mini',
+          model: this.model,
           messages: [
             {
-              role:    'user',
+              role: 'user',
               content: [
-                { type: 'text',      text:      prompt },
-                { type: 'image_url', image_url: { url: imageBase64 } },
+                { type: 'text', text: GEMINI_OCR_PROMPT },
+                { type: 'image_url', image_url: { url: dataUrl } },
               ],
             },
           ],
           temperature: 0.1,
-          max_tokens:  2048,
+          max_tokens: 2048,
         },
-        {
-          headers: {
-            'Content-Type':  'application/json',
-            'Authorization': `Bearer ${this.apiKey}`,
-          },
-          timeout: 30000,
-        },
+        { headers: this.headers(), timeout: 30000 },
       );
 
-      this.logger.log('✅ OpenAI Vision API response received');             // FIX-4
-      const text = response.data.choices?.[0]?.message?.content || '{}';
-      this.logger.debug(`📝 Raw OCR text: ${text}`);                        // FIX-4 — debug level
-
+      const text: string = response.data.choices?.[0]?.message?.content || '{}';
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
-        this.logger.warn('❌ No JSON found in OCR response');                // FIX-4
+        this.logger.warn('❌ No JSON found in OCR response');
         throw new Error('OCR_FAILED');
       }
 
-      const jsonText = jsonMatch[0];
-      this.logger.debug(`📦 Extracted JSON: ${jsonText}`);                  // FIX-4
-
       let parsed: any;
       try {
-        parsed = JSON.parse(jsonText);
-        this.logger.log(`✅ OCR JSON parsed: ${JSON.stringify(parsed)}`);   // FIX-4
+        parsed = JSON.parse(jsonMatch[0]);
       } catch (e: any) {
-        this.logger.warn(`❌ JSON parse error: ${e.message}`);              // FIX-4
+        this.logger.warn(`❌ OCR JSON parse error: ${e.message}`);
         throw new Error('OCR_FAILED');
       }
 
       if (parsed.error === 'invalid_brand') {
-        this.logger.warn('❌ Invalid brand detected by OpenAI Vision');      // FIX-4
+        this.logger.warn('❌ Invalid brand detected by OpenAI Vision');
         throw new Error('INVALID_BRAND');
       }
 
       const marque = (parsed.marque || '').toString().toUpperCase().trim();
-      this.logger.log(`🔍 Validating brand: ${marque}`);                    // FIX-4
-
       if (!marque.includes('SUZUKI')) {
-        this.logger.warn(`❌ Brand validation failed — not SUZUKI: "${marque}"`); // FIX-4
+        this.logger.warn(`❌ Brand validation failed — not SUZUKI: "${marque}"`);
         throw new Error('INVALID_BRAND');
       }
-      this.logger.log('✅ Brand validated: SUZUKI');                         // FIX-4
 
-      // FIX-3: Use extended canonical model map
-      const modeleRaw  = (parsed.modele || '').toString().trim();
-      const modeleNorm = modeleRaw
-        .toUpperCase()
-        .replace(/\s+/g, '')
-        .replace(/\./g, '')
-        .replace(/-/g, '');
+      const modeleRaw = (parsed.modele || '').toString().trim();
+      const { model, matched } = this.canonicalModel(modeleRaw);
+      const vin = this.normalizeVin(parsed.vin);
 
-      this.logger.log(`🔍 Model detected: "${modeleRaw}" (normalized: ${modeleNorm})`); // FIX-4
-
-      let modeleCanon    = modeleRaw.toUpperCase();
-      let matchConfidence = 90;
-
-      // FIX-3: Check against extended canonical map
-      for (const [key, value] of Object.entries(SUZUKI_MODELS_CANONICAL)) {
-        if (modeleNorm.includes(key)) {
-          modeleCanon     = value;
-          matchConfidence = 95;
-          this.logger.log(`✅ Model validated: ${modeleCanon}`);            // FIX-4
-          break;
-        }
-      }
-
-      // Additional normalisation: "S-PRESSO" variant handling
-      if (modeleNorm.includes('SPRESSO') || modeleNorm.includes('SPRES')) {
-        modeleCanon     = 'S-PRESSO';
-        matchConfidence = 97;
-      }
-
-      const result = {
-        immatriculation: parsed.immatriculation?.trim().toUpperCase() || null,
-        marque:          'SUZUKI',
-        modele:          modeleCanon || modeleRaw.toUpperCase(),
-        typeMoteur:      parsed.typeMoteur?.trim() || null,
-        annee:           parsed.annee || null,
-        // FIX-3: Include match confidence for upstream logging
-        _confidence:     matchConfidence,
-        // Include source for audit trail
-        source:          'OpenAI Vision gpt-4o-mini',
+      const result: ExtractedVehicleInfo = {
+        immatriculation: parsed.immatriculation?.toString().trim().toUpperCase() || null,
+        marque: 'SUZUKI',
+        modele: model,
+        typeMoteur: parsed.typeMoteur?.toString().trim() || null,
+        annee: parsed.annee || null,
+        vin,
       };
 
-      this.logger.log(`🎯 OCR FINAL RESULT: ${JSON.stringify(result)}`);    // FIX-4
-      this.logger.log(`📊 Match confidence: ${matchConfidence}%`);          // FIX-4
-
-      // Remove internal fields before returning to caller
-      const { _confidence, source: _src, ...publicResult } = result;
-      return publicResult;
+      // Plate and VIN are personal data: keep them out of the info-level logs.
+      this.logger.log(`🎯 OCR done — model "${result.modele}" (${matched ? 'canonical' : 'raw'}), VIN ${vin ? 'read' : 'not read'}`);
+      this.logger.debug(`OCR result: ${JSON.stringify(result)}`);
+      return result;
     } catch (error: any) {
-      this.logger.error(                                                      // FIX-4
+      this.logger.error(
         `OpenAI Vision error: ${error.response?.data ? JSON.stringify(error.response.data) : error.message}`,
       );
       throw error;

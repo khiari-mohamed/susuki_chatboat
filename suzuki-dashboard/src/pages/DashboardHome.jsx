@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import client from '../api/client';
+import { useAuth } from '../context/AuthContext';
 import { ENTITIES } from '../config/entities';
 
 const CARDS = [
@@ -13,6 +14,83 @@ const CARDS = [
   { key: 'itemReferences', label: 'Références croisées', route: 'item-references' },
   { key: 'synonyms', label: 'Synonymes' },
 ];
+
+const SYNC_LABELS = { SUCCESS: 'Réussie', PARTIAL: 'Partielle (lignes ignorées)', FAILED: 'Échec', RUNNING: 'En cours' };
+
+function SyncCard() {
+  const { user } = useAuth();
+  const [status, setStatus] = useState(null);
+  const [error, setError] = useState('');
+  const [starting, setStarting] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      const { data } = await client.get('/sync/status');
+      setStatus(data);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Statut de synchronisation indisponible');
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    if (!status?.running) return undefined;
+    const timer = setInterval(load, 3000);
+    return () => clearInterval(timer);
+  }, [status?.running, load]);
+
+  async function start() {
+    setStarting(true);
+    setError('');
+    try {
+      await client.post('/sync');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Échec du lancement');
+    } finally {
+      setStarting(false);
+      await load();
+    }
+  }
+
+  const run = status?.lastRun;
+  const anomalies = run?.summary
+    ? Object.entries(run.summary).filter(([, s]) => s.invalid + s.failed > 0)
+    : [];
+
+  return (
+    <div className="quality-card" style={{ marginBottom: 24 }}>
+      <div className="quality-title">Synchronisation ERP → Chatbot</div>
+      {error && <div className="page-error">{error}</div>}
+      {status && !status.configured && (
+        <div className="quality-caption">Source ERP non configurée : la synchronisation est inactive.</div>
+      )}
+      {run ? (
+        <div className="quality-caption">
+          Dernière synchronisation : {SYNC_LABELS[run.status] || run.status} —{' '}
+          {new Date(run.startedAt).toLocaleString('fr-FR')} ({run.trigger === 'CRON' ? 'automatique' : 'manuelle'})
+        </div>
+      ) : (
+        <div className="quality-caption">Aucune synchronisation effectuée.</div>
+      )}
+      {anomalies.map(([entity, s]) => (
+        <div key={entity} className="quality-caption">
+          {entity} : {s.invalid} ligne(s) invalide(s), {s.failed} en erreur
+        </div>
+      ))}
+      {user?.role === 'ADMIN' && (
+        <button
+          className="btn-primary"
+          style={{ marginTop: 12 }}
+          onClick={start}
+          disabled={starting || !status?.configured || status?.running}
+        >
+          {status?.running ? 'Synchronisation en cours…' : 'Synchroniser maintenant'}
+        </button>
+      )}
+    </div>
+  );
+}
 
 export default function DashboardHome() {
   const [stats, setStats] = useState(null);
@@ -41,6 +119,8 @@ export default function DashboardHome() {
           </Link>
         ))}
       </div>
+
+      <SyncCard />
 
       <h2>Qualité des données</h2>
       <p className="entity-subtitle">Écarts identifiés dans le rapport CarPro — à combler progressivement</p>

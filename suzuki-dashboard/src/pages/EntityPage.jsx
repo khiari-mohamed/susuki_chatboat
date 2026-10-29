@@ -224,7 +224,9 @@ function ImportModal({ entity, onClose, onDone }) {
 
 export default function EntityPage({ entity }) {
   const { user } = useAuth();
-  const canDelete = user?.role === 'ADMIN';
+  const [canModify, setCanModify] = useState(false);
+  const canEdit = canModify && !entity.noUpdate;
+  const canDelete = canModify && user?.role === 'ADMIN';
 
   const [rows, setRows] = useState([]);
   const [total, setTotal] = useState(0);
@@ -242,6 +244,19 @@ export default function EntityPage({ entity }) {
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [confirm, setConfirm] = useState(null); // { message, onConfirm }
+
+  useEffect(() => {
+    let active = true;
+    setCanModify(false);
+    client.get(`${entity.apiPath}/meta`)
+      .then(({ data }) => {
+        if (active) setCanModify(data.readOnly !== true);
+      })
+      .catch(() => {
+        if (active) setCanModify(false);
+      });
+    return () => { active = false; };
+  }, [entity.apiPath]);
 
   useEffect(() => {
     setPage(1); setSearch(''); setSearchInput(''); setSortColumns([]); setSelectedIds(new Set());
@@ -391,7 +406,7 @@ export default function EntityPage({ entity }) {
     const dataCols = entity.columns.map((c) => {
       const base = { key: c.key, name: c.name, width: c.width, resizable: true, sortable: true };
       if (c.format) return { ...base, renderCell: ({ row }) => c.format(row) };
-      if (c.editable && !entity.noUpdate) {
+      if (c.editable && canEdit) {
         if (c.type === 'select') return { ...base, editable: true, renderEditCell: (props) => <SelectEditor {...props} options={c.options} /> };
         return { ...base, editable: true, renderEditCell: (props) => <TextEditor {...props} colType={c.type} /> };
       }
@@ -401,10 +416,10 @@ export default function EntityPage({ entity }) {
     const actionCol = {
       key: '__actions',
       name: '',
-      width: canDelete ? 80 : 44,
+      width: canDelete && canEdit ? 80 : 44,
       renderCell: ({ row }) => (
         <div className="grid-action-btns">
-          <button className="grid-edit-btn" title="Modifier" onClick={() => setEditRow(row)}><Pencil size={13} /></button>
+          {canEdit && <button className="grid-edit-btn" title="Modifier" onClick={() => setEditRow(row)}><Pencil size={13} /></button>}
           {canDelete && (
             <button className="grid-delete-btn" title="Supprimer" onClick={() => handleDelete(row)}><Trash2 size={13} /></button>
           )}
@@ -412,9 +427,13 @@ export default function EntityPage({ entity }) {
       ),
     };
 
-    return [checkCol, ...dataCols, actionCol];
+    return [
+      ...(canDelete ? [checkCol] : []),
+      ...dataCols,
+      ...(canEdit || canDelete ? [actionCol] : []),
+    ];
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [entity, canDelete, selectedIds, allSelected, rows]);
+  }, [entity, canDelete, canEdit, selectedIds, allSelected, rows]);
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
@@ -432,8 +451,8 @@ export default function EntityPage({ entity }) {
               <Trash2 size={14} /> Supprimer ({selectedIds.size})
             </button>
           )}
-          <button className="btn-secondary" onClick={() => setShowImport(true)}><Upload size={14} /> Importer</button>
-          <button className="btn-primary" onClick={() => setShowAdd(true)}><Plus size={14} /> Ajouter</button>
+          {canModify && <button className="btn-secondary" onClick={() => setShowImport(true)}><Upload size={14} /> Importer</button>}
+          {canModify && <button className="btn-primary" onClick={() => setShowAdd(true)}><Plus size={14} /> Ajouter</button>}
         </div>
       </div>
 
@@ -475,9 +494,9 @@ export default function EntityPage({ entity }) {
       </div>
 
       {confirm && <ConfirmDialog message={confirm.message} onConfirm={confirm.onConfirm} onCancel={() => setConfirm(null)} />}
-      {showAdd && <AddRecordModal entity={entity} onClose={() => setShowAdd(false)} onSubmit={handleAdd} />}
-      {showImport && <ImportModal entity={entity} onClose={() => setShowImport(false)} onDone={fetchPage} />}
-      {editRow && <EditModal entity={entity} row={editRow} onClose={() => setEditRow(null)} onSave={handleEditSave} />}
+      {showAdd && canModify && <AddRecordModal entity={entity} onClose={() => setShowAdd(false)} onSubmit={handleAdd} />}
+      {showImport && canModify && <ImportModal entity={entity} onClose={() => setShowImport(false)} onDone={fetchPage} />}
+      {editRow && canEdit && <EditModal entity={entity} row={editRow} onClose={() => setEditRow(null)} onSave={handleEditSave} />}
     </div>
   );
 }

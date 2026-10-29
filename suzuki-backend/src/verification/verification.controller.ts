@@ -13,7 +13,7 @@ export class VerificationController {
       const validTypes = [
         'image/png', 'image/jpg', 'image/jpeg', 'image/webp', 'image/gif',
         'image/bmp', 'image/tiff', 'image/heic', 'image/heif',
-        'application/pdf'
+        'application/pdf',
       ];
       
       if (validTypes.includes(file.mimetype)) {
@@ -41,8 +41,8 @@ export class VerificationController {
       throw new BadRequestException('Le fichier semble être corrompu');
     }
     
-    // Vérifier que l'image n'est pas trop petite (probablement illisible)
-    if (file.mimetype !== 'application/pdf' && file.size < 10 * 1024) { // 10KB minimum for images
+    // An image below this size is probably not legible enough for OCR.
+    if (file.mimetype !== 'application/pdf' && file.size < 10 * 1024) {
       throw new BadRequestException('L\'image est trop petite. Utilisez une image de meilleure qualité.');
     }
 
@@ -57,8 +57,8 @@ export class VerificationController {
   }
 
   @Post('vin')
-  async verifyVin(@Body() body: { vin?: string }) {
+  async verifyVin(@Body() body: { vin?: string }, @Req() req: Request) {
     const vin = typeof body?.vin === 'string' ? body.vin : '';
-    return this.verificationService.verifyVin(vin);
+    return this.verificationService.verifyVin(vin, req.ip || req.socket?.remoteAddress || 'unknown');
   }
 }

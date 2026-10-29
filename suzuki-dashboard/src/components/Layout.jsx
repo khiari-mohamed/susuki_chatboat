@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import {
   LayoutDashboard, Package, Layers, Link2, Car, GitMerge, Cpu, BookOpen,
-  MessageSquare, Users, Database, BarChart2, LogOut, ChevronRight, Circle,
+  MessageSquare, Users, Database, BarChart2, LogOut, ChevronRight, Circle, History,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { getSocket } from '../api/socket';
@@ -70,6 +70,9 @@ export default function Layout() {
               <NavItem to="/users" icon={Users} label="Utilisateurs" />
             </>
           )}
+
+          <div className="nav-section-label">Traçabilité</div>
+          <NavItem to="/search-logs" icon={History} label="Historique des recherches" />
 
           <div className="nav-section-label">Base de données</div>
           <NavItem to="/explorer" icon={Database} label="Explorateur" />

@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { SessionService } from './session.service';
 import { ClarificationService } from './clarification.service';
 import { ContextService } from './context.service';
@@ -8,25 +8,40 @@ import { IntelligenceService } from '../chat/intelligence.service';
 import { OpenAIService } from '../chat/openai.service';
 import { AIQueryNormalizerService } from './ai-query-normalizer.service';
 import { AdvancedSearchService } from '../chat/advanced-search.service';
+import type { VehicleSearchScope } from '../chat/advanced-search.service';
 import { VehicleModelsService } from '../constants/vehicle-models.service';
-import { StrictValidatorService } from '../chat/strict-validator.service';
 import { SynonymsService } from '../synonyms/synonyms.service';
-import { extractRequestedPositions, getCatalogPositions, normalizeForMatch } from '../chat/part-constraints';
-import type { ConstraintOutcome } from '../chat/part-constraints';
-import { evaluateResponseConfidence, MIN_UNDERSTANDING_CONFIDENCE } from '../chat/confidence-gate';
+import {
+  extractRequestedPositions,
+  getCatalogPositions,
+  hasAnyPosition,
+  isColorToken,
+  isFillerToken,
+  isPositionToken,
+  normalizeForMatch,
+  positionsSatisfy,
+  stripColorTokens,
+  tokenizeName,
+} from '../chat/part-constraints';
+import type { ConstraintOutcome, PositionRequest } from '../chat/part-constraints';
 import {
   checkResponseAgainstCatalog,
-  decideAfterAiFlags,
-  stockIsAvailable,
+  publicPrice,
   verifyProductAgainstCatalog,
 } from '../chat/catalog-verifier';
+import { hasKnownStock, isQuantityAvailable } from '../constants/business-rules.constants';
+import { AdaptiveDecisionEngine } from '../chat/adaptive-decision-engine';
 import type {
   AiFlag,
   AiFlagType,
   CheckStatus,
   ProductVerification,
+  VerifierInterpretation,
 } from '../chat/catalog-verifier';
-import type { StructuredQueryInterpretation } from './ai-query-normalizer.service';
+import type {
+  CompatiblePartCandidate,
+  StructuredQueryInterpretation,
+} from './ai-query-normalizer.service';
 
 export interface ProcessMessageResponse {
   response: string;
@@ -44,7 +59,15 @@ export interface ProcessMessageResponse {
     userMessageId?: string;
     error?: string;
     verification?: AnswerVerification;
+    trace?: AnswerTrace;
+    redirectedToCounter?: boolean;
   };
+}
+
+export interface AnswerTrace {
+  identifiedPart: string | null;
+  modelCode: string | null;
+  proposedReferences: { reference: string; designation: string }[];
 }
 
 export interface AnswerVerification {
@@ -66,17 +89,14 @@ interface VerifiedAnswer {
   response: string;
   products: any[];
   verification: AnswerVerification;
+  trace: AnswerTrace;
 }
 
 @Injectable()
-export class ChatOrchestratorService {
+export class ChatOrchestratorService implements OnModuleDestroy {
   private readonly logger = new Logger(ChatOrchestratorService.name);
-
-  // The local carPartNames list that used to live here was removed —
-  // isCarPart checks below now call synonymsService.isKnownAutomotiveTerm(),
-  // the same DB-backed check used by AIQueryNormalizerService and
-  // IntelligenceService (see synonyms.service.ts). This was one of three
-  // copies of the same list that could silently drift out of sync.
+  private adaptiveDecisionEngine?: AdaptiveDecisionEngine;
+  private readonly cleanupTimer: NodeJS.Timeout;
   constructor(
     private sessionService: SessionService,
     private clarificationService: ClarificationService,
@@ -88,25 +108,50 @@ export class ChatOrchestratorService {
     private aiNormalizer: AIQueryNormalizerService,
     private advancedSearch: AdvancedSearchService,
     private vehicleModels: VehicleModelsService,
-    private strictValidator: StrictValidatorService,
     private synonymsService: SynonymsService,
   ) {
-    setInterval(() => this.clarificationService.cleanup(), 300000);
+    this.cleanupTimer = setInterval(() => {
+      this.clarificationService.cleanup();
+      this.contextService.cleanup();
+    }, 300000);
   }
+
+  onModuleDestroy(): void {
+    clearInterval(this.cleanupTimer);
+  }
+
+  /**
+   * Every bot message carries the part currently in context (`metadata.part`).
+   * ContextService.get() reads it back after a restart, when the in-memory
+   * state is empty, so follow-ups like "et le stock ?" keep their part.
+   */
+  private async saveBot(
+    sessionId: string,
+    response: string,
+    metadata: Record<string, any> = {},
+  ): Promise<void> {
+    const part = this.contextService.getLastPart(sessionId);
+    await this.sessionService.saveBotResponse(
+      sessionId,
+      response,
+      part ? { ...metadata, part } : metadata,
+    );
+  }
+
   private formatStock(stock: any): {
     statut: string;
     totalQuantity: number;
     stockDisponible: number;
     stockConsolide: number;
-  } {
+  } | null {
+    // Unknown stock is not zero: never expose a fake "Indisponible".
+    if (!hasKnownStock(stock)) return null;
     const totalQuantity = Number(stock?.totalQuantity ?? stock?.total_quantity ?? 0);
     const stockDisponible = Number(stock?.stockDisponible ?? stock?.stock_disponible ?? 0);
-    const stockConsolide = Number(
-      stock?.stockConsolide ?? stock?.stock_consolide ?? 0,
-    );
+    const stockConsolide = Number(stock.stockConsolide ?? stock.stock_consolide);
 
     return {
-      statut: stockConsolide >= 2 ? 'Disponible' : 'Indisponible',
+      statut: isQuantityAvailable(stockConsolide) ? 'Disponible' : 'Indisponible',
       totalQuantity,
       stockDisponible,
       stockConsolide,
@@ -129,7 +174,7 @@ export class ChatOrchestratorService {
       searchDescription: p.searchDescription ?? p.search_description ?? null,
       reference:    p.reference,
       prixHt:       p.prixHt != null ? String(p.prixHt) : null,
-      prixTtc:      p.prixTtc != null ? String(p.prixTtc) : null,
+      prixTtc:      p.source === '01_PROD' && p.prixTtc != null ? String(p.prixTtc) : null,
       unite:        p.unite ?? null,
       categorie:    p.categorie ?? null,
       fabricant:        p.fabricant        ?? null,
@@ -202,33 +247,18 @@ export class ChatOrchestratorService {
     return filterPhrases.some((phrase) => lower.includes(phrase));
   }
 
-  private parseFilter(message: string): any {
-    const lower = message.toLowerCase();
-    if (/\b(arriere|arrière|ar)\b/.test(lower)) return { position: 'arrière' };
-    if (/\b(avant|av)\b/.test(lower))           return { position: 'avant' };
-    if (/\b(gauche|g)\b/.test(lower))           return { side: 'gauche' };
-    if (/\b(droite|d|droit)\b/.test(lower))     return { side: 'droite' };
-    return null;
+  private parseFilter(message: string): PositionRequest | null {
+    const requested = extractRequestedPositions(message);
+    return hasAnyPosition(requested) ? requested : null;
   }
 
   // FIX-3 + FIX-8: applyFilters checks BOTH text fields, French-priority
   private applyFilters(products: any[], filters: any[]): any[] {
     if (!filters || filters.length === 0) return products;
 
-    return products.filter((p) => {
-      // FIX-8: French-priority resolution instead of a merged blob
-      const { hasAvant, hasArriere, hasGauche, hasDroite } = this.getPositionFlags(p);
-
-      return filters.every((f) => {
-        if (f.position) {
-          return f.position === 'avant' ? hasAvant : hasArriere;
-        }
-        if (f.side) {
-          return f.side === 'gauche' ? hasGauche : hasDroite;
-        }
-        return true;
-      });
-    });
+    return products.filter((product) =>
+      filters.every((filter) => positionsSatisfy(filter, getCatalogPositions(product))),
+    );
   }
 
   private async answerFromVerifiedProducts(options: {
@@ -236,11 +266,24 @@ export class ChatOrchestratorService {
     interpretation: StructuredQueryInterpretation;
     vehicle: any;
     products: any[];
+    scope?: VehicleSearchScope | null;
+    constraint?: ConstraintOutcome | null;
+    identityMode?: ConstraintOutcome['identityMode'];
+    requireVehicleScope?: boolean;
     build: (shownProducts: any[]) => string;
     requireUnderstanding?: boolean;
     chooseProduct?: (products: any[]) => any;
   }): Promise<VerifiedAnswer> {
     const { message, interpretation, vehicle } = options;
+    let modelCode: string | null = null;
+    const buildTrace = (products: any[] = []): AnswerTrace => ({
+      identifiedPart: interpretation.catalogPart ?? null,
+      modelCode,
+      proposedReferences: products.slice(0, 5).map((product) => ({
+        reference: product.reference,
+        designation: this.getEffectiveText(product),
+      })),
+    });
     const noChecks: AnswerVerification['checks'] = {
       identity: 'not-applicable', position: 'not-applicable', qualifiers: 'not-applicable',
       vehicle: 'not-applicable', stockPrice: 'not-applicable',
@@ -249,7 +292,13 @@ export class ChatOrchestratorService {
       reasons: string[],
       partial: Partial<AnswerVerification> = {},
     ): VerifiedAnswer => {
-      this.logger.warn(`[VERIFY] Answer withheld: ${reasons.join(' | ') || 'unspecified'}`);
+      this.logger.warn(
+        `[VERIFY] Answer withheld: ${reasons.join(' | ') || 'unspecified'} || ` +
+        `catalogPart=${interpretation.catalogPart ?? 'null'} source=${interpretation.source ?? '?'} ` +
+        `confidence=${interpretation.confidence} normalized="${String(interpretation.normalized).slice(0, 120)}" ` +
+        `requestedPart="${options.constraint?.requestedPart ?? ''}" identityMode=${options.constraint?.identityMode ?? 'none'} ` +
+        `candidates=${options.products?.length ?? 0}`,
+      );
       return {
         accepted: false,
         response: this.responseService.buildSecurisationResponse(vehicle),
@@ -258,6 +307,7 @@ export class ChatOrchestratorService {
           compatibility: 'NON_VERIFIEE', checks: noChecks, reasons,
           aiAudit: 'skipped', aiFlags: { effective: [], ignored: [] }, ...partial,
         },
+        trace: buildTrace(),
       };
     };
 
@@ -270,42 +320,171 @@ export class ChatOrchestratorService {
       return true;
     });
     if (candidates.length === 0) return withheld(['no DB candidate']);
-    if (
-      options.requireUnderstanding !== false &&
-      (!Number.isFinite(interpretation.confidence) || interpretation.confidence < MIN_UNDERSTANDING_CONFIDENCE)
-    ) {
-      return withheld([`understanding confidence ${interpretation.confidence} < ${MIN_UNDERSTANDING_CONFIDENCE}`]);
-    }
-
-    const vehicleScoped = !!(
-      vehicle?.vin || vehicle?.vehicleNo || vehicle?.vehicle_no || vehicle?.modele ||
-      vehicle?.model || vehicle?.typeCode || vehicle?.type_code
+    const vinScoped = !!(
+      vehicle?.vin || vehicle?.VIN || vehicle?.numeroChassis || vehicle?.numChassis || vehicle?.chassis
     );
-    const compatibleTypeCodes = vehicleScoped
-      ? await this.advancedSearch.resolveVehicleTypeCodes(vehicle)
-      : [];
+    const vehicleScoped = !!(
+      vinScoped || vehicle?.vehicleNo || vehicle?.vehicle_no || vehicle?.numeroVehicule ||
+      vehicle?.modele || vehicle?.model || vehicle?.typeCode || vehicle?.type_code || vehicle?.type
+    );
+    const resolvedVehicleScope = options.scope !== undefined
+      ? options.scope
+      : vehicleScoped
+        ? await this.advancedSearch.resolveVehicleScope(vehicle)
+        : null;
+    const compatibleTypeCodes = resolvedVehicleScope?.typeCodes ?? [];
+    modelCode = resolvedVehicleScope?.primaryTypeCodes[0] ?? null;
+    const vehicleModelResolved = !vehicleScoped || (
+      compatibleTypeCodes.length > 0 &&
+      (!vinScoped || resolvedVehicleScope?.typeCodeSource !== 'model-map')
+    );
     const scope = { scoped: vehicleScoped, compatibleTypeCodes };
+    const constrainedPart = options.constraint?.requestedPart?.trim() ?? '';
+    const constrainedPartHead = constrainedPart.split(/\s+/)[0] || null;
+    const verifierInterpretation: VerifierInterpretation = {
+      catalogPart: interpretation.catalogPart || constrainedPartHead,
+      catalogAliases: [...new Set([
+        ...(interpretation.catalogAliases ?? []),
+        ...(constrainedPart ? [constrainedPart] : []),
+        ...(constrainedPartHead ? [constrainedPartHead] : []),
+      ])],
+      positions: this.toPositionRequest(interpretation.positions),
+      qualifiers: interpretation.qualifiers ?? [],
+      identityMode: options.constraint?.identityMode ?? options.identityMode,
+    };
     const checked = candidates.map((product) => ({
       product,
-      verification: verifyProductAgainstCatalog(product, interpretation, scope),
+      verification: verifyProductAgainstCatalog(product, verifierInterpretation, scope),
     }));
-    const verifiedCandidates = checked.filter(({ verification }) => verification.verified);
-    if (verifiedCandidates.length === 0) {
-      const reasons = checked.flatMap(({ verification }) => verification.issues);
-      const compatibility = checked.some(({ verification }) => verification.vehicle === 'failed')
-        ? 'NON_CONFORME'
-        : 'NON_VERIFIEE';
-      return withheld(reasons.length ? reasons : ['no candidate passed DB verification'], { compatibility });
+
+    const hasConfirmedQualifierSibling = checked.some(
+      ({ verification }) =>
+        verification.identity === 'confirmed' &&
+        verification.qualifiers === 'confirmed' &&
+        (verification.vehicle === 'confirmed' || verification.vehicle === 'not-applicable'),
+    );
+    if (hasConfirmedQualifierSibling) {
+      for (const { verification } of checked) {
+        if (
+          verification.identity !== 'confirmed' ||
+          (verification.vehicle !== 'confirmed' && verification.vehicle !== 'not-applicable') ||
+          verification.qualifiers !== 'unverifiable'
+        ) continue;
+        verification.qualifiers = 'failed';
+        verification.verified = false;
+        verification.issues.push('qualifiers: a sibling article confirms the requested qualifier, but this article does not');
+      }
+    }
+    const requestedModel = this.vehicleModels?.normalize?.(vehicle?.modele ?? vehicle?.model);
+    if (requestedModel) {
+      for (const candidate of checked) {
+        const hasFitmentEvidence = (candidate.product.fitments ?? []).some((fitment: any) => fitment?.typeCode);
+        if (hasFitmentEvidence) continue;
+
+        const designation = [candidate.product.designation2, candidate.product.designation_2, candidate.product.designation]
+          .filter(Boolean)
+          .join(' ');
+        if (
+          this.vehicleModels.hasModelInDesignation(designation) &&
+          !this.vehicleModels.matchesModel(designation, requestedModel)
+        ) {
+          candidate.verification.vehicle = 'failed';
+          candidate.verification.verified = false;
+          candidate.verification.issues.push('vehicle: designation identifies a different model and no fitment row is available');
+        }
+      }
+    }
+    const decisionEngine = this.adaptiveDecisionEngine ??= new AdaptiveDecisionEngine();
+    const candidateDecision = (product: any, verification: ProductVerification) => decisionEngine.evaluate({
+      requireUnderstanding: options.requireUnderstanding ?? true,
+      allowLowUnderstandingToJudge: false,
+      requireVehicleScope: options.requireVehicleScope ?? false,
+      query: message,
+      vehicle,
+      selectedProduct: product,
+      interpretation,
+      vehicleModelResolved,
+      deterministicChecks: {
+        identity: verification.identity,
+        position: verification.position,
+        qualifiers: verification.qualifiers,
+        vehicle: verification.vehicle,
+        stockPrice: 'not-applicable',
+      },
+      aiFlags: [],
+      constraintOutcome: options.constraint ?? null,
+      unresolvedClarification: false,
+    });
+    const eligibleCandidates = checked.filter(({ product, verification }) =>
+      candidateDecision(product, verification).allowed,
+    );
+    if (eligibleCandidates.length === 0) {
+      const rejected = checked[0];
+      const decision = candidateDecision(rejected.product, rejected.verification);
+      const reasons = [...decision.reasons, ...rejected.verification.issues];
+      const compatibility = rejected.verification.vehicle === 'failed' ? 'NON_CONFORME' : 'NON_VERIFIEE';
+      return withheld(reasons.length ? reasons : ['no candidate passed adaptive verification'], {
+        compatibility,
+        checks: {
+          identity: rejected.verification.identity,
+          position: rejected.verification.position,
+          qualifiers: rejected.verification.qualifiers,
+          vehicle: rejected.verification.vehicle,
+          stockPrice: 'not-applicable',
+        },
+        reasons,
+        aiFlags: decision.aiFlags,
+      });
     }
 
-    const eligible = verifiedCandidates.map(({ product }) => product);
-    const primary = options.chooseProduct?.(eligible) ?? this.responseService.selectPrimaryProduct(eligible) ?? eligible[0];
-    const primaryVerification = verifiedCandidates.find(({ product }) => product === primary)?.verification
-      ?? verifiedCandidates[0].verification;
-    // The response and returned product card must describe the same one DB row.
+    const confirmedChecks = (verification: ProductVerification) =>
+      [verification.identity, verification.position, verification.qualifiers, verification.vehicle]
+        .filter((status) => status === 'confirmed').length;
+        // The search score already prefers in-stock rows, but only among equally relevant ones.
+    const rankedCandidates = [...eligibleCandidates].sort((a, b) =>
+      confirmedChecks(b.verification) - confirmedChecks(a.verification) ||
+      (b.product.score ?? 0) - (a.product.score ?? 0),
+    );
+    const primary = options.chooseProduct?.(rankedCandidates.map(({ product }) => product)) ?? rankedCandidates[0].product;
+    const primaryVerification = rankedCandidates.find(({ product }) => product === primary)?.verification
+      ?? rankedCandidates[0].verification;
+    // CarPro rule: availability must never be stated or implied without a
+    // consolidated stock value. No stock row = redirect to the Comptoir.
+    if (!hasKnownStock(primary.stock ?? primary)) {
+      return withheld(['stock unknown: no consolidated stock value for the proposed article'], {
+        compatibility: primaryVerification.vehicle === 'confirmed' ? 'CONFIRMEE'
+          : primaryVerification.vehicle === 'failed' ? 'NON_CONFORME' : 'NON_VERIFIEE',
+        checks: {
+          identity: primaryVerification.identity,
+          position: primaryVerification.position,
+          qualifiers: primaryVerification.qualifiers,
+          vehicle: primaryVerification.vehicle,
+          stockPrice: 'not-applicable',
+        },
+      });
+    }
     const shownProducts = [primary];
     const response = options.build(shownProducts);
     const responseCheck = checkResponseAgainstCatalog(response, shownProducts);
+    const decisionInput = {
+      requireUnderstanding: options.requireUnderstanding ?? true,
+      allowLowUnderstandingToJudge: false,
+      requireVehicleScope: options.requireVehicleScope ?? false,
+      query: message,
+      vehicle,
+      selectedProduct: primary,
+      interpretation,
+      vehicleModelResolved,
+      deterministicChecks: {
+        identity: primaryVerification.identity,
+        position: primaryVerification.position,
+        qualifiers: primaryVerification.qualifiers,
+        vehicle: primaryVerification.vehicle,
+        stockPrice: responseCheck.status,
+      },
+      constraintOutcome: options.constraint ?? null,
+      unresolvedClarification: false,
+    };
     const verificationFor = (
       aiAudit: AnswerVerification['aiAudit'],
       reasons: string[],
@@ -323,8 +502,10 @@ export class ChatOrchestratorService {
       },
       reasons, aiAudit, aiFlags,
     });
-    if (responseCheck.status === 'failed') {
-      return withheld(responseCheck.issues, verificationFor('skipped', responseCheck.issues, { effective: [], ignored: [] }, 'failed'));
+    const baseDecision = decisionEngine.evaluate({ ...decisionInput, aiFlags: [] });
+    if (!baseDecision.allowed) {
+      const reasons = responseCheck.status === 'failed' ? responseCheck.issues : baseDecision.reasons;
+      return withheld(reasons, verificationFor('skipped', reasons, baseDecision.aiFlags, responseCheck.status));
     }
 
     const aiAudit = await this.flagInconsistencies(
@@ -338,26 +519,75 @@ export class ChatOrchestratorService {
       })),
       compatibleTypeCodes,
     );
-    const decision = decideAfterAiFlags(
-      [{ ...primaryVerification, stockPrice: responseCheck.status }],
-      aiAudit.flags,
-    );
-    if (decision.ignored.length) {
-      this.logger.log(`[AI-FLAGS] Ignored because DB checks settled them: ${JSON.stringify(decision.ignored)}`);
+    const adaptiveDecision = decisionEngine.evaluate({
+      ...decisionInput,
+      aiJudgeAvailable: aiAudit.status === 'ran',
+      aiFlags: aiAudit.flags,
+    });
+    if (adaptiveDecision.aiFlags.ignored.length) {
+      this.logger.log(`[AI-FLAGS] Ignored because DB checks settled them: ${JSON.stringify(adaptiveDecision.aiFlags.ignored)}`);
     }
-    if (!decision.accept) {
-      const reasons = decision.effective.map((flag) =>
-        `AI ${flag.type}${flag.reference ? ` ${flag.reference}` : ''}: ${flag.detail ?? 'possible inconsistency'}`,
+
+    if (!adaptiveDecision.allowed) {
+      return withheld(
+        adaptiveDecision.reasons,
+        verificationFor(aiAudit.status, adaptiveDecision.reasons, adaptiveDecision.aiFlags, responseCheck.status),
       );
-      return withheld(reasons, verificationFor(aiAudit.status, reasons, decision, responseCheck.status));
     }
 
     return {
       accepted: true,
       response,
       products: shownProducts,
-      verification: verificationFor(aiAudit.status, [], decision, responseCheck.status),
+      verification: verificationFor(aiAudit.status, [], adaptiveDecision.aiFlags, responseCheck.status),
+        trace: buildTrace(shownProducts),
     };
+  }
+
+  private toPositionRequest(positions?: Partial<PositionRequest> | null): PositionRequest {
+    return {
+      axes: [...(positions?.axes ?? [])],
+      sides: [...(positions?.sides ?? [])],
+      levels: [...(positions?.levels ?? [])],
+    };
+  }
+
+  private hasExplicitPartConcept(message: string): boolean {
+    const tunisianMap = this.synonymsService.getTunisianMap?.() ?? {};
+    const normalizedLookup = this.synonymsService.getNormalizedLookup?.() ?? {};
+    const stopWords = this.synonymsService.getStopWords?.() ?? new Set<string>();
+
+    return tokenizeName(message).some((rawToken) => {
+      const token = normalizeForMatch(rawToken);
+      const translated = normalizeForMatch(tunisianMap[token] ?? token);
+      const canonical = normalizeForMatch(normalizedLookup[translated] ?? translated);
+      if (stopWords.has(token) || isFillerToken(canonical) || isPositionToken(canonical) || isColorToken(canonical)) {
+        return false;
+      }
+      return this.synonymsService.isKnownAutomotiveTerm(translated) ||
+        this.synonymsService.isKnownAutomotiveTerm(canonical);
+    });
+  }
+
+  /** Whether the request carries a vehicle at all, and whether a VIN is among its identifiers. */
+  private vehicleIdentity(vehicle: any): { scoped: boolean; vinScoped: boolean } {
+    const vinScoped = !!(
+      vehicle?.vin || vehicle?.VIN || vehicle?.numeroChassis || vehicle?.numChassis || vehicle?.chassis
+    );
+    const scoped = vinScoped || !!(
+      vehicle?.vehicleNo || vehicle?.vehicle_no || vehicle?.numeroVehicule ||
+      vehicle?.modele || vehicle?.model || vehicle?.typeCode || vehicle?.type_code || vehicle?.type
+    );
+    return { scoped, vinScoped };
+  }
+
+  private restrictToCompatibleCandidates<T extends { reference?: string }>(
+    products: T[],
+    compatibleCandidates?: CompatiblePartCandidate[],
+  ): T[] {
+    if (compatibleCandidates === undefined) return products;
+    const allowed = new Set(compatibleCandidates.map((candidate) => candidate.reference.trim().toUpperCase()));
+    return products.filter((product) => allowed.has(String(product.reference ?? '').trim().toUpperCase()));
   }
 
   private async flagInconsistencies(
@@ -368,17 +598,17 @@ export class ChatOrchestratorService {
     rows: { product: any; verification: ProductVerification }[],
     compatibleTypeCodes: string[],
   ): Promise<{ status: 'ran' | 'unavailable'; flags: AiFlag[] }> {
-    const systemPrompt = `You are a read-only inconsistency detector for a Suzuki parts chatbot. The supplied database rows are the only source of product facts. You cannot approve answers, select or suggest references, confirm vehicle compatibility, override deterministic checks, or write customer-facing text. Compare the customer request and structured interpretation with the shown DB designation and proposed response. Return only concrete suspected semantic inconsistencies. The application will decide using deterministic code; your flags are advisory and may only trigger a more cautious response when deterministic evidence is genuinely inconclusive.
+    const systemPrompt = `You are a read-only inconsistency detector for a Suzuki parts chatbot. The supplied database rows are the only source of product facts. You cannot approve answers, select or suggest references, confirm vehicle compatibility, override deterministic checks, or write customer-facing text. Compare the customer request and structured interpretation with the shown DB designation and proposed response. Ignore color words and color differences; color is cosmetic and is not a search constraint. Return only concrete suspected semantic inconsistencies. The application will decide using deterministic code; your flags are advisory and may only trigger a more cautious response when deterministic evidence is genuinely inconclusive.
 Allowed flag types: PART_IDENTITY, POSITION, QUALIFIER, VEHICLE, PRICE_STOCK. Never flag a fact already confirmed by deterministicChecks. A reference must exactly match one of the supplied DB rows. Return only JSON: {"flags":[{"type":"PART_IDENTITY|POSITION|QUALIFIER|VEHICLE|PRICE_STOCK","reference":"DB reference","detail":"short reason"}]}. Return an empty flags array if there is no concrete concern.`;
     const payload = {
-      customerMessage: message.replace(/\b[A-HJ-NPR-Z0-9]{17}\b/gi, '[VIN]'),
+      customerMessage: stripColorTokens(message).replace(/\b[A-HJ-NPR-Z0-9]{17}\b/gi, '[VIN]'),
       interpretation: {
-        normalized: interpretation.normalized,
+        normalized: stripColorTokens(interpretation.normalized),
         intent: interpretation.intent,
         catalogPart: interpretation.catalogPart,
         catalogAliases: interpretation.catalogAliases ?? [],
         positions: interpretation.positions,
-        qualifiers: interpretation.qualifiers,
+        qualifiers: (interpretation.qualifiers ?? []).map(stripColorTokens).filter(Boolean),
         uncertainty: interpretation.uncertainty,
       },
       vehicle: {
@@ -388,10 +618,10 @@ Allowed flag types: PART_IDENTITY, POSITION, QUALIFIER, VEHICLE, PRICE_STOCK. Ne
       },
       databaseRows: rows.map(({ product, verification }) => ({
         reference: product.reference,
-        frenchName: product.designation2 ?? product.designation_2 ?? null,
-        englishName: product.designation ?? null,
+        frenchName: stripColorTokens(product.designation2 ?? product.designation_2 ?? ''),
+        englishName: stripColorTokens(product.designation ?? ''),
         fitmentTypeCodes: (product.fitments ?? []).map((fitment: any) => fitment.typeCode).filter(Boolean),
-        publicPriceTtc: product.prixTtc ?? product.prix_ttc ?? null,
+        publicPriceTtc: publicPrice(product),
         consolidatedStock: product.stock?.stockConsolide ?? product.stock?.stock_consolide ?? null,
         deterministicChecks: {
           identity: verification.identity,
@@ -401,7 +631,7 @@ Allowed flag types: PART_IDENTITY, POSITION, QUALIFIER, VEHICLE, PRICE_STOCK. Ne
           stockPrice: verification.stockPrice,
         },
       })),
-      proposedResponse: response,
+      proposedResponse: stripColorTokens(response),
     };
 
     let timeout: ReturnType<typeof setTimeout> | undefined;
@@ -430,60 +660,114 @@ Allowed flag types: PART_IDENTITY, POSITION, QUALIFIER, VEHICLE, PRICE_STOCK. Ne
     }
   }
 
-  private async enrichClarifiedInterpretation(
-    interpretation: StructuredQueryInterpretation,
-    query: string,
-  ): Promise<StructuredQueryInterpretation> {
-    const normalizedQuery = normalizeForMatch(query);
-    for (const [canonical, variants] of Object.entries(this.synonymsService.getInterpretationCandidates())) {
-      const aliases = [...new Set([canonical, ...variants])];
-      const hasAlias = aliases.some((alias) => {
-        const normalizedAlias = normalizeForMatch(alias);
-        if (` ${normalizedQuery} `.includes(` ${normalizedAlias} `)) return true;
-        const compactAlias = normalizedAlias.replace(/[\s/-]+/g, '');
-        return compactAlias.length >= 4 && normalizedQuery.replace(/[\s/-]+/g, '').includes(compactAlias);
-      });
-      if (hasAlias && await this.synonymsService.hasCatalogDesignationConcept(canonical, aliases)) {
-        return {
-          ...interpretation,
-          normalized: query,
-          catalogPart: interpretation.catalogPart ?? canonical,
-          catalogAliases: interpretation.catalogAliases?.length ? interpretation.catalogAliases : variants,
-          positions: extractRequestedPositions(query),
-        };
-      }
-    }
-    return { ...interpretation, normalized: query, positions: extractRequestedPositions(query) };
-  }
-
   // ─────────────────────────────────────────────────────────────────
   // MAIN processMessage
   // ─────────────────────────────────────────────────────────────────
   async processMessage(
-    message: string,
+    rawMessage: string,
     vehicle?: any,
     sessionId?: string,
   ): Promise<ProcessMessageResponse> {
     const startTime = Date.now();
+    // Repair typos first: the preflight search, follow-up detection and AI all see the corrected words.
+    const message = await this.aiNormalizer.repairTypos(rawMessage, vehicle);
 
-    // 0. Load the latest conversation turns before normalization so the
-    // AI can resolve short elliptical follow-ups without guessing from
-    // stale or unrelated session state.
+    // Resolve context and vehicle-compatible candidates before interpretation.
     const session = await this.sessionService.getOrCreate(sessionId, vehicle);
     const previousHistory = await this.sessionService.getHistory(session.id);
+    const context = await this.contextService.get(session.id);
+    const conversationHistory = previousHistory;
+    const lastPartFromContext = this.contextService.getLastPart(session.id) ?? context.lastPart;
+    const pendingClarification = this.clarificationService.getPending(session.id);
+    const isRawClarificationAnswer = !!pendingClarification &&
+      this.clarificationService.isAnswer(message, pendingClarification);
+    const lastQuery = this.contextService.getLastQuery(session.id);
+    const preflightQuery = isRawClarificationAnswer
+      ? `${pendingClarification.originalQuery} ${message}`.trim()
+      : this.isFilterOperation(message) && lastQuery
+        ? lastQuery
+        : this.contextService.buildSearchQuery(
+            message,
+            context,
+            this.hasExplicitPartConcept(message),
+          );
+    const preflightSearch = await this.searchService.searchWithDiagnostics(
+      preflightQuery,
+      vehicle,
+      { validate: false },
+    );
+    const isReferenceRequest = this.searchService.isReferenceQuery(message);
+    const compatibleCandidates: CompatiblePartCandidate[] | undefined = isReferenceRequest
+      ? undefined
+      : preflightSearch.scope?.active
+        ? preflightSearch.products.map((product) => ({
+            reference: product.reference,
+            designation: product.designation2 || product.designation || product.reference,
+          }))
+        : [];
+    const userMessageId = await this.sessionService.saveUserMessage(session.id, rawMessage);
 
-    // 1. AI-powered normalization (context is used only for clear elliptical follow-ups)
-    const normalized = await this.aiNormalizer.normalizeQuery(message, previousHistory, vehicle);
+    const hasVehiclePartRequest = !isReferenceRequest && (
+      this.synonymsService.isKnownAutomotiveTerm(preflightQuery) ||
+      preflightSearch.products.length > 0 ||
+      isRawClarificationAnswer
+    );
+    const { scoped: preflightScoped, vinScoped: preflightVinScoped } = this.vehicleIdentity(vehicle);
+    const preflightGateReasons: string[] = [];
+    if (hasVehiclePartRequest && !preflightScoped) {
+      preflightGateReasons.push('vehicle scope missing: compatibility cannot be confirmed');
+    } else if (hasVehiclePartRequest && !preflightSearch.scope?.active) {
+      preflightGateReasons.push(
+        preflightVinScoped ? 'model code missing for VIN-scoped request' : 'vehicle compatibility not verified',
+      );
+    } else if (
+      hasVehiclePartRequest && preflightVinScoped &&
+      preflightSearch.scope?.typeCodeSource === 'model-map'
+    ) {
+      preflightGateReasons.push('model code inferred from the model name only, not from the VIN');
+    }
+    if (preflightGateReasons.length > 0) {
+      const response = this.responseService.buildSecurisationResponse(vehicle);
+      await this.saveBot(session.id, response, { intent: 'SECURISATION' });
+      return {
+        response,
+        sessionId: session.id,
+        products: [],
+        confidence: 'LOW',
+        intent: 'SECURISATION',
+        metadata: {
+          productsFound: 0,
+          conversationLength: conversationHistory.length,
+          queryClarity: 0,
+          userMessageId,
+          redirectedToCounter: true,
+          verification: {
+            compatibility: 'NON_VERIFIEE',
+            checks: {
+              identity: 'not-applicable',
+              position: 'not-applicable',
+              qualifiers: 'not-applicable',
+              vehicle: 'unverifiable',
+              stockPrice: 'not-applicable',
+            },
+            reasons: preflightGateReasons,
+            aiAudit: 'skipped',
+            aiFlags: { effective: [], ignored: [] },
+          },
+        },
+      };
+    }
+
+    // Interpret only within the designations returned by the vehicle-filtered search.
+    const normalized = await this.aiNormalizer.normalizeQuery(
+      message,
+      previousHistory,
+      vehicle,
+      compatibleCandidates,
+    );
     const processedMessage = normalized.normalized;
     const safeLog = (s: string) => s.replace(/[\r\n\t]/g, ' ').slice(0, 200);
     this.logger.log(`Original: "${safeLog(message)}" → Normalized: "${safeLog(processedMessage)}"`);
-
-    const userMessageId = await this.sessionService.saveUserMessage(session.id, message);
-    this.contextService.invalidateCache(session.id);
-
-    // 2. Get context
-    const context             = await this.contextService.get(session.id);
-    const conversationHistory = await this.sessionService.getHistory(session.id);
 
     // Handle greetings / thanks
     if (normalized.isGreeting || normalized.isThanks) {
@@ -494,7 +778,7 @@ Allowed flag types: PART_IDENTITY, POSITION, QUALIFIER, VEHICLE, PRICE_STOCK. Ne
         const response = normalized.isGreeting
           ? this.responseService.buildGreetingResponse()
           : this.responseService.buildThanksResponse();
-        await this.sessionService.saveBotResponse(session.id, response, {
+        await this.saveBot(session.id, response, {
           intent: normalized.isGreeting ? 'GREETING' : 'THANKS',
         });
         return {
@@ -509,7 +793,7 @@ Allowed flag types: PART_IDENTITY, POSITION, QUALIFIER, VEHICLE, PRICE_STOCK. Ne
     }
 
     // Model mismatch blocking
-    const vehicleModel   = this.vehicleModels.normalize(vehicle?.modele);
+    const vehicleModel   = this.vehicleModels?.normalize?.(vehicle?.modele);
     const requestedModel = this.vehicleModels.detectModelInText(processedMessage);
     const isCarPartQuery = this.synonymsService.isKnownAutomotiveTerm(processedMessage);
     const isPriceOrAvailabilityQuery =
@@ -519,7 +803,7 @@ Allowed flag types: PART_IDENTITY, POSITION, QUALIFIER, VEHICLE, PRICE_STOCK. Ne
 
     if (!isPriceOrAvailabilityQuery && vehicleModel && requestedModel && vehicleModel !== requestedModel) {
       const response = this.responseService.buildModelMismatchResponse(vehicleModel, requestedModel);
-      await this.sessionService.saveBotResponse(session.id, response, { intent: 'MODEL_MISMATCH' });
+      await this.saveBot(session.id, response, { intent: 'MODEL_MISMATCH' });
       return {
         response,
         sessionId:  session.id,
@@ -535,7 +819,7 @@ Allowed flag types: PART_IDENTITY, POSITION, QUALIFIER, VEHICLE, PRICE_STOCK. Ne
       const lastQuery = this.contextService.getLastQuery(session.id);
       if (!lastQuery) {
         const response = this.responseService.buildNoContextFilterResponse();
-        await this.sessionService.saveBotResponse(session.id, response, { intent: 'FILTER_NO_CONTEXT' });
+        await this.saveBot(session.id, response, { intent: 'FILTER_NO_CONTEXT' });
         return {
           response,
           sessionId:  session.id,
@@ -549,31 +833,37 @@ Allowed flag types: PART_IDENTITY, POSITION, QUALIFIER, VEHICLE, PRICE_STOCK. Ne
       const filter = this.parseFilter(processedMessage);
       if (filter) this.contextService.addFilter(session.id, filter);
 
-      let products = await this.searchService.search(lastQuery, vehicle);
-      products = this.strictValidator.validateResults(products, lastQuery, context);
-      products = this.filterByVehicleModel(products, vehicle);
+      const filterSearch = await this.searchService.searchWithDiagnostics(lastQuery, vehicle);
+      let products = this.restrictToCompatibleCandidates(filterSearch.products, compatibleCandidates);
 
       const activeFilters     = this.contextService.getActiveFilters(session.id);
       const filteredProducts  = this.applyFilters(products, activeFilters);
 
-      let response = this.responseService.buildFilteredResponse(filteredProducts, lastQuery, vehicle);
+      let response = this.responseService.buildFilteredResponse(filteredProducts, vehicle);
       let productsToReturn: any[] = [];
       let filterIntent = 'FILTER_APPLIED';
       let filterVerification: AnswerVerification | undefined;
+      let filterTrace: AnswerTrace | undefined;
       if (filteredProducts.length > 0) {
         const checked = await this.answerFromVerifiedProducts({
           message,
           interpretation: normalized,
           vehicle,
           products: filteredProducts,
-          build: (shown) => this.responseService.buildFilteredResponse(shown, lastQuery, vehicle),
+          scope: filterSearch.scope,
+          constraint: filterSearch.constraint,
+          identityMode: filterSearch.constraint?.identityMode,
+          requireVehicleScope: true,
+          requireUnderstanding: false,
+          build: (shown) => this.responseService.buildFilteredResponse(shown, vehicle),
         });
         response = checked.response;
         filterVerification = checked.verification;
+        filterTrace = checked.trace;
         if (checked.accepted) productsToReturn = checked.products.map((product) => this.mapProductForResponse(product));
         else filterIntent = 'SECURISATION';
       }
-      await this.sessionService.saveBotResponse(session.id, response, {
+      await this.saveBot(session.id, response, {
         intent: filterIntent,
         productsFound: productsToReturn.length,
       });
@@ -583,12 +873,11 @@ Allowed flag types: PART_IDENTITY, POSITION, QUALIFIER, VEHICLE, PRICE_STOCK. Ne
         products:   productsToReturn,
         confidence: 'HIGH',
         intent:     filterIntent,
-        metadata:   { productsFound: filteredProducts.length, conversationLength: conversationHistory.length, queryClarity: 0, verification: filterVerification },
+        metadata:   { productsFound: filteredProducts.length, conversationLength: conversationHistory.length, queryClarity: 0, verification: filterVerification, trace: filterTrace, redirectedToCounter: filterIntent === 'SECURISATION' },
       };
     }
 
     // 4. Clarification answer handling
-    const pendingClarification = this.clarificationService.getPending(session.id);
     const isPendingClarificationAnswer =
       !!pendingClarification && this.clarificationService.isAnswer(processedMessage, pendingClarification);
     if (pendingClarification && !isPendingClarificationAnswer) {
@@ -597,7 +886,7 @@ Allowed flag types: PART_IDENTITY, POSITION, QUALIFIER, VEHICLE, PRICE_STOCK. Ne
     }
 
     if (pendingClarification && isPendingClarificationAnswer) {
-      const partName = this.clarificationService.extractPartName(pendingClarification.originalQuery);
+      const partName = this.extractPartName(pendingClarification.originalQuery);
       this.logger.log(`Clarification answer: "${processedMessage}" for original: "${pendingClarification.originalQuery}"`);
 
       const isPositionAnswer = /^\s*(avant|arriere|arrière|av|ar|gauche|droite|g|d|droit|gosh)\s*(avant|arriere|arrière|av|ar|gauche|droite|g|d|droit|gosh)?\s*$/i.test(message.trim());
@@ -608,14 +897,12 @@ Allowed flag types: PART_IDENTITY, POSITION, QUALIFIER, VEHICLE, PRICE_STOCK. Ne
         this.logger.log(`TYPE clarification — re-searching clarified request: "${enrichedQuery}"`);
       }
       const clarifiedSearch = await this.searchService.searchWithDiagnostics(enrichedQuery, vehicle);
-      let products: any[] = clarifiedSearch.products;
+      let products: any[] = this.restrictToCompatibleCandidates(clarifiedSearch.products, compatibleCandidates);
       const clarifiedConstraint: ConstraintOutcome | null = clarifiedSearch.constraint;
 
       this.clarificationService.clearPending(session.id);
-      this.contextService.setLastPart(session.id, partName);
+      if (partName) this.contextService.setLastPart(session.id, partName);
 
-      products = this.strictValidator.validateResults(products, enrichedQuery, context);
-      products = this.filterByVehicleModel(products, vehicle);
 
       // A type clarification is a hard constraint on the selected variant.
       // Match the answer against catalog words so "Base" cannot fall back to
@@ -667,7 +954,7 @@ Allowed flag types: PART_IDENTITY, POSITION, QUALIFIER, VEHICLE, PRICE_STOCK. Ne
       if (clarificationCheck.needed) {
         const response = this.clarificationService.buildQuestion(partName, clarificationCheck.variants, clarificationCheck.dimension);
         this.clarificationService.setPending(session.id, enrichedQuery, clarificationCheck.dimension, products);
-        await this.sessionService.saveBotResponse(session.id, response, { intent: 'CLARIFICATION_NEEDED' });
+        await this.saveBot(session.id, response, { intent: 'CLARIFICATION_NEEDED' });
         return {
           response,
           sessionId:  session.id,
@@ -685,57 +972,55 @@ Allowed flag types: PART_IDENTITY, POSITION, QUALIFIER, VEHICLE, PRICE_STOCK. Ne
         // happened to sort into index 0 of the raw array.
         const primaryProduct = this.responseService.selectPrimaryProduct(products);
 
-        // FIX (confidence gate, email CarPro 2026-09-25): a clarification
-        // answer narrows candidates but does not by itself guarantee
-        // vehicle compatibility or a resolved model code — re-check
-        // before committing to a confident answer here too.
-        const securisationCheck = evaluateResponseConfidence({
-          vehicle,
-          vehicleModelResolved:    !!this.vehicleModels.normalize(vehicle?.modele),
-          selectedProduct:         primaryProduct,
-          understandingConfidence: normalized.confidence,
-          unresolvedClarification: false,
-          constraintOutcome:       clarifiedConstraint,
-        });
-
         let response = this.responseService.buildSecurisationResponse(vehicle);
         let resolvedIntent = 'SECURISATION';
         let productToReturn: any = null;
         let clarifiedVerification: AnswerVerification | undefined;
-        if (securisationCheck.secure && primaryProduct) {
-          const clarificationInterpretation = await this.enrichClarifiedInterpretation(normalized, enrichedQuery);
+        let clarifiedTrace: AnswerTrace | undefined;
+        if (primaryProduct) {
+          const clarificationInterpretation = await this.aiNormalizer.normalizeQuery(
+            enrichedQuery,
+            conversationHistory,
+            vehicle,
+            compatibleCandidates,
+          );
           const checked = await this.answerFromVerifiedProducts({
             message,
             interpretation: clarificationInterpretation,
             vehicle,
             products,
-            build: (shown) => this.responseService.buildProductResponse(shown, enrichedQuery, vehicle),
+            scope: clarifiedSearch.scope,
+            constraint: clarifiedConstraint,
+            identityMode: clarifiedConstraint?.identityMode,
+            requireVehicleScope: true,
+            build: (shown) => this.responseService.buildProductResponse(shown, vehicle),
           });
           response = checked.response;
           clarifiedVerification = checked.verification;
+          clarifiedTrace = checked.trace;
           if (checked.accepted) {
             productToReturn = this.mapProductForResponse(checked.products[0]);
             resolvedIntent = 'PARTS_SEARCH';
           }
         }
-        if (!securisationCheck.secure) {
-          this.logger.log(`[SECURISATION] Clarified answer withheld (${securisationCheck.reasons.join(', ')})`);
+        if (!productToReturn) {
+          this.logger.log('[SECURISATION] Clarified answer withheld by catalog verification');
         }
 
-        await this.sessionService.saveBotResponse(session.id, response, { intent: resolvedIntent, productsFound: productToReturn ? 1 : 0 });
+        await this.saveBot(session.id, response, { intent: resolvedIntent, productsFound: productToReturn ? 1 : 0 });
         return {
           response,
           sessionId:  session.id,
           products:   productToReturn ? [productToReturn] : [],
           confidence: productToReturn ? 'HIGH' : 'LOW',
           intent:     resolvedIntent,
-          metadata:   { productsFound: products.length, conversationLength: conversationHistory.length, queryClarity: 10, duration: Date.now() - startTime, verification: clarifiedVerification },
+          metadata:   { productsFound: products.length, conversationLength: conversationHistory.length, queryClarity: 10, duration: Date.now() - startTime, verification: clarifiedVerification, trace: clarifiedTrace, redirectedToCounter: resolvedIntent === 'SECURISATION' },
         };
       } else {
         const response = clarifiedConstraint?.noExactMatch
           ? this.responseService.buildNoExactMatchResponse(clarifiedConstraint, vehicle)
-          : this.responseService.buildNoResultsResponse(enrichedQuery, vehicle);
-        await this.sessionService.saveBotResponse(session.id, response, { intent: 'NO_RESULTS' });
+          : this.responseService.buildNoResultsResponse(vehicle);
+        await this.saveBot(session.id, response, { intent: 'NO_RESULTS' });
         return {
           response,
           sessionId:  session.id,
@@ -768,7 +1053,7 @@ Allowed flag types: PART_IDENTITY, POSITION, QUALIFIER, VEHICLE, PRICE_STOCK. Ne
         const response = intent.type === 'GREETING'
           ? this.responseService.buildGreetingResponse()
           : this.responseService.buildThanksResponse();
-        await this.sessionService.saveBotResponse(session.id, response, { intent: intent.type });
+        await this.saveBot(session.id, response, { intent: intent.type });
         return {
           response,
           sessionId:  session.id,
@@ -781,10 +1066,13 @@ Allowed flag types: PART_IDENTITY, POSITION, QUALIFIER, VEHICLE, PRICE_STOCK. Ne
     }
 
     // Diagnostic redirect
-    const isDiagnostic = normalized.intent === 'DIAGNOSTIC' || /\b(ne\s+d[eé]marre\s+pas|ne\s+fonctionne\s+pas|bruit|fuite|probleme|problème|panne|defectueux|cass[eé]|voyant|vibration|surchauffe|entretien|maintenance|bizarre|t9allek|ralenti|saccade|perte.*puissance|voiture.*mort|moteur.*fum[eé]e|démarre|démarre pas|démarrer|ne démarre|ne part pas|ne s'allume|caler|cale)\b/i.test(processedMessage);
+    const isDiagnostic = normalized.intent === 'DIAGNOSTIC' || (
+      !this.synonymsService.isKnownAutomotiveTerm(processedMessage) &&
+      /\b(ne\s+d[eé]marre\s+pas|ne\s+fonctionne\s+pas|bruit|fuite|probleme|problème|panne|defectueux|cass[eé]|voyant|vibration|surchauffe|entretien|maintenance|bizarre|t9allek|ralenti|saccade|perte.*puissance|voiture.*mort|moteur.*fum[eé]e|démarre|démarre pas|démarrer|ne démarre|ne part pas|ne s'allume|caler|cale)\b/i.test(processedMessage)
+    );
     if (isDiagnostic) {
       const response = this.responseService.buildDiagnosticRedirectResponse();
-      await this.sessionService.saveBotResponse(session.id, response, { intent: 'DIAGNOSTIC_REDIRECT' });
+      await this.saveBot(session.id, response, { intent: 'DIAGNOSTIC_REDIRECT' });
       return {
         response,
         sessionId:  session.id,
@@ -796,65 +1084,66 @@ Allowed flag types: PART_IDENTITY, POSITION, QUALIFIER, VEHICLE, PRICE_STOCK. Ne
     }
 
     // Stock check with context
-    if (intent.type === 'STOCK_CHECK' && context.lastPart) {
-      const availabilityQuery = `${context.lastPart} ${vehicle?.modele ?? ''}`.trim();
-      let stockProducts = await this.searchService.search(availabilityQuery, vehicle);
-      stockProducts = this.strictValidator.validateResults(stockProducts, availabilityQuery, context);
-      stockProducts = this.filterByVehicleModel(stockProducts, vehicle);
+    if (intent.type === 'STOCK_CHECK' && lastPartFromContext) {
+      const lastPart = lastPartFromContext;
+      const availabilityQuery = `${lastPart} ${vehicle?.modele ?? ''}`.trim();
+      const stockSearch = await this.searchService.searchWithDiagnostics(availabilityQuery, vehicle);
+      const stockProducts = this.restrictToCompatibleCandidates(stockSearch.products, compatibleCandidates);
 
       if (stockProducts.length > 0) {
-        const vehicleInfo = vehicle?.modele ? ` pour votre ${vehicle.marque} ${vehicle.modele}` : '';
-        const buildStockResponse = (shown: any[]): string => {
-          const product = shown[0];
-          if (stockIsAvailable(product)) {
-            const publicPrice = product.prixTtc ?? product.prix_ttc;
-            const numericPrice = publicPrice == null ? NaN : Number(publicPrice);
-            const priceLine = Number.isFinite(numericPrice) ? ` — ${numericPrice.toFixed(3)} TND` : ' — prix non communiqué';
-            return `Oui, ${context.lastPart} est disponible${vehicleInfo}.\n\nPRODUITS DISPONIBLES:\n• ${this.getEffectiveText(product)}${priceLine}\n\nContactez le Comptoir Pièces de Rechange CarPro au ☎️ 70 603 518 – 70 603 519 pour réserver.`;
-          }
-          return `Désolé, ${context.lastPart} n'est pas disponible actuellement${vehicleInfo}.\n\n💡 Veuillez contacter Car Pro – Comptoir Pièces de Rechange, Tél N° 70 603 518 – 70 603 519.`;
+        const stockInterpretation: StructuredQueryInterpretation = {
+          ...normalized,
+          normalized: availabilityQuery,
+          catalogPart: lastPart,
+          catalogAliases: this.advancedSearch.getSynonymMap()[lastPart] ?? [],
+          positions: extractRequestedPositions(availabilityQuery),
+          qualifiers: [],
         };
         const checkedStock = await this.answerFromVerifiedProducts({
           message,
-          interpretation: normalized,
+          interpretation: stockInterpretation,
           vehicle,
           products: stockProducts,
-          build: buildStockResponse,
+          scope: stockSearch.scope,
+          constraint: stockSearch.constraint,
+          identityMode: stockSearch.constraint?.identityMode,
+          requireVehicleScope: true,
+          requireUnderstanding: false,
+          build: (shown) => this.responseService.buildStockCheckResponse(lastPart, shown[0], vehicle),
         });
         const response = checkedStock.response;
         const stockProductsToReturn = checkedStock.accepted
           ? checkedStock.products.map((product) => this.mapProductForResponse(product))
           : [];
         const stockIntent = checkedStock.accepted ? 'STOCK_CHECK' : 'SECURISATION';
-        await this.sessionService.saveBotResponse(session.id, response, { intent: stockIntent });
+        await this.saveBot(session.id, response, { intent: stockIntent });
         return {
           response,
           sessionId:  session.id,
           products:   stockProductsToReturn,
           confidence: stockIntent === 'STOCK_CHECK' ? 'HIGH' : 'LOW',
           intent:     stockIntent,
-          metadata:   { productsFound: stockProductsToReturn.length, conversationLength: conversationHistory.length, queryClarity: 0, verification: checkedStock.verification },
+          metadata:   { productsFound: stockProductsToReturn.length, conversationLength: conversationHistory.length, queryClarity: 0, verification: checkedStock.verification, trace: checkedStock.trace, redirectedToCounter: stockIntent === 'SECURISATION' },
         };
       }
     }
 
     if (intent.type === 'COMPLAINT') {
       const response = this.responseService.buildComplaintResponse();
-      await this.sessionService.saveBotResponse(session.id, response, { intent: 'COMPLAINT' });
+      await this.saveBot(session.id, response, { intent: 'COMPLAINT' });
       return { response, sessionId: session.id, products: [], confidence: 'HIGH', intent: 'COMPLAINT', metadata: { productsFound: 0, conversationLength: conversationHistory.length, queryClarity: 0 } };
     }
     if (intent.type === 'SERVICE_QUESTION') {
       const response = this.responseService.buildServiceQuestionResponse();
-      await this.sessionService.saveBotResponse(session.id, response, { intent: 'SERVICE_QUESTION' });
+      await this.saveBot(session.id, response, { intent: 'SERVICE_QUESTION' });
       return { response, sessionId: session.id, products: [], confidence: 'HIGH', intent: 'SERVICE_QUESTION', metadata: { productsFound: 0, conversationLength: conversationHistory.length, queryClarity: 0 } };
     }
 
     // 7. Reference search
     if (this.searchService.isReferenceQuery(processedMessage)) {
       const reference  = this.searchService.extractReference(processedMessage);
-      let refProducts  = await this.searchService.search(processedMessage, vehicle);
-      refProducts      = this.strictValidator.validateResults(refProducts, processedMessage, context);
-      refProducts      = this.filterByVehicleModel(refProducts, vehicle);
+      const referenceSearch = await this.searchService.searchWithDiagnostics(processedMessage, vehicle);
+      const refProducts = referenceSearch.products;
 
       if (refProducts.length > 0) {
         const checkedReference = await this.answerFromVerifiedProducts({
@@ -862,7 +1151,10 @@ Allowed flag types: PART_IDENTITY, POSITION, QUALIFIER, VEHICLE, PRICE_STOCK. Ne
           interpretation: normalized,
           vehicle,
           products: refProducts,
+          scope: referenceSearch.scope,
+          constraint: referenceSearch.constraint,
           requireUnderstanding: false,
+          requireVehicleScope: false,
           build: (shown) => this.responseService.buildReferenceResponse(reference, shown[0], vehicle),
         });
         const response = checkedReference.response;
@@ -870,48 +1162,162 @@ Allowed flag types: PART_IDENTITY, POSITION, QUALIFIER, VEHICLE, PRICE_STOCK. Ne
           ? this.mapProductForResponse(checkedReference.products[0])
           : null;
         const referenceIntent = checkedReference.accepted ? 'PARTS_SEARCH' : 'SECURISATION';
-        await this.sessionService.saveBotResponse(session.id, response, { intent: referenceIntent, productsFound: referenceProduct ? 1 : 0 });
+        await this.saveBot(session.id, response, { intent: referenceIntent, productsFound: referenceProduct ? 1 : 0 });
         return {
           response,
           sessionId:  session.id,
           products:   referenceProduct ? [referenceProduct] : [],
           confidence: referenceIntent === 'PARTS_SEARCH' ? 'HIGH' : 'LOW',
           intent:     referenceIntent,
-          metadata:   { productsFound: referenceProduct ? 1 : 0, conversationLength: conversationHistory.length, queryClarity: 10, verification: checkedReference.verification },
+          metadata:   { productsFound: referenceProduct ? 1 : 0, conversationLength: conversationHistory.length, queryClarity: 10, verification: checkedReference.verification, trace: checkedReference.trace, redirectedToCounter: referenceIntent === 'SECURISATION' },
         };
       } else {
         const response = this.responseService.buildReferenceNotFoundResponse(reference, vehicle);
-        await this.sessionService.saveBotResponse(session.id, response, { intent: 'NO_RESULTS' });
+        await this.saveBot(session.id, response, { intent: 'NO_RESULTS' });
         return { response, sessionId: session.id, products: [], confidence: 'LOW', intent: 'NO_RESULTS', metadata: { productsFound: 0, conversationLength: conversationHistory.length, queryClarity: 0 } };
       }
     }
 
     // 8. Main search
-    const searchQuery = this.contextService.buildSearchQuery(processedMessage, context, vehicle);
+    // Decide "is this a follow-up?" on the customer's own words first: a lossy rewrite
+    // must never turn "combien" into a new part name.
+    const rawFollowUp = this.contextService.buildSearchQuery(message, context, this.hasExplicitPartConcept(message));
+    const searchQuery = rawFollowUp !== message
+      ? rawFollowUp
+      : this.contextService.buildSearchQuery(
+          processedMessage,
+          context,
+          this.hasExplicitPartConcept(processedMessage),
+        );
     const mainSearch  = await this.searchService.searchWithDiagnostics(searchQuery, vehicle);
     const mainConstraint: ConstraintOutcome | null = mainSearch.constraint;
-    let products      = mainSearch.products;
-    products          = this.strictValidator.validateResults(products, searchQuery, context);
-    products          = this.filterByVehicleModel(products, vehicle);
+    let products = this.restrictToCompatibleCandidates(mainSearch.products, compatibleCandidates);
 
+    this.contextService.clearFilters(session.id);
     this.contextService.setLastQuery(session.id, searchQuery);
     if (products.length > 0) {
       const foundPart = this.extractPartName(searchQuery) || this.extractPartName(processedMessage);
       if (foundPart) this.contextService.setLastPart(session.id, foundPart);
     }
 
-    // 9. Accessory pre-filter before clarification check
-    const preFilteredProducts = this.filterAccessoriesIfNeeded(products, processedMessage);
-    this.logger.log(`[ACCESSORY-FILTER] Pre-clarification: ${products.length} → ${preFilteredProducts.length}`);
+    // CarPro rule (email 2026-09-18): the vehicle comes FIRST. If a vehicle was
+    // supplied but its model code is missing, or only inferred from the model
+    // name for a VIN, redirect now: no clarification question, no candidate.
+    const { scoped: gateScoped, vinScoped: gateVinScoped } = this.vehicleIdentity(vehicle);
+    const gateScope = mainSearch.scope;
+    const gateReasons: string[] = [];
+    if (gateScoped && !gateScope?.active) {
+      gateReasons.push(gateVinScoped ? 'model code missing for VIN-scoped request' : 'vehicle compatibility not verified');
+    } else if (gateVinScoped && gateScope?.typeCodeSource === 'model-map') {
+      gateReasons.push('model code inferred from the model name only, not from the VIN');
+    }
+    if (gateReasons.length > 0) {
+      this.logger.warn(`[VEHICLE-GATE] ${gateReasons.join(' | ')}`);
+      const response = this.responseService.buildSecurisationResponse(vehicle);
+      await this.saveBot(session.id, response, { intent: 'SECURISATION' });
+      return {
+        response,
+        sessionId: session.id,
+        products: [],
+        confidence: 'LOW',
+        intent: 'SECURISATION',
+        metadata: {
+          productsFound: products.length,
+          conversationLength: conversationHistory.length,
+          queryClarity: 0,
+          duration: Date.now() - startTime,
+          userMessageId,
+          redirectedToCounter: true,
+          verification: {
+            compatibility: 'NON_VERIFIEE',
+            checks: {
+              identity: 'not-applicable',
+              position: 'not-applicable',
+              qualifiers: 'not-applicable',
+              vehicle: 'unverifiable',
+              stockPrice: 'not-applicable',
+            },
+            reasons: gateReasons,
+            aiAudit: 'skipped',
+            aiFlags: { effective: [], ignored: [] },
+          },
+        },
+      };
+    }
+
+    // Keep search results as candidates; catalog verification and the judge own acceptance.
+    const preFilteredProducts = products;
+
+    if (mainSearch.truncated) {
+      const response = this.responseService.buildTooBroadResponse();
+      await this.saveBot(session.id, response, { intent: 'CLARIFICATION_NEEDED' });
+      return {
+        response,
+        sessionId: session.id,
+        products: [],
+        confidence: 'MEDIUM',
+        intent: 'CLARIFICATION_NEEDED',
+        metadata: {
+          productsFound: preFilteredProducts.length,
+          conversationLength: conversationHistory.length,
+          queryClarity: 0,
+          duration: Date.now() - startTime,
+          userMessageId,
+        },
+      };
+    }
+
+    if (preFilteredProducts.length === 0 && mainConstraint?.noExactMatch) {
+      const response = this.responseService.buildNoExactMatchResponse(mainConstraint, vehicle);
+      await this.saveBot(session.id, response, { intent: 'NO_RESULTS' });
+      return {
+        response,
+        sessionId: session.id,
+        products: [],
+        confidence: 'LOW',
+        intent: 'NO_RESULTS',
+        metadata: {
+          productsFound: 0,
+          conversationLength: conversationHistory.length,
+          queryClarity: 0,
+          duration: Date.now() - startTime,
+          userMessageId,
+        },
+      };
+    }
+
+    const hasVehicleContext = !!(
+      vehicle?.vin || vehicle?.VIN || vehicle?.numeroChassis || vehicle?.numChassis || vehicle?.chassis ||
+      vehicle?.vehicleNo || vehicle?.vehicle_no || vehicle?.numeroVehicule || vehicle?.modele ||
+      vehicle?.model || vehicle?.typeCode || vehicle?.type_code || vehicle?.type
+    );
+    if (preFilteredProducts.length === 0 && (mainSearch.scope?.active || hasVehicleContext)) {
+      const response = this.responseService.buildSecurisationResponse(vehicle);
+      await this.saveBot(session.id, response, { intent: 'SECURISATION' });
+      return {
+        response,
+        sessionId: session.id,
+        products: [],
+        confidence: 'LOW',
+        intent: 'SECURISATION',
+        metadata: {
+          productsFound: 0,
+          conversationLength: conversationHistory.length,
+          queryClarity: 0,
+          duration: Date.now() - startTime,
+          userMessageId,
+        },
+      };
+    }
 
     // 10. Clarification check
     const clarificationCheck = this.clarificationService.checkNeeded(preFilteredProducts, processedMessage);
     const hasExplicitFilterType = /\b(filtre|filter)\s+(?:de\s+)?(?:habitacle|climatiseur|air|huile|carburant|gazoile|essence)\b/i.test(processedMessage);
     if (clarificationCheck.needed && !hasExplicitFilterType) {
-      const clPartName = this.clarificationService.extractPartName(processedMessage);
+      const clPartName = this.extractPartName(processedMessage);
       const response   = this.clarificationService.buildQuestion(clPartName, clarificationCheck.variants, clarificationCheck.dimension);
       this.clarificationService.setPending(session.id, searchQuery, clarificationCheck.dimension, preFilteredProducts);
-      await this.sessionService.saveBotResponse(session.id, response, { intent: 'CLARIFICATION_NEEDED' });
+      await this.saveBot(session.id, response, { intent: 'CLARIFICATION_NEEDED' });
       return {
         response,
         sessionId:  session.id,
@@ -929,60 +1335,41 @@ Allowed flag types: PART_IDENTITY, POSITION, QUALIFIER, VEHICLE, PRICE_STOCK. Ne
     let resolvedIntent = preFilteredProducts.length > 0 ? 'PARTS_SEARCH' : intent.type;
     const primaryProduct = this.responseService.selectPrimaryProduct(preFilteredProducts);
 
-    // FIX (confidence gate, email CarPro 2026-09-25 — "sécurisation des
-    // réponses", 4-condition version): evaluate compatibility / model
-    // code / understanding / consistency BEFORE committing to a
-    // confident answer. This can override a found product — the rule
-    // is about confidence, not result count. See chat/confidence-gate.ts.
-    const securisationCheck = evaluateResponseConfidence({
-      vehicle,
-      vehicleModelResolved:    !!vehicleModel,
-      selectedProduct:         primaryProduct,
-      understandingConfidence: normalized.confidence,
-      unresolvedClarification: false,
-      constraintOutcome:       mainConstraint,
-    });
-    const hasAnswerToSecure =
-      !!primaryProduct || (intent.type === 'PRICE_INQUIRY' && preFilteredProducts.length > 0);
-
-    if (!securisationCheck.secure && hasAnswerToSecure) {
-      this.logger.log(
-        `[SECURISATION] Response withheld (${securisationCheck.reasons.join(', ')}) ` +
-        `for query "${safeLog(processedMessage)}"`,
-      );
-      response = this.responseService.buildSecurisationResponse(vehicle);
-      resolvedIntent = 'SECURISATION';
-    } else if (intent.type === 'PRICE_INQUIRY') {
-      response = this.responseService.buildPriceResponse(
-        preFilteredProducts, processedMessage, vehicle, context.lastTopic || 'général',
-      );
+    if (intent.type === 'PRICE_INQUIRY') {
+      response = this.responseService.buildPriceResponse(preFilteredProducts, vehicle);
     } else if (preFilteredProducts.length > 0) {
-      response = this.responseService.buildProductResponse(preFilteredProducts, searchQuery, vehicle);
+      response = this.responseService.buildProductResponse(preFilteredProducts, vehicle);
     } else if (mainConstraint?.noExactMatch && products.length === 0) {
       response = this.responseService.buildNoExactMatchResponse(mainConstraint, vehicle);
     } else {
-      response = this.responseService.buildNoResultsResponse(searchQuery, vehicle);
+      response = this.responseService.buildNoResultsResponse(vehicle);
     }
 
     let securedProduct: any = null;
     let mainVerification: AnswerVerification | undefined;
-    if (securisationCheck.secure && preFilteredProducts.length > 0) {
+    let mainTrace: AnswerTrace | undefined;
+    if (preFilteredProducts.length > 0) {
       const checked = await this.answerFromVerifiedProducts({
         message,
         interpretation: normalized,
         vehicle,
         products: preFilteredProducts,
+        scope: mainSearch.scope,
+        constraint: mainConstraint,
+        identityMode: mainConstraint?.identityMode,
+        requireVehicleScope: true,
         build: (shown) => intent.type === 'PRICE_INQUIRY'
-          ? this.responseService.buildPriceResponse(shown, processedMessage, vehicle, context.lastTopic || 'général')
-          : this.responseService.buildProductResponse(shown, searchQuery, vehicle),
+          ? this.responseService.buildPriceResponse(shown, vehicle)
+          : this.responseService.buildProductResponse(shown, vehicle),
       });
       response = checked.response;
       mainVerification = checked.verification;
+      mainTrace = checked.trace;
       if (checked.accepted) securedProduct = checked.products[0];
       else resolvedIntent = 'SECURISATION';
     }
 
-    await this.sessionService.saveBotResponse(session.id, response, {
+    await this.saveBot(session.id, response, {
       intent: resolvedIntent,
       productsFound: securedProduct ? 1 : 0,
     });
@@ -991,13 +1378,11 @@ Allowed flag types: PART_IDENTITY, POSITION, QUALIFIER, VEHICLE, PRICE_STOCK. Ne
     const queryClarity = this.intelligenceService.analyzeQueryClarity(processedMessage);
     const confidence   = this.intelligenceService.calculateConfidence({
       productsFound:          preFilteredProducts.length,
-      exactMatch:             preFilteredProducts.some((p) => p.score > 500),
+      exactMatch:             mainVerification?.checks.identity === 'confirmed' && mainVerification.checks.vehicle === 'confirmed',
       conversationContext:    conversationHistory.length,
       userFeedbackHistory:    0,
       queryClarity,
     });
-    const suggestions  = this.intelligenceService.generateSmartSuggestions(processedMessage, preFilteredProducts);
-
     return {
       response,
       sessionId:      session.id,
@@ -1013,123 +1398,27 @@ Allowed flag types: PART_IDENTITY, POSITION, QUALIFIER, VEHICLE, PRICE_STOCK. Ne
         duration:            Date.now() - startTime,
         userMessageId,
         verification:        mainVerification,
+        trace:               mainTrace,
+        redirectedToCounter: ['SECURISATION', 'NO_RESULTS'].includes(resolvedIntent),
       },
     };
-  }
-
-  // ─────────────────────────────────────────────────────────────────
-  // FIX-2: filterAccessoriesIfNeeded — checks BOTH text fields
-  // ─────────────────────────────────────────────────────────────────
-  private filterAccessoriesIfNeeded(products: any[], query: string): any[] {
-    const queryLower = query.toLowerCase();
-
-    const accessoryWords = [
-      'durite', 'tuyau', 'flexible', 'support', 'cache', 'kit', 'joint', 'bouchon', 'vis',
-      'boulon', 'ecrou', 'agrafe', 'agraffe', 'cercle', 'cable', 'câble', 'courroie', 'sangle',
-      'toc', 'bushing', 'silent', 'silentbloc', 'coupelle',
-      // BUGFIX: door/hood accessories that were ranking above the actual panel
-      'contacteur', 'loquet', 'serrure', 'charniere', 'montant', 'tiran', 'tirant', 'adhesif',
-      'chapeau', 'agrafe', 'tige', 'arret', 'switcher', 'reservoir',
-      // BUGFIX: radiateur accessories — prevent false side clarification on radiateur query
-      'traverse', 'tete', 'vase',
-      // BUGFIX: capot accessories — calle/cale capot must not outrank the actual capot panel
-      'calle', 'cale',
-      // BUGFIX: calandre accessories — chrome trim, isolant must not trigger type clarification
-      // NOTE: 'grille' removed — it is a synonym for calandre (main part), not an accessory
-      'chrome', 'isolant', 'sigle', 'monogramme',
-      // BUGFIX: filtre queries — durit/tuyau/boitier are accessories of the filter assembly,
-      // not the filter element itself. Only applies when the query is about a filter.
-      ...(queryLower.includes('filtre') ? ['durit', 'boitier', 'tuyau'] : []),
-    ];
-    const explicitAccessoryWords = [
-      'support', 'joint', 'contacteur', 'loquet', 'serrure', 'charniere',
-      'charnière', 'agrafe', 'agraffe', 'agraphe', 'vis', 'boulon', 'ecrou',
-      'kit', 'sangle', 'cable', 'câble', 'toc', 'bushing', 'silentbloc',
-      // BUGFIX 2026-09-13: 'accessoire'/'accessoires' itself — if the
-      // customer explicitly asks for an accessory, don't filter it out.
-      'accessoire', 'accessoires',
-    ];
-    const userAskedForAccessory = explicitAccessoryWords.some((w) =>
-      new RegExp(`(^|\\s)${w}(\\s|$)`, 'i').test(queryLower),
-    );
-    const mainParts:   any[] = [];
-    const accessories: any[] = [];
-
-    for (const p of products) {
-      // FIX 2026-09-13 (root cause of "pare-brise/pare-choc → returned
-      // an accessory" reports): this used to rely ONLY on the
-      // accessoryWords keyword list scanned against the designation
-      // text. That list has no way to catch something like "Accessoire
-      // pour pare-chocs" — none of its words appear in that text, so it
-      // sailed through as a "main part" for a bumper/windshield query.
-      // parts.categorie already has a dedicated 'ACCESSOIRES' value
-      // (confirmed in the live data) — checking it directly is the
-      // reliable, data-driven signal the keyword list was trying to
-      // approximate. Both signals are kept: categorie catches anything
-      // tagged as an accessory regardless of wording, the keyword list
-      // still catches consumables/hardware that aren't tagged
-      // 'ACCESSOIRES' in categorie but still aren't "the main part"
-      // (a bolt, a clip, a hose clamp, ...).
-      const categorie = String(p.categorie ?? '').trim().toUpperCase();
-      const isTaggedAccessory = categorie === 'ACCESSOIRES';
-
-      const combined = this.getCombinedText(p).toLowerCase();
-      const containsAccessoryWord = accessoryWords.some((w) => {
-        const regex = new RegExp(`(^|\\s)${w}(\\s|$)`, 'i');
-        return regex.test(combined);
-      });
-
-      if (isTaggedAccessory || containsAccessoryWord) {
-        accessories.push(p);
-        this.logger.log(
-          `[ACCESSORY-FILTER] Detected accessory: "${this.getEffectiveText(p)}" ` +
-          `(categorie=${categorie || 'n/a'}, keyword=${containsAccessoryWord})`,
-        );
-      } else {
-        mainParts.push(p);
-      }
-    }
-
-    if (userAskedForAccessory) {
-      this.logger.log(`[ACCESSORY-FILTER] User asked for accessory — returning ${accessories.length} accessories`);
-      return accessories;
-    }
-
-    if (mainParts.length > 0) {
-      this.logger.log(`[ACCESSORY-FILTER] ${mainParts.length} main parts, ${accessories.length} accessories — returning main only`);
-      return mainParts;
-    }
-
-    this.logger.log(`[ACCESSORY-FILTER] Only accessories found (${accessories.length}) — returning none for a main-part request`);
-    return [];
   }
 
   // ─────────────────────────────────────────────────────────────────
   // FIX-5: extractPartName — checks both text fields for part names
   // ─────────────────────────────────────────────────────────────────
   private extractPartName(message: string): string {
-    const lower = message.toLowerCase();
-
-    // Multi-word parts first
-    if (lower.includes('plaquette') && lower.includes('frein'))  return 'plaquettes frein';
-    if (lower.includes('disque')    && lower.includes('frein'))  return 'disque frein';
-    if (lower.includes('filtre')    && lower.includes('air'))    return 'filtre air';
-    if (lower.includes('filtre')    && lower.includes('huile'))  return 'filtre huile';
-    if (lower.includes('essuie')    && lower.includes('glace'))  return 'essuie-glace';
-    if (lower.includes('pare')      && lower.includes('choc'))   return 'pare-choc';
-    if ((lower.includes('maitre') || lower.includes('maître')) && lower.includes('cylindre')) return 'maitre cylindre';
-    if (lower.includes('monte')     && lower.includes('glace'))  return 'monte glace';
-
-    // Use synonym map from AdvancedSearchService
+    const normalizedMessage = normalizeForMatch(message);
     try {
       const synonymMap = this.advancedSearch.getSynonymMap();
       let bestMatch: string | undefined;
       let bestLength  = 0;
 
       for (const [category, synonyms] of Object.entries(synonymMap)) {
-        for (const syn of synonyms as string[]) {
-          if (lower.includes(syn) && syn.length > bestLength) {
-            bestLength = syn.length;
+        for (const syn of [category, ...(synonyms as string[])]) {
+          const normalizedSynonym = normalizeForMatch(syn);
+          if (` ${normalizedMessage} `.includes(` ${normalizedSynonym} `) && normalizedSynonym.length > bestLength) {
+            bestLength = normalizedSynonym.length;
             bestMatch  = category;
           }
         }
@@ -1138,46 +1427,5 @@ Allowed flag types: PART_IDENTITY, POSITION, QUALIFIER, VEHICLE, PRICE_STOCK. Ne
     } catch {
       return '';
     }
-  }
-  private filterByVehicleModel(products: any[], vehicle?: any): any[] {
-    const model = this.vehicleModels.normalize(vehicle?.modele);
-    if (!model) return products;
-
-    return products.filter((p) => {
-      if (Array.isArray(p.fitments) && p.fitments.length > 0) {
-        const combinedText = [p.displayName, p.designation2, p.designation]
-          .filter(Boolean).join(' ').toUpperCase();
-        const hasOtherModel = this.vehicleModels.hasModelInDesignation(combinedText) &&
-                              !this.vehicleModels.matchesModel(combinedText, model);
-        return !hasOtherModel;
-      }
-
-      // Universal part (no fitment rows) — check designation for model name
-      const combinedText = [p.displayName, p.designation2, p.designation]
-        .filter(Boolean).join(' ').toUpperCase();
-      const hasModel = this.vehicleModels.hasModelInDesignation(combinedText);
-      return !hasModel || this.vehicleModels.matchesModel(combinedText, model);
-    });
-  }
-
-  private levenshteinDistance(a: string, b: string): number {
-    if (a.length === 0) return b.length;
-    if (b.length === 0) return a.length;
-    const matrix: number[][] = [];
-    for (let i = 0; i <= b.length; i++) matrix[i] = [i];
-    for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
-    for (let i = 1; i <= b.length; i++) {
-      for (let j = 1; j <= a.length; j++) {
-        matrix[i][j] =
-          b.charAt(i - 1) === a.charAt(j - 1)
-            ? matrix[i - 1][j - 1]
-            : Math.min(
-                matrix[i - 1][j - 1] + 1,
-                matrix[i][j - 1] + 1,
-                matrix[i - 1][j] + 1,
-              );
-      }
-    }
-    return matrix[b.length][a.length];
   }
 }

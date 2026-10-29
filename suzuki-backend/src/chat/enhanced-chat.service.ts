@@ -1,32 +1,14 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { ChatOrchestratorService } from '../services/chat-orchestrator.service';
+import type { ProcessMessageResponse } from '../services/chat-orchestrator.service';
 import { ResponseService } from '../services/response.service';
 import { IntelligenceService } from './intelligence.service';
 import { SearchLogService } from '../services/search-log.service';
-// FIX-1: Removed `import { AnyMxRecord } from 'dns'` — was unused and caused compile warning
 
-export interface ProcessMessageResponse {
-  response: string;
-  sessionId: string;
-  products: any[];
-  confidence: string;
-  confidenceScore?: number;
-  suggestions?: string[];
-  intent: string;
-  metadata: {
-    productsFound: number;
-    conversationLength: number;
-    queryClarity: number;
-    duration?: number;
-    userMessageId?: string;
-    error?: string;
-    verification?: {
-      compatibility: 'CONFIRMEE' | 'NON_CONFORME' | 'NON_VERIFIEE';
-      [key: string]: any;
-    };
-  };
-}
+// Single response type: the orchestrator's. Re-exported for existing importers.
+export type { ProcessMessageResponse };
 
 export interface AnalyticsResponse {
   summary: {
@@ -56,74 +38,81 @@ export interface AnalyticsResponse {
   timeRange: string;
 }
 
+const MAX_MESSAGE_LENGTH = 10_000;
+const RATE_WINDOW_MS = 60_000;
+/** Kept at the previous value; set CHAT_RATE_LIMIT in production. */
+const DEFAULT_RATE_LIMIT = 10_000;
+const RATE_MAP_PRUNE_THRESHOLD = 5_000;
+const DEFAULT_TIME_RANGE = '7d';
+const ANALYTICS_CACHE_TTL_MS = 60_000;
+const ANALYTICS_CACHE_MAX_KEYS = 20;
+
 @Injectable()
 export class EnhancedChatService {
-  private readonly logger    = new Logger(EnhancedChatService.name);
-  private rateLimitMap       = new Map<string, { count: number; resetTime: number }>();
-  private readonly RATE_LIMIT  = 10000; // increased for testing (was 50)
-  private readonly RATE_WINDOW = 60000;
+  private readonly logger = new Logger(EnhancedChatService.name);
+  private readonly rateLimitMap = new Map<string, { count: number; resetTime: number }>();
+  private readonly analyticsCache = new Map<string, { value: AnalyticsResponse; expiresAt: number }>();
+  private readonly rateLimit: number;
 
   constructor(
-    private orchestrator:    ChatOrchestratorService,
-    private responseService: ResponseService,
-    private prisma:          PrismaService,
-    private intelligence:    IntelligenceService,
-    private searchLog:       SearchLogService,
-  ) {}
+    private readonly orchestrator: ChatOrchestratorService,
+    private readonly responseService: ResponseService,
+    private readonly prisma: PrismaService,
+    private readonly intelligence: IntelligenceService,
+    private readonly searchLog: SearchLogService,
+    config: ConfigService,
+  ) {
+    const configured = Number(config.get('CHAT_RATE_LIMIT'));
+    this.rateLimit = Number.isFinite(configured) && configured > 0 ? configured : DEFAULT_RATE_LIMIT;
+    if (this.rateLimit > 200 && config.get('NODE_ENV') === 'production') {
+      this.logger.warn(`Chat rate limit is ${this.rateLimit} requests/min per IP: set CHAT_RATE_LIMIT for production`);
+    }
+  }
+
   async processMessage(
-    message:   string,
-    vehicle?:  any,
+    message: string,
+    vehicle?: any,
     sessionId?: string,
     clientIp?: string,
   ): Promise<ProcessMessageResponse> {
+    if (clientIp && !this.checkRateLimit(clientIp)) {
+      return {
+        response: 'Trop de requêtes. Veuillez patienter avant de réessayer.',
+        sessionId: sessionId || 'rate-limited',
+        products: [],
+        confidence: 'LOW',
+        intent: 'RATE_LIMITED',
+        metadata: { productsFound: 0, conversationLength: 0, queryClarity: 0, error: 'Rate limit exceeded' },
+      };
+    }
+
+    // Caller mistakes are HTTP 400s, not "technical difficulty" answers.
+    if (typeof message !== 'string' || message.trim().length === 0) {
+      throw new BadRequestException('Body must include a non-empty `message` string');
+    }
+    if (message.length > MAX_MESSAGE_LENGTH) {
+      throw new BadRequestException('Message exceeds maximum length');
+    }
+
     try {
-      if (clientIp && !this.checkRateLimit(clientIp)) {
-        return {
-          response:   'Trop de requêtes. Veuillez patienter avant de réessayer.',
-          sessionId:  sessionId || 'rate-limited',
-          products:   [],
-          confidence: 'LOW',
-          intent:     'RATE_LIMITED',
-          metadata:   {
-            productsFound: 0, conversationLength: 0,
-            queryClarity: 0, error: 'Rate limit exceeded',
-          },
-        };
-      }
-
-      if (!message || typeof message !== 'string' || message.trim().length === 0) {
-        throw new Error('Body must include a non-empty `message` string');
-      }
-      if (message.length > 10000) {
-        throw new Error('Message exceeds maximum length');
-      }
-
-      // FIX-2: delegate — orchestrator handles all product mapping
       const result = await this.orchestrator.processMessage(message, vehicle, sessionId);
-
-      // BUSINESS RULE (email CarPro 2026-09-25 — "Historique des
-      // recherches et accès aux logs"): one row per answer, queryable
-      // by VIN. Single integration point — see search-log.service.ts.
-      // Fire-and-forget: logging failures must never delay/break the
-      // response already computed above.
-      void this.logSearch(message, vehicle, result);
-
+      // Fire-and-forget: recordAnswer never throws and never delays the reply.
+      void this.searchLog.recordAnswer(message, vehicle, result);
       return result;
     } catch (error: any) {
       this.logger.error('processMessage failed:', error);
-      const response = this.responseService.buildErrorResponse(message);
-      // FIX-3: products stays empty — no raw rows on error path
+      void this.searchLog.recordFailure(message, vehicle, sessionId);
       return {
-        response,
-        sessionId:  sessionId || 'error',
-        products:   [],
+        response: this.responseService.buildErrorResponse(error?.message),
+        sessionId: sessionId || 'error',
+        products: [],
         confidence: 'LOW',
-        intent:     'ERROR',
-        metadata:   {
-          error:             error.message,
-          productsFound:     0,
+        intent: 'ERROR',
+        metadata: {
+          error: error?.message,
+          productsFound: 0,
           conversationLength: 0,
-          queryClarity:      0,
+          queryClarity: 0,
         },
       };
     }
@@ -135,7 +124,7 @@ export class EnhancedChatService {
         data: { messageId, rating, comment },
       });
       const message = await this.prisma.chatMessage.findUnique({
-        where:   { id: messageId },
+        where: { id: messageId },
         include: { session: true },
       });
       if (message) {
@@ -148,52 +137,53 @@ export class EnhancedChatService {
     }
   }
 
-  async getAnalytics(
-    options: { cached?: boolean; timeRange?: string } = {},
-  ): Promise<AnalyticsResponse> {
+  async getAnalytics(options: { cached?: boolean; timeRange?: string } = {}): Promise<AnalyticsResponse> {
+    const timeRange = options.timeRange || DEFAULT_TIME_RANGE;
+
+    if (options.cached) {
+      const hit = this.analyticsCache.get(timeRange);
+      if (hit && hit.expiresAt > Date.now()) return hit.value;
+    }
+
     try {
-      const timeRange = this.parseTimeRange(options.timeRange || '7d');
+      const start = this.parseTimeRangeStart(timeRange);
       const [totalSessions, totalMessages, avgRating, performance] = await Promise.all([
-        this.prisma.chatSession.count({
-          where: { startedAt: { gte: timeRange.start } } as any,
-        }),
-        this.prisma.chatMessage.count({
-          where: { timestamp: { gte: timeRange.start } },
-        }),
+        this.prisma.chatSession.count({ where: { startedAt: { gte: start } } }),
+        this.prisma.chatMessage.count({ where: { timestamp: { gte: start } } }),
         this.prisma.chatFeedback.aggregate({
-          _avg:  { rating: true },
-          where: { createdAt: { gte: timeRange.start } },
+          _avg: { rating: true },
+          where: { createdAt: { gte: start } },
         }),
         this.intelligence.getPerformanceMetrics(),
       ]);
 
-      return {
+      const rating = avgRating?._avg?.rating ?? 0;
+      const analytics: AnalyticsResponse = {
         summary: {
           totalSessions,
           totalMessages,
-          avgRating:   avgRating?._avg?.rating   || 0,
-          successRate: performance.successRate   || 0,
-          errorRate:   100 - (performance.successRate || 0),
+          avgRating: rating,
+          successRate: performance.successRate || 0,
+          errorRate: 100 - (performance.successRate || 0),
         },
         insights: {
-          topQueries:              [],
-          mostCommonIntent:        null,
-          confidenceDistribution:  {},
-          learningRate:            performance.learningRate || 0,
-          aiMaturity:              this.calculateAIMaturity(
-            totalMessages,
-            performance.successRate || 0,
-          ),
+          topQueries: [],
+          mostCommonIntent: null,
+          confidenceDistribution: {},
+          learningRate: performance.learningRate || 0,
+          aiMaturity: this.calculateAIMaturity(totalMessages, performance.successRate || 0),
         },
         quality: {
-          averageResponseTime: performance.avgResponseTime   || 0,
-          userSatisfaction:    avgRating?._avg?.rating        || 0,
-          productsFoundRate:   0,
+          averageResponseTime: performance.avgResponseTime || 0,
+          userSatisfaction: rating,
+          productsFoundRate: 0,
         },
-        errors:    { failedSessions: 0, commonErrors: [] },
+        errors: { failedSessions: 0, commonErrors: [] },
         timestamp: new Date(),
-        timeRange: options.timeRange || '7d',
+        timeRange,
       };
+      this.cacheAnalytics(timeRange, analytics);
+      return analytics;
     } catch (error) {
       this.logger.error('Analytics fetch failed:', error);
       return this.getDefaultAnalytics();
@@ -204,16 +194,14 @@ export class EnhancedChatService {
     this.logger.log('🧠 Learning cycle triggered - analyzing conversations...');
     try {
       const recentSessions = await this.prisma.chatSession.findMany({
-        where: {
-          messages: { some: { feedback: { isNot: null } } },
-        },
+        where: { messages: { some: { feedback: { isNot: null } } } },
         include: {
           messages: {
-            include:  { feedback: true },
-            orderBy:  { timestamp: 'asc' },
+            include: { feedback: true },
+            orderBy: { timestamp: 'asc' },
           },
         },
-        take:    50,
+        take: 50,
         orderBy: { startedAt: 'desc' },
       });
 
@@ -238,63 +226,19 @@ export class EnhancedChatService {
   }
 
   // ─────────────────────────────────────────────────────────────────
-  // BUSINESS RULE (email CarPro 2026-09-25): shape the orchestrator's
-  // already-computed response into the email's exact log field list.
+  // Helpers
   // ─────────────────────────────────────────────────────────────────
-  private async logSearch(message: string, vehicle: any, result: ProcessMessageResponse): Promise<void> {
-    try {
-      const product = result.products?.[0];
-      const redirectIntents = new Set([
-        'SECURISATION', 'NO_RESULTS', 'MODEL_MISMATCH', 'FILTER_NO_CONTEXT',
-      ]);
-      const isRedirect =
-        redirectIntents.has(result.intent) ||
-        (typeof result.response === 'string' && result.response.includes('Comptoir Pièces de Rechange'));
-
-      let compatibilityResult: 'CONFIRMEE' | 'NON_CONFORME' | 'NON_VERIFIEE' | undefined;
-      if (result.intent === 'MODEL_MISMATCH') {
-        compatibilityResult = 'NON_CONFORME';
-      } else if (result.metadata?.verification) {
-        compatibilityResult = result.metadata.verification.compatibility;
-      } else if (product || result.intent === 'SECURISATION') {
-        compatibilityResult = 'NON_VERIFIEE';
-      }
-
-      let availabilityCommunicated: 'DISPONIBLE' | 'INDISPONIBLE' | 'NON_COMMUNIQUEE' | undefined;
-      const stockStatut = product?.stock?.statut;
-      if (stockStatut === 'Disponible') availabilityCommunicated = 'DISPONIBLE';
-      else if (stockStatut === 'Indisponible') availabilityCommunicated = 'INDISPONIBLE';
-      else availabilityCommunicated = 'NON_COMMUNIQUEE';
-
-      await this.searchLog.record({
-        sessionId:           result.sessionId,
-        vin:                 vehicle?.vin ?? null,
-        vehicleNo:           vehicle?.vehicleNo ?? null,
-        modelCode:           vehicle?.typeCode ?? vehicle?.modele ?? null,
-        customerMessage:     message,
-        identifiedPart:      product?.designation ?? null,
-        proposedReferences:  (result.products ?? [])
-          .filter((p: any) => p?.reference)
-          .map((p: any) => ({ reference: p.reference, designation: p.designation ?? '' })),
-        compatibilityResult,
-        availabilityCommunicated,
-        redirectMessage:     isRedirect ? result.response : null,
-        intent:              result.intent,
-      });
-    } catch (err: any) {
-      // Never let a shaping error here surface to the customer.
-      this.logger.error(`[SEARCH-LOG] logSearch failed: ${err?.message}`, err?.stack);
-    }
-  }
 
   private checkRateLimit(ip: string): boolean {
-    const now  = Date.now();
+    const now = Date.now();
+    if (this.rateLimitMap.size > RATE_MAP_PRUNE_THRESHOLD) this.pruneRateLimits(now);
+
     const data = this.rateLimitMap.get(ip);
     if (!data || now > data.resetTime) {
-      this.rateLimitMap.set(ip, { count: 1, resetTime: now + this.RATE_WINDOW });
+      this.rateLimitMap.set(ip, { count: 1, resetTime: now + RATE_WINDOW_MS });
       return true;
     }
-    if (data.count >= this.RATE_LIMIT) {
+    if (data.count >= this.rateLimit) {
       this.logger.warn(`Rate limit exceeded for IP: ${ip}`);
       return false;
     }
@@ -302,40 +246,51 @@ export class EnhancedChatService {
     return true;
   }
 
-  private parseTimeRange(range: string): { start: Date; end: Date } {
-    const now     = new Date();
-    const end     = now;
-    const start   = new Date(now);
-    const matches = range.match(/(\d+)([dhm])/);
-    if (matches) {
-      const [, value, unit] = matches;
-      const numValue = parseInt(value, 10);
-      switch (unit) {
-        case 'd': start.setDate(start.getDate()       - numValue); break;
-        case 'h': start.setHours(start.getHours()     - numValue); break;
-        case 'm': start.setMinutes(start.getMinutes() - numValue); break;
-      }
+  private pruneRateLimits(now: number): void {
+    for (const [ip, data] of this.rateLimitMap) {
+      if (now > data.resetTime) this.rateLimitMap.delete(ip);
     }
-    return { start, end };
+  }
+
+  private cacheAnalytics(key: string, value: AnalyticsResponse): void {
+    if (this.analyticsCache.size >= ANALYTICS_CACHE_MAX_KEYS && !this.analyticsCache.has(key)) {
+      const oldest = this.analyticsCache.keys().next().value;
+      if (oldest !== undefined) this.analyticsCache.delete(oldest);
+    }
+    this.analyticsCache.set(key, { value, expiresAt: Date.now() + ANALYTICS_CACHE_TTL_MS });
+  }
+
+  /** "7d" | "24h" | "30m". Anything else falls back to the default range instead of an empty one. */
+  private parseTimeRangeStart(range: string): Date {
+    const match = /^(\d+)([dhm])$/.exec(range.trim());
+    const value = match ? parseInt(match[1], 10) : 7;
+    const unit = match ? match[2] : 'd';
+    const start = new Date();
+    switch (unit) {
+      case 'h': start.setHours(start.getHours() - value); break;
+      case 'm': start.setMinutes(start.getMinutes() - value); break;
+      default: start.setDate(start.getDate() - value);
+    }
+    return start;
   }
 
   private calculateAIMaturity(totalMessages: number, successRate: number): string {
     const score = totalMessages / 10 + successRate;
     if (score >= 150) return '🏆 EXPERT';
     if (score >= 100) return '🥇 ADVANCED';
-    if (score >= 50)  return '🥈 INTERMEDIATE';
+    if (score >= 50) return '🥈 INTERMEDIATE';
     return '🥉 LEARNING';
   }
 
   private getDefaultAnalytics(): AnalyticsResponse {
     return {
-      summary:  { totalSessions: 0, totalMessages: 0, avgRating: 0, successRate: 0, errorRate: 0 },
+      summary: { totalSessions: 0, totalMessages: 0, avgRating: 0, successRate: 0, errorRate: 0 },
       insights: {
         topQueries: [], mostCommonIntent: null, confidenceDistribution: {},
         learningRate: 0, aiMaturity: '🥉 LEARNING',
       },
-      quality:   { averageResponseTime: 0, userSatisfaction: 0, productsFoundRate: 0 },
-      errors:    { failedSessions: 0, commonErrors: [] },
+      quality: { averageResponseTime: 0, userSatisfaction: 0, productsFoundRate: 0 },
+      errors: { failedSessions: 0, commonErrors: [] },
       timestamp: new Date(),
       timeRange: 'unknown',
     };

@@ -87,14 +87,13 @@ model Part {
 //
 // Client rule confirmed 2026-07-07:
 //   - stock_disponible and stock_consolide are separate source values
-//   - a part is sellable/Disponible only when stock_consolide > 2
+//   - a part is sellable/Disponible only when stock_consolide >= 2
 //   - total_quantity is kept temporarily for backward compatibility
 //
-// FIX NEEDED: Insert Indisponible rows for 5,567 parts with no stock entry
-//   INSERT INTO stock (reference, total_quantity, statut, updated_at)
-//   SELECT p.reference, 0, 'Indisponible', NOW()
-//   FROM parts p LEFT JOIN stock s ON p.reference = s.reference
-//   WHERE s.reference IS NULL;
+// DO NOT backfill "Indisponible" rows for parts without a stock entry.
+// No stock row = UNKNOWN stock: the chatbot redirects to the Comptoir PR
+// (CarPro rule: never state availability that cannot be verified).
+// Only stock_consolide decides availability (>= 2); statut and total_quantity are not used.
 // ============================================
 model Stock {
   id            Int      @id @default(autoincrement())
@@ -204,6 +203,17 @@ model Vehicle {
   @@map("vehicles")
   @@index([vin])
   @@index([modele])
+  @@index([typeCode], map: "vehicles_type_code_idx")
+}
+
+// Backup table created during the July 2026 search_description migration.
+// Prisma must know it exists to avoid drift warnings; it is never queried by the app.
+model PartsSearchDescriptionBackup {
+  reference         String? @db.VarChar(50)
+  searchDescription String? @map("search_description") @db.VarChar(200)
+
+  @@map("parts_search_description_backup_20260708")
+  @@ignore
 }
 
 // ============================================
@@ -349,14 +359,31 @@ model SearchLog {
   availabilityCommunicated String?  @map("availability_communicated") @db.VarChar(30)
   // "Les éventuels messages de redirection vers le Comptoir PR"
   redirectMessage          String?  @map("redirect_message") @db.Text
+  // Why the answer was redirected to the counter (RedirectReason code). NULL = not redirected.
+  redirectReason           String?  @map("redirect_reason") @db.VarChar(60)
   intent                   String?  @db.VarChar(40)
   // "La date et l'heure de la recherche"
   createdAt                DateTime @default(now()) @map("created_at")
 
   @@map("search_logs")
-  @@index([vin])
+  @@index([vin, createdAt])
   @@index([sessionId])
   @@index([createdAt])
+  @@index([redirectReason])
+}
+
+// One row per ERP → chatbot synchronization (cron or manual button).
+model SyncRun {
+  id         String    @id @default(uuid())
+  trigger    String    @db.VarChar(10)  // CRON | MANUAL
+  status     String    @db.VarChar(20)  // RUNNING | SUCCESS | PARTIAL | FAILED
+  startedAt  DateTime  @default(now()) @map("started_at")
+  finishedAt DateTime? @map("finished_at")
+  summary    Json?
+  error      String?   @db.Text
+
+  @@map("sync_runs")
+  @@index([startedAt])
 }
 
 model AdminUser {
