@@ -7,16 +7,12 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 
 /**
- * Every concrete admin entity controller (parts, stock, fitments, ...) extends
- * this. It supplies list/get/delete + realtime broadcasting; each subclass only
- * declares `tableName`, `searchFields` and its own `create`/`update` methods
- * typed with the entity's DTO.
- *
- * Authentication lives HERE, so no subclass can forget it. Writes on
- * ERP-sourced tables are refused by PrismaCrudService (ERP → chatbot is one-way).
+ * Base for ERP-sourced tables (parts, stock, fitments, vehicles, ...): list / get / meta ONLY.
+ * No write route exists on these controllers, so the chatbot database stays read-only
+ * (ERP → chatbot, one way). PrismaCrudService still refuses writes as a second barrier.
  */
 @UseGuards(JwtAuthGuard, RolesGuard)
-export abstract class AdminCrudController<T = Record<string, unknown>> {
+export abstract class AdminReadOnlyController<T = Record<string, unknown>> {
   /** Websocket channel name, e.g. 'parts', 'stock', 'fitments'. */
   protected abstract readonly tableName: string;
   /** Fields matched by the `search` query param (case-insensitive contains). */
@@ -27,7 +23,7 @@ export abstract class AdminCrudController<T = Record<string, unknown>> {
     protected readonly gateway: AdminGateway,
   ) {}
 
-  /** Lets the dashboard disable edit buttons on ERP-sourced tables. Declared before ':id'. */
+  /** Lets the dashboard hide edit buttons on ERP-sourced tables. Declared before ':id'. */
   @Get('meta')
   @Roles('ADMIN', 'EDITOR')
   meta(): { table: string; erpSourced: boolean; readOnly: boolean } {
@@ -52,7 +48,15 @@ export abstract class AdminCrudController<T = Record<string, unknown>> {
   findOne(@Param('id', ParseIntPipe) id: number): Promise<T> {
     return this.service.findById(id);
   }
+}
 
+/**
+ * Base for chatbot-owned tables that humans may edit (synonyms): adds delete + realtime
+ * broadcasting. Each subclass declares its own `create`/`update` methods typed with its DTO.
+ * Authentication lives HERE, so no subclass can forget it.
+ */
+@UseGuards(JwtAuthGuard, RolesGuard)
+export abstract class AdminCrudController<T = Record<string, unknown>> extends AdminReadOnlyController<T> {
   // Deletion is ADMIN-only: an EDITOR can add/correct data but not remove rows.
   @Delete()
   @Roles('ADMIN')

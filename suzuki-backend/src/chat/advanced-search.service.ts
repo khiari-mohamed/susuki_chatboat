@@ -5,6 +5,7 @@ import { VehicleModelsService } from '../constants/vehicle-models.service';
 import { OpenAIService } from './openai.service';
 import { pickBestVehicleRow, vinLookupVariants } from './chat/vehicle-lookup';
 import { hasKnownStock, isQuantityAvailable } from '../constants/business-rules.constants';
+import { publicPriceSource } from './catalog-verifier';
 import {
   applyCatalogConstraints,
   buildIdentityKeys,
@@ -55,6 +56,8 @@ export interface PartResult {
   searchDescription: string | null;
   prixHt: string | null;
   prixTtc: string | null;
+  /** Public price from the ERP (Car Pro). Preferred over prixTtc for display. */
+  prixPublic: string | null;
   unite: string | null;
   categorie: string | null;
   fabricant: string | null;
@@ -95,7 +98,7 @@ export interface SearchDebugInfo {
   dbRawCount: number;
   qualifiedCount: number;
   finalCount: number;
-  sourceBreakdown: { suzukiOem: number; carproParts: number };
+  sourceBreakdown: { suzukiOem: number; carproParts: number; other: number };
   stockBreakdown: { disponible: number; indisponible: number };
   vehicleScope?: VehicleSearchScope;
   constraint?: ConstraintOutcome | null;
@@ -232,6 +235,8 @@ export class AdvancedSearchService {
         return 'Suzuki OEM';
       case '02_CARPRO':
         return 'CarPro Parts';
+      case 'BC-ERP':
+        return 'ERP';
       default:
         return source;
     }
@@ -255,6 +260,7 @@ export class AdvancedSearchService {
 
   formatPartResult(part: any, score: number, scope?: VehicleSearchScope): PartResult {
     const french = (part.designation2 ?? '').trim();
+    const publicRaw = publicPriceSource(part);
     return {
       id: part.id,
       reference: part.reference,
@@ -263,7 +269,9 @@ export class AdvancedSearchService {
       designation2: french || null,
       searchDescription: part.searchDescription ?? null,
       prixHt: part.prixHt != null ? String(part.prixHt) : null,
-      prixTtc: part.source === '01_PROD' && part.prixTtc != null ? String(part.prixTtc) : null,
+      // Price quoted to customers: ERP public price (TTC); legacy prix_ttc only for unsynced 01_PROD rows.
+      prixTtc: publicRaw != null ? String(publicRaw) : null,
+      prixPublic: part.prixPublic != null ? String(part.prixPublic) : null,
       unite: part.unite ?? null,
       categorie: part.categorie ?? null,
       fabricant: part.fabricant ?? null,
@@ -291,11 +299,12 @@ export class AdvancedSearchService {
   }
 
   private computeBreakdowns(results: PartResult[]) {
-    const sourceBreakdown = { suzukiOem: 0, carproParts: 0 };
+    const sourceBreakdown = { suzukiOem: 0, carproParts: 0, other: 0 };
     const stockBreakdown = { disponible: 0, indisponible: 0 };
     for (const r of results) {
       if (r.source === '02_CARPRO') sourceBreakdown.carproParts++;
-      else sourceBreakdown.suzukiOem++;
+      else if (r.source === '01_PROD') sourceBreakdown.suzukiOem++;
+      else sourceBreakdown.other++;
       if (this.isStockAvailable(r.stock)) stockBreakdown.disponible++;
       else stockBreakdown.indisponible++;
     }

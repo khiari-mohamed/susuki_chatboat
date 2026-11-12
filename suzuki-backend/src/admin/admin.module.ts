@@ -64,6 +64,6 @@ const MIN_JWT_SECRET_LENGTH = 32;
     SearchLogsController,
   ],
   providers: [AuthService, JwtStrategy, AdminUsersService, AdminGateway, ExplorerService, DiagnosticsService],
-  exports: [AdminGateway],
+  exports: [AdminGateway, ExplorerService],
 })
 export class AdminModule {}

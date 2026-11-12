@@ -1,8 +1,10 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import client from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import useSyncStatus from '../hooks/useSyncStatus';
 import { ENTITIES } from '../config/entities';
+import { SYNC_ENTITY_LABELS, SYNC_STATUS_META } from '../config/sync';
 
 const CARDS = [
   { key: 'parts', label: 'Pièces' },
@@ -15,79 +17,66 @@ const CARDS = [
   { key: 'synonyms', label: 'Synonymes' },
 ];
 
-const SYNC_LABELS = { SUCCESS: 'Réussie', PARTIAL: 'Partielle (lignes ignorées)', FAILED: 'Échec', RUNNING: 'En cours' };
-
 function SyncCard() {
   const { user } = useAuth();
-  const [status, setStatus] = useState(null);
+  const { status, error: loadError, reload } = useSyncStatus();
   const [error, setError] = useState('');
   const [starting, setStarting] = useState(false);
-
-  const load = useCallback(async () => {
-    try {
-      const { data } = await client.get('/sync/status');
-      setStatus(data);
-    } catch (err) {
-      setError(err.response?.data?.message || 'Statut de synchronisation indisponible');
-    }
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
-
-  useEffect(() => {
-    if (!status?.running) return undefined;
-    const timer = setInterval(load, 3000);
-    return () => clearInterval(timer);
-  }, [status?.running, load]);
 
   async function start() {
     setStarting(true);
     setError('');
     try {
-      await client.post('/sync');
+      await client.post('/sync', {});
     } catch (err) {
       setError(err.response?.data?.message || 'Échec du lancement');
     } finally {
       setStarting(false);
-      await load();
+      await reload();
     }
   }
 
   const run = status?.lastRun;
+  const statusLabel = run ? SYNC_STATUS_META[run.status]?.label || run.status : '';
   const anomalies = run?.summary
-    ? Object.entries(run.summary).filter(([, s]) => s.invalid + s.failed > 0)
+    ? Object.entries(run.summary).filter(([, s]) => (s.invalid || 0) + (s.failed || 0) > 0)
     : [];
+  const pending = run?.summary
+    ? Object.values(run.summary).reduce((sum, s) => sum + (s.pendingDeletes || 0), 0)
+    : 0;
 
   return (
     <div className="quality-card" style={{ marginBottom: 24 }}>
       <div className="quality-title">Synchronisation ERP → Chatbot</div>
-      {error && <div className="page-error">{error}</div>}
+      {(error || loadError) && <div className="page-error">{error || loadError}</div>}
       {status && !status.configured && (
-        <div className="quality-caption">Source ERP non configurée : la synchronisation est inactive.</div>
+        <div className="quality-caption">Source ERP non configurée : la synchronisation est inactive.</div>
       )}
       {run ? (
         <div className="quality-caption">
-          Dernière synchronisation : {SYNC_LABELS[run.status] || run.status} —{' '}
-          {new Date(run.startedAt).toLocaleString('fr-FR')} ({run.trigger === 'CRON' ? 'automatique' : 'manuelle'})
+          Dernière synchronisation : {statusLabel} — {new Date(run.startedAt).toLocaleString('fr-FR')} (
+          {run.trigger === 'CRON' ? 'automatique' : 'manuelle'})
         </div>
       ) : (
         <div className="quality-caption">Aucune synchronisation effectuée.</div>
       )}
+      {run?.error && <div className="quality-caption" style={{ color: '#dc2626' }}>{run.error}</div>}
       {anomalies.map(([entity, s]) => (
         <div key={entity} className="quality-caption">
-          {entity} : {s.invalid} ligne(s) invalide(s), {s.failed} en erreur
+          {SYNC_ENTITY_LABELS[entity] || entity} : {s.invalid} ligne(s) invalide(s), {s.failed} en erreur
         </div>
       ))}
-      {user?.role === 'ADMIN' && (
-        <button
-          className="btn-primary"
-          style={{ marginTop: 12 }}
-          onClick={start}
-          disabled={starting || !status?.configured || status?.running}
-        >
-          {status?.running ? 'Synchronisation en cours…' : 'Synchroniser maintenant'}
-        </button>
+      {pending > 0 && !status?.applyDeletes && (
+        <div className="quality-caption">{pending.toLocaleString('fr-FR')} suppression(s) ERP en attente de validation.</div>
       )}
+      <div style={{ marginTop: 12, display: 'flex', gap: 12, alignItems: 'center' }}>
+        {user?.role === 'ADMIN' && (
+          <button className="btn-primary" onClick={start} disabled={starting || !status?.configured || status?.running}>
+            {status?.running ? 'Synchronisation en cours…' : 'Synchroniser maintenant'}
+          </button>
+        )}
+        <Link to="/sync">Voir le détail et l'historique</Link>
+      </div>
     </div>
   );
 }

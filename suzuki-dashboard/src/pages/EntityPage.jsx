@@ -6,6 +6,8 @@ import { Plus, Upload, Trash2, Pencil, X, Check, ChevronLeft, ChevronRight, File
 import client from '../api/client';
 import { getSocket } from '../api/socket';
 import { useAuth } from '../context/AuthContext';
+import useSyncStatus from '../hooks/useSyncStatus';
+import { SYNC_STATUS_META } from '../config/sync';
 import AddRecordModal from '../components/AddRecordModal';
 
 const PAGE_SIZES = [25, 50, 100, 250];
@@ -304,6 +306,23 @@ export default function EntityPage({ entity }) {
     return () => { socket.off('record:changed', handleChange); clearTimeout(refetchTimer.current); };
   }, [entity.socketTable, fetchPage]);
 
+  // ERP-sourced tables change only through the sync: reload the grid when a run finishes.
+  const { status: syncStatus } = useSyncStatus();
+  const lastSync = syncStatus?.lastRun ?? null;
+  const lastFinishedAt = lastSync?.finishedAt ?? null;
+  const seenFinishedAt = useRef(undefined);
+  useEffect(() => {
+    if (!entity.erpSourced) return;
+    if (seenFinishedAt.current === undefined) {
+      seenFinishedAt.current = lastFinishedAt;
+      return;
+    }
+    if (lastFinishedAt !== seenFinishedAt.current) {
+      seenFinishedAt.current = lastFinishedAt;
+      fetchPage();
+    }
+  }, [lastFinishedAt, entity.erpSourced, fetchPage]);
+
   const handleRowsChange = useCallback(async (newRows, { indexes }) => {
     const idx = indexes[0];
     const newRow = newRows[idx];
@@ -457,6 +476,15 @@ export default function EntityPage({ entity }) {
       </div>
 
       {error && <div className="page-error">{error}</div>}
+      {entity.erpSourced && (
+        <div className="page-hint">
+          Données alimentées par l'ERP : lecture seule. Pour corriger une valeur, modifiez-la dans l'ERP puis lancez la synchronisation
+          {lastSync
+            ? ` — dernière synchronisation : ${new Date(lastSync.startedAt).toLocaleString('fr-FR')} (${SYNC_STATUS_META[lastSync.status]?.label || lastSync.status})`
+            : ''}
+          .
+        </div>
+      )}
       {entity.noUpdate && (
         <div className="page-hint">
           Table de correspondance simple : pour corriger une ligne, supprimez-la et ré-ajoutez-la.

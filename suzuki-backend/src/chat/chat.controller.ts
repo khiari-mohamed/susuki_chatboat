@@ -30,6 +30,8 @@ export interface EnrichedProductField {
   prixHt: string | null;
   /** Public price (01_PROD) only. */
   prixTtc: string | null;
+  /** ERP public price (Car Pro). Preferred over prixTtc for display. */
+  prixPublic: string | null;
   unite: string | null;
   categorie: string | null;
   fabricant?: string | null;
@@ -233,7 +235,8 @@ export class ChatController {
         'designation2     — Raw French name (designation_2)',
         'reference        — Part reference number',
         'prixHt           — Price excl. tax (TND string)',
-        `prixTtc          — Public TTC, ${PUBLIC_PRICE_SOURCE} rows only (TND string)`,
+        `prixTtc          — Public TTC price quoted to customers: ERP prixPublic, else legacy prix_ttc of ${PUBLIC_PRICE_SOURCE} rows (TND string)`,
+        'prixPublic       — ERP public price (Car Pro), any source (TND string)',
         'unite            — Unit (UNITE / PCS)',
         'categorie        — Part category',
         'fabricant        — Manufacturer',
@@ -351,13 +354,14 @@ export class ChatController {
       searchDescription: p.searchDescription ?? p.search_description ?? null,
       reference: p.reference ?? '',
       prixHt: p.prixHt != null ? String(p.prixHt) : null,
-      prixTtc: p.source === PUBLIC_PRICE_SOURCE && p.prixTtc != null ? String(p.prixTtc) : null,
+      prixTtc: p.prixTtc != null ? String(p.prixTtc) : null,
+      prixPublic: p.prixPublic != null ? String(p.prixPublic) : null,
       unite: p.unite ?? null,
       categorie: p.categorie ?? null,
       fabricant: p.fabricant ?? null,
       fournisseurCode: p.fournisseurCode ?? null,
       source: p.source ?? '',
-      sourceLabel: p.sourceLabel ?? (p.source === '02_CARPRO' ? 'CarPro Parts' : 'Suzuki OEM'),
+      sourceLabel: p.sourceLabel ?? (p.source === '02_CARPRO' ? 'CarPro Parts' : p.source === '01_PROD' ? 'Suzuki OEM' : p.source ? 'ERP' : ''),
       stock: this.formatStock(p.stock),
       fitments: (p.fitments ?? []).map((f: any) => ({
         modelName: f.modelName ?? '',

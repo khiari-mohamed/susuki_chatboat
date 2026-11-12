@@ -27,6 +27,7 @@ import type { ConstraintOutcome, PositionRequest } from '../chat/part-constraint
 import {
   checkResponseAgainstCatalog,
   publicPrice,
+  publicPriceSource,
   verifyProductAgainstCatalog,
 } from '../chat/catalog-verifier';
 import { hasKnownStock, isQuantityAvailable } from '../constants/business-rules.constants';
@@ -163,6 +164,7 @@ export class ChatOrchestratorService implements OnModuleDestroy {
       (p.designation2 ?? p.designation_2 ?? '').trim() ||
       (p.designation ?? '').trim();
     const displayName = p.displayName ?? frenchOrEnglish;
+    const price = publicPriceSource(p);
 
     return {
       id:           p.id,
@@ -174,7 +176,9 @@ export class ChatOrchestratorService implements OnModuleDestroy {
       searchDescription: p.searchDescription ?? p.search_description ?? null,
       reference:    p.reference,
       prixHt:       p.prixHt != null ? String(p.prixHt) : null,
-      prixTtc:      p.source === '01_PROD' && p.prixTtc != null ? String(p.prixTtc) : null,
+      // Price quoted to customers (same value as the chat text): ERP public price, TTC.
+      prixTtc:      price != null ? String(price) : null,
+      prixPublic:   (p.prixPublic ?? p.prix_public) != null ? String(p.prixPublic ?? p.prix_public) : null,
       unite:        p.unite ?? null,
       categorie:    p.categorie ?? null,
       fabricant:        p.fabricant        ?? null,

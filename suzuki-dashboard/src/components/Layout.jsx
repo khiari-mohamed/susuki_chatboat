@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import {
   LayoutDashboard, Package, Layers, Link2, Car, GitMerge, Cpu, BookOpen,
-  MessageSquare, Users, Database, BarChart2, LogOut, ChevronRight, Circle, History,
+  MessageSquare, Users, Database, BarChart2, LogOut, ChevronRight, Circle, History, RefreshCw,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { getSocket } from '../api/socket';
@@ -63,6 +63,9 @@ export default function Layout() {
             const Icon = ENTITY_ICONS[key] || Package;
             return <NavItem key={key} to={`/data/${key}`} icon={Icon} label={ENTITIES[key].label} />;
           })}
+
+          <div className="nav-section-label">ERP</div>
+          <NavItem to="/sync" icon={RefreshCw} label="Synchronisation" />
 
           {user?.role === 'ADMIN' && (
             <>

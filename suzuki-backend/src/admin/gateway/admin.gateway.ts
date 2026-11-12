@@ -9,6 +9,8 @@ import { JwtService } from '@nestjs/jwt';
 import { Server, Socket } from 'socket.io';
 
 export type AdminCrudAction = 'created' | 'updated' | 'deleted' | 'bulk-deleted' | 'bulk-upserted';
+/** ERP → chatbot synchronization events (table = 'sync'). */
+export type AdminSyncAction = 'started' | 'finished';
 
 const allowedOrigins = (process.env.DASHBOARD_URL || 'http://localhost:5173')
   .split(',')
@@ -61,8 +63,8 @@ export class AdminGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.server?.emit('presence', { online, count: online.length });
   }
 
-  /** Called by every admin CRUD controller after a successful mutation. */
-  broadcast(table: string, action: AdminCrudAction, record: unknown) {
+  /** Called by every admin CRUD controller after a successful mutation, and by the ERP sync. */
+  broadcast(table: string, action: AdminCrudAction | AdminSyncAction, record: unknown) {
     this.server?.emit('record:changed', {
       table,
       action,

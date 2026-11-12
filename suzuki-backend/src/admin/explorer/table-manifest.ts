@@ -39,6 +39,7 @@ export const EXPLORER_TABLES: ExplorerTable[] = [
       { key: 'searchDescription', type: 'string' },
       { key: 'prixHt', type: 'number' },
       { key: 'prixTtc', type: 'number' },
+      { key: 'prixPublic', type: 'number' },
       { key: 'unite', type: 'string' },
       { key: 'categorie', type: 'string' },
       { key: 'fabricant', type: 'string' },

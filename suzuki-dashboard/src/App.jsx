@@ -10,6 +10,7 @@ import UsersPage from './pages/UsersPage';
 import DbExplorerPage from './pages/DbExplorerPage';
 import DiagnosticsPage from './pages/DiagnosticsPage';
 import SearchLogsPage from './pages/SearchLogsPage';
+import SyncPage from './pages/SyncPage';
 import { ENTITIES } from './config/entities';
 
 export default function App() {
@@ -27,6 +28,7 @@ export default function App() {
                 <Route key={entity.key} path={`/data/${entity.key}`} element={<EntityPage entity={entity} />} />
               ))}
 
+              <Route path="/sync" element={<SyncPage />} />
               <Route path="/explorer" element={<DbExplorerPage />} />
               <Route path="/diagnostics" element={<DiagnosticsPage />} />
               <Route path="/search-logs" element={<SearchLogsPage />} />

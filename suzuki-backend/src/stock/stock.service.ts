@@ -4,8 +4,8 @@
 // Business rules (CarPro emails 2026-09-11/18):
 //   - a part is "Disponible" only when consolidated stock >= 2
 //     (rule lives in constants/business-rules.constants.ts)
-//   - the public price is prix_ttc of 01_PROD rows only; 02_CARPRO rows
-//     are wholesale and are never exposed as a price
+//   - the public price is prixPublic (TTC), falling back to legacy prix_ttc
+//     for unsynced 01_PROD rows; 02_CARPRO rows are wholesale and never exposed as a price
 //   - missing consolidated stock is "Inconnue" and must be redirected
 //
 // Lookups start from `parts`, not `stock`: parts without a stock row still
@@ -20,8 +20,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import {
   hasKnownStock,
   isQuantityAvailable,
-  PUBLIC_PRICE_SOURCE,
 } from '../constants/business-rules.constants';
+import { publicPriceSource } from '../chat/catalog-verifier';
 
 export type StockAvailability = 'Disponible' | 'Indisponible' | 'Inconnue';
 
@@ -41,8 +41,9 @@ export interface StockStatusResult {
   /** 'Suzuki OEM' | 'CarPro Parts' */
   sourceLabel: string | null;
   prixHt: string | null;
-  /** Public price only (01_PROD); null for wholesale rows. */
+  /** Public TTC price quoted to customers (prixPublic, else legacy 01_PROD prix_ttc); null otherwise. */
   prixTtc: string | null;
+  prixPublic?: string | null;
   categorie: string | null;
 }
 
@@ -61,6 +62,7 @@ const PART_WITH_STOCK_SELECT = {
   designation2: true,
   prixHt: true,
   prixTtc: true,
+  prixPublic: true,
   categorie: true,
   source: true,
   stock: {
@@ -137,6 +139,7 @@ export class StockService {
     // A missing stock row is UNKNOWN (stockKnown=false), never a real zero.
     const stockKnown = hasKnownStock(part.stock);
     const stockConsolide = stockKnown ? Number(part.stock!.stockConsolide) : 0;
+    const publicRaw = publicPriceSource(part);
     return {
       stockKnown,
       reference: part.reference,
@@ -150,7 +153,8 @@ export class StockService {
       source: part.source ?? null,
       sourceLabel: this.resolveSourceLabel(part.source),
       prixHt: part.prixHt != null ? String(part.prixHt) : null,
-      prixTtc: part.source === PUBLIC_PRICE_SOURCE && part.prixTtc != null ? String(part.prixTtc) : null,
+      prixTtc: publicRaw != null ? String(publicRaw) : null,
+      prixPublic: part.prixPublic != null ? String(part.prixPublic) : null,
       categorie: part.categorie ?? null,
     };
   }

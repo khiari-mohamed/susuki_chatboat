@@ -247,12 +247,28 @@ export function stockIsAvailable(product: any): boolean {
   return isQuantityAvailable(quantity);
 }
 
-export function publicPrice(product: any): number | null {
-  if (product?.source !== PUBLIC_PRICE_SOURCE) return null;
-  const raw = product?.prixTtc ?? product?.prix_ttc ?? null;
-  if (raw == null) return null;
+function positivePrice(raw: unknown): number | null {
+  if (raw == null || raw === '') return null;
   const value = Number(raw);
-  return Number.isFinite(value) ? value : null;
+  return Number.isFinite(value) && value > 0 ? value : null;
+}
+
+/**
+ * Stored value of the price quoted to customers, or null:
+ *  - the ERP public price (prixPublic, TTC, confirmed by Car Pro), whatever the part's source;
+ *  - else, for rows the sync has not given a public price, the legacy prix_ttc of 01_PROD rows.
+ * 02_CARPRO / BC-ERP rows never fall back to prix_ttc (wholesale rule).
+ */
+export function publicPriceSource(product: any): unknown {
+  const erp = product?.prixPublic ?? product?.prix_public;
+  if (positivePrice(erp) !== null) return erp;
+  if (product?.source !== PUBLIC_PRICE_SOURCE) return null;
+  const legacy = product?.prixTtc ?? product?.prix_ttc ?? null;
+  return positivePrice(legacy) !== null ? legacy : null;
+}
+
+export function publicPrice(product: any): number | null {
+  return positivePrice(publicPriceSource(product));
 }
 
 // "125,500 TND", "1 250,5 DT", "99.90 TND"

@@ -50,6 +50,8 @@ model Part {
 
   prixHt            Decimal?  @map("prix_ht") @db.Decimal(20, 14)
   prixTtc           Decimal?  @map("prix_ttc") @db.Decimal(20, 5)
+  // Prix public Car Pro (ERP). Client rule 11/09: public price, never the Car Pro Parts wholesale price.
+  prixPublic        Decimal?  @map("prix_public") @db.Decimal(20, 5)
   unite             String?   @db.VarChar(20)
   categorie         String?   @db.VarChar(50)
   fabricant         String?   @db.VarChar(100)
