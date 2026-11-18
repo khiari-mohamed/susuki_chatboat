@@ -73,7 +73,10 @@ export class StrictValidatorService {
           return false;
         }
         // ── RULE 1b: Reject subordinate/accessory parts when user asked for the main part
-        if (this.isSubordinatePart(combinedTokens, mainPartType)) {
+        const explicitlyAskedForSubordinate = queryTokens.some((token) =>
+          StrictValidatorService.SUBORDINATE_PREFIXES.includes(token),
+        );
+        if (!explicitlyAskedForSubordinate && this.isSubordinatePart(combinedTokens, mainPartType)) {
           this.logger.warn(
             `[STRICT-VALIDATION] REJECTED "${displayName}" — Subordinate part (accessory for ${mainPartType}, not the part itself)`,
           );

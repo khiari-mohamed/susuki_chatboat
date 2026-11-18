@@ -27,6 +27,7 @@ function createNormalizer(
     getTunisianMap: () => ({}),
     getTypoMap: () => ({}),
     getStopWords: () => new Set<string>(),
+    hasCatalogWord: async () => false,
     findClosestVocabularyWord: () => undefined,
     findClosestCatalogWord: async () => null,
     hasCatalogDesignationConcept: () => Promise.resolve(catalogConceptExists),
@@ -73,6 +74,23 @@ describe('AIQueryNormalizerService conversation context', () => {
     await expect(service.repairTypos('CADRE SIEGE CONDUTCEUR pour BALENO', { modele: 'BALENO' }))
       .resolves.toBe('CADRE SIEGE conducteur pour BALENO');
     expect(findClosestCatalogWord).toHaveBeenCalledTimes(3);
+  });
+
+  it('applies curated catalog typo corrections before searching', async () => {
+    const { service } = createNormalizer(() => false);
+    (service as any).synonymsService.findClosestCatalogWord = jest.fn(async () => null);
+
+    await expect(service.repairTypos('SWTCHE MALLE AR; DOUILE DE FEU DE RECUL; glass')).resolves.toBe(
+      'switche MALLE AR; douille DE FEU DE RECUL; glass',
+    );
+  });
+
+  it('preserves an exact catalog word even when it is listed as a typo', async () => {
+    const { service } = createNormalizer(() => false);
+    (service as any).synonymsService.getTypoMap = () => ({ glass: 'verre' });
+    (service as any).synonymsService.hasCatalogWord = async (word: string) => word === 'glass';
+
+    await expect(service.repairTypos('BALAIS ESSUI GLASS AR')).resolves.toBe('BALAIS ESSUI GLASS AR');
   });
 
   it('does not typo-repair conversational words or contextual price follow-ups', async () => {

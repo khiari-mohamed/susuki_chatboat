@@ -30,7 +30,7 @@ export interface EnrichedProductField {
   prixHt: string | null;
   /** Public price (01_PROD) only. */
   prixTtc: string | null;
-  /** ERP public price (Car Pro). Preferred over prixTtc for display. */
+  /** ERP public price before VAT (HT). It is not the customer TTC price. */
   prixPublic: string | null;
   unite: string | null;
   categorie: string | null;
@@ -235,8 +235,8 @@ export class ChatController {
         'designation2     — Raw French name (designation_2)',
         'reference        — Part reference number',
         'prixHt           — Price excl. tax (TND string)',
-        `prixTtc          — Public TTC price quoted to customers: ERP prixPublic, else legacy prix_ttc of ${PUBLIC_PRICE_SOURCE} rows (TND string)`,
-        'prixPublic       — ERP public price (Car Pro), any source (TND string)',
+        `prixTtc          — Public TTC price quoted to customers for ${PUBLIC_PRICE_SOURCE} rows (TND string)`,
+        'prixPublic       — ERP public price before VAT (HT), not displayed as customer TTC (TND string)',
         'unite            — Unit (UNITE / PCS)',
         'categorie        — Part category',
         'fabricant        — Manufacturer',

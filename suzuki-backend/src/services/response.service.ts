@@ -63,13 +63,15 @@ export class ResponseService {
       .join('\n');
   }
 
-  /** In stock first, then the most relevant row. */
+  /** Relevance first; availability breaks ties so stock never changes the requested part. */
   selectPrimaryProduct(products: any[]): any | null {
     if (!Array.isArray(products) || products.length === 0) return null;
     const unique = this.dedupeProductsByReference(products);
-    const available = unique.filter((product) => stockIsAvailable(product));
-    if (available.length > 0) return available[0];
-    return [...unique].sort((a, b) => (b.score ?? 0) - (a.score ?? 0))[0] ?? null;
+    return [...unique].sort((a, b) => {
+      const scoreDifference = Number(b.score ?? 0) - Number(a.score ?? 0);
+      if (scoreDifference !== 0) return scoreDifference;
+      return Number(stockIsAvailable(b)) - Number(stockIsAvailable(a));
+    })[0] ?? null;
   }
 
   /** No consolidated stock value: availability cannot be stated either way. */

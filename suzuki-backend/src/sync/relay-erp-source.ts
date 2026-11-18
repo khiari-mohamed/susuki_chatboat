@@ -23,6 +23,11 @@ const text = (v: unknown): string | null => (typeof v === 'string' && v.trim() ?
 const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null);
 /** DB convention (schema note on vehicle_type_master): hyphens. fitment holds 16 044 rows, all hyphenated. */
 const typeCode = (v: unknown): string | null => text(v)?.replace(/\s+/g, '-') ?? null;
+/**
+ * vehicles.type_code convention: no separator before the number, e.g. AVH310-TYPE2.
+ * The ERP writes "AVH310-TYPE 2"; type master, fitment and model map keep "AVH310-TYPE-2".
+ */
+const vehicleTypeCode = (v: unknown): string | null => typeCode(v)?.replace(/-TYPE-(\d)/i, '-TYPE$1') ?? null;
 const withTombstone = (row: ErpRow, dto: Dto): ErpRow => (dto.deleted === true ? { ...row, _deleted: true } : row);
 
 const ENDPOINTS: Record<ErpEntity, Endpoint> = {
@@ -47,7 +52,7 @@ const ENDPOINTS: Record<ErpEntity, Endpoint> = {
           marque: text(d.marque),
           modele: text(d.modele),
           modeleDescription: text(d.modeleDescription),
-          typeCode: typeCode(d.typeCode),
+          typeCode: vehicleTypeCode(d.typeCode),
           immatriculation: text(d.immatriculation),
         },
         d,

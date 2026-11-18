@@ -64,6 +64,7 @@ function setup(aiResponse = JSON.stringify({ flags: [] }), resolvedTypeCodes = [
       constraint?: ConstraintOutcome | null;
       vehicle?: any;
       message?: string;
+      requireVehicleScope?: boolean;
     } = {},
   ) => {
     const requestVehicle = options.vehicle ?? vehicle;
@@ -75,6 +76,7 @@ function setup(aiResponse = JSON.stringify({ flags: [] }), resolvedTypeCodes = [
       constraint: options.constraint,
       identityMode: options.identityMode,
       requireUnderstanding: options.requireUnderstanding,
+      requireVehicleScope: options.requireVehicleScope,
       build: options.build ?? ((shown: any[]) => orchestrator.responseService.buildProductResponse(shown, requestVehicle)),
     });
   };
@@ -453,6 +455,19 @@ describe('answerFromVerifiedProducts: DB decides, AI only flags', () => {
     });
     expect(exactReference.accepted).toBe(true);
   });
+
+  it('does not reject an exact reference because the vehicle fitment differs', async () => {
+    const { run } = setup();
+    const exactReference = await run([row({ fitments: [{ typeCode: 'OTHER-TYPE' }] })], {
+      requireUnderstanding: false,
+      requireVehicleScope: false,
+      message: 'REF-1',
+      build: (shown) => new ResponseService().buildReferenceResponse('REF-1', shown[0], vehicle),
+    });
+
+    expect(exactReference.accepted).toBe(true);
+    expect(exactReference.products.map((product: any) => product.reference)).toEqual(['REF-1']);
+  });
 });
 
   describe('CarPro anomalies (18/09/2026): the customer is redirected, never shown the wrong part', () => {
@@ -668,7 +683,7 @@ describe('answerFromVerifiedProducts: DB decides, AI only flags', () => {
 
       const result = await orchestrator.processMessage('retroviseur droite', vehicle, 'session-1');
 
-      expect(events.slice(0, 2)).toEqual(['preflight', 'interpret']);
+      expect(events).toEqual(['preflight', 'interpret']);
       expect(result.products.map((product: any) => product.reference)).toEqual(['COMPATIBLE-1']);
     });
   });

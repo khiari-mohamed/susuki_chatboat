@@ -1,0 +1,79 @@
+Suzuki Chatbot Regression Rerun
+Date: 2026-11-18
+
+Scope
+- Existing repository scripts only.
+- No Jest, TypeScript check, dashboard build, relay probe, staging sync, or production sync.
+- The local backend was started on http://localhost:8000 and stopped after testing.
+- Chat API calls may have created normal chat sessions/messages in the configured local database.
+- No code changes were made for these reruns.
+
+Test 1: test-current-data-50.js
+- Result: 35/50 passed, 15 failed.
+- Failures: 12 exact-reference lookups returned no product; one explicit accessory query returned no accessory; two additional failures from the 50-item list.
+- Exact reference failures:
+  01550-0830A-000
+  01550-0855A-000
+  01550-0880A-000
+  01550M1050A
+  01551-1025C-000
+  03141-0516A-000
+  03141M0412E
+  03241-0516D-000
+  03541-0512A-000
+  03541-0516A-000
+  08113-6203A-000
+  08313-2006A-000
+  08316-1010A-000
+- Explicit-accessory failure:
+  "agrafe, filtre" returned no accessory result.
+- Main/vs-accessory, stock-boundary, public-price, position, greetings, and most catalog-reference checks passed.
+
+Test 2: test-final-30-prompts.js
+- Result: 22/30 passed, 8 failed.
+- Failures:
+  Salem, kifech? - expected greeting, returned SECURISATION.
+  avant - returned SECURISATION.
+  Gauche - returned SECURISATION.
+  phare - expected not available, returned clarification with 2 products.
+  plaquette frein avant - returned NO_RESULTS.
+  phare avant gauche - returned NO_RESULTS.
+  disque frein ar - returned NO_RESULTS.
+  repeated avant - returned SECURISATION.
+- The suite also passed price, rear shock, mirror, Tunisian typo, exact reference, and service-question cases.
+
+Test 3: test-massive-final.js
+- Result: 49/55 passed, 6 failed.
+- Score: 89.1%.
+- Failures:
+  phare avant - no product found.
+  support amortisseur - SECURISATION/no sufficient confidence.
+  moulure-pare-choc avant - no product found.
+  silencieux - SECURISATION/no sufficient confidence.
+  filtre air spresso - model-reminder response rather than a product.
+  amortisseur avant gauche spresso - model-reminder response rather than a product.
+- Passing categories:
+  Accessories only 4/4
+  Positions 6/6
+  Typos 4/4
+  Tunisian 4/4
+  References 3/3
+  Multi-word parts 3/3
+  Price 2/2
+  Stock 2/2
+  Greetings 3/3
+  General parts 5/5
+
+Interpretation
+- Core main-part, typo, Tunisian, reference, stock, price, greeting, and position behaviors remain largely usable.
+- Exact-reference coverage in test-current-data-50.js is weaker, but many of those rows may be missing in the search/answer path; this needs source-code or data investigation before delivery.
+- "avant"/"Gauche" standalone prompts depend on context and should not be judged as standalone part searches.
+- "phare", "plaquette frein avant", and "disque frein ar" reflect current catalog/position behavior.
+- "filtre air spresso" and "amortisseur avant gauche spresso" trigger model-reminder behavior; test expectations may be stale or the behavior may need tuning.
+- No real sync was run. The earlier real-relay comparison saved in relay-compare-output.txt remains separate evidence and was not rerun.
+
+Next Gate
+- Investigate the 15 current-data failures and stale 30-prompt expectations.
+- Decide whether the standalone-context failures should remain SECURISATION.
+- Repeat only the repository scripts after fixes.
+- Do not run a real relay/staging/production sync until the affected chatbot answers are confirmed.

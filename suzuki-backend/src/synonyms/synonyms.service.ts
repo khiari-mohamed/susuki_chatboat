@@ -286,6 +286,13 @@ export class SynonymsService implements OnModuleInit {
     });
   }
 
+  async hasCatalogWord(word: string): Promise<boolean> {
+    const normalized = this.normalize(word);
+    if (!normalized || normalized.includes(' ')) return false;
+    const corpus = await this.getCatalogCorpus();
+    return corpus.padded.includes(` ${normalized} `);
+  }
+
   private async getCatalogCorpus(): Promise<CatalogCorpus> {
     const fresh = this.catalogCorpus && Date.now() - this.catalogCorpusAt < CATALOG_CORPUS_TTL_MS;
     if (fresh && this.catalogCorpus) return this.catalogCorpus;

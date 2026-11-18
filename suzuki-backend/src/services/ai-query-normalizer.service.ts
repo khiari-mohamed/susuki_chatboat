@@ -180,6 +180,7 @@ const STATIC_TYPO_FALLBACK: Readonly<Record<string, string>> = {
   souffelt: 'soufflet', souflet: 'soufflet',
   enjolivuer: 'enjoliveur', enjolivueur: 'enjoliveur',
   essuiglace: 'essuie glace', leveglace: 'leve glace', monteglace: 'monte glace', laveglace: 'lave glace',
+  swtche: 'switche', douile: 'douille',
 };
 
 const INITIAL_STATS = {
@@ -811,6 +812,7 @@ export class AIQueryNormalizerService {
     const vehicleWords = this.vehicleTokens(vehicle);
     const tunisian = this.synonymsService.getTunisianMap();
     const stop = this.synonymsService.getStopWords();
+    const corrections = this.buildCorrections();
     const fixes = new Map<string, string>();
     for (const word of words) {
       const lower = word.toLowerCase();
@@ -819,8 +821,15 @@ export class AIQueryNormalizerService {
         CONVERSATIONAL_WORDS.has(folded) || COURTESY_WORDS.has(folded) ||
         vehicleWords.has(folded) || tunisian[lower] !== undefined || stop.has(lower) ||
         isFillerToken(folded) || isPositionToken(folded) || isColorToken(folded) ||
+        await this.synonymsService.hasCatalogWord?.(lower) ||
         INTENT_WORDS.test(folded) || this.synonymsService.isKnownAutomotiveTerm(folded)
       ) continue;
+      const correction = corrections.get(lower) ?? corrections.get(folded);
+      if (correction) {
+        fixes.set(word, correction);
+        this.logger.warn(`[TYPO-REPAIR] "${word}" → "${correction}"`);
+        continue;
+      }
       const fix = await this.synonymsService.findClosestCatalogWord(word);
       if (fix) {
         fixes.set(word, fix);

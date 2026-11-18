@@ -56,7 +56,7 @@ export interface PartResult {
   searchDescription: string | null;
   prixHt: string | null;
   prixTtc: string | null;
-  /** Public price from the ERP (Car Pro). Preferred over prixTtc for display. */
+  /** ERP public price before VAT (HT). It is not the customer TTC price. */
   prixPublic: string | null;
   unite: string | null;
   categorie: string | null;
@@ -127,7 +127,7 @@ const RANK = {
   FULL_COVERAGE_BONUS: 100_000,
   COVERAGE_MAX: 100_000,
   EXACT_DESIGNATION: 50_000,
-  STOCK_AVAILABLE: 40_000,
+  STOCK_AVAILABLE: 0,
   FIT_EXCLUSIVE: 30_000,
   FIT_PRIMARY_BASE: 20_000,
   FIT_PRIMARY_SPAN: 9_000,
@@ -269,7 +269,7 @@ export class AdvancedSearchService {
       designation2: french || null,
       searchDescription: part.searchDescription ?? null,
       prixHt: part.prixHt != null ? String(part.prixHt) : null,
-      // Price quoted to customers: ERP public price (TTC); legacy prix_ttc only for unsynced 01_PROD rows.
+      // Customer TTC price: relay/local prixTtc for 01_PROD rows. prixPublic remains HT.
       prixTtc: publicRaw != null ? String(publicRaw) : null,
       prixPublic: part.prixPublic != null ? String(part.prixPublic) : null,
       unite: part.unite ?? null,
@@ -495,7 +495,7 @@ export class AdvancedSearchService {
       return { results: refResults, constraint: null, scope: vehicleScope, truncated: false };
     }
 
-    const dialect = this.applyDialect(query);
+    const dialect = await this.applyDialect(query);
     const searchQuery = dialect.text;
     const normalized = this.normalize(searchQuery);
     const allTokens = await this.tokenize(normalized);
@@ -1188,16 +1188,31 @@ export class AdvancedSearchService {
    * DB dialect → French, whole words, one pass. A word that is a vehicle name
    * ("new") or already a French catalog word is never translated.
    */
-  private applyDialect(query: string): { text: string; applied: boolean } {
+  private async applyDialect(query: string): Promise<{ text: string; applied: boolean }> {
     const { pattern, lookup } = this.dialectRules();
     const lowered = query.toLowerCase().trim();
     if (!pattern) return { text: query, applied: false };
 
     const vehicleWords = this.vehicleModels.getNameTokens();
+    const protectedCatalogWords = new Set<string>();
+    for (const match of new Set(lowered.match(pattern) ?? [])) {
+      const normalized = this.normalize(match);
+      if (
+        !vehicleWords.has(normalized) &&
+        this.normalizedSynonymLookup[normalized] === undefined &&
+        await this.synonymsService.hasCatalogWord?.(normalized)
+      ) {
+        protectedCatalogWords.add(match);
+      }
+    }
     const translated = lowered.replace(pattern, (match) => {
       const key = match.toLowerCase();
       const normalized = this.normalize(key);
-      if (vehicleWords.has(normalized) || this.normalizedSynonymLookup[normalized] !== undefined) return match;
+      if (
+        vehicleWords.has(normalized) ||
+        this.normalizedSynonymLookup[normalized] !== undefined ||
+        protectedCatalogWords.has(match)
+      ) return match;
       return lookup.get(key) ?? match;
     });
     if (translated === lowered) return { text: query, applied: false };

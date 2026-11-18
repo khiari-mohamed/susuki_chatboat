@@ -254,21 +254,18 @@ function positivePrice(raw: unknown): number | null {
 }
 
 /**
- * Stored value of the price quoted to customers, or null:
- *  - the ERP public price (prixPublic, TTC, confirmed by Car Pro), whatever the part's source;
- *  - else, for rows the sync has not given a public price, the legacy prix_ttc of 01_PROD rows.
- * 02_CARPRO / BC-ERP rows never fall back to prix_ttc (wholesale rule).
+ * Stored customer price: prix_ttc from 01_PROD rows, kept in sync from the relay's prixTtc.
+ * The relay's prixPublic is before VAT and is never quoted. 02_CARPRO prices are wholesale.
  */
 export function publicPriceSource(product: any): unknown {
-  const erp = product?.prixPublic ?? product?.prix_public;
-  if (positivePrice(erp) !== null) return erp;
   if (product?.source !== PUBLIC_PRICE_SOURCE) return null;
-  const legacy = product?.prixTtc ?? product?.prix_ttc ?? null;
-  return positivePrice(legacy) !== null ? legacy : null;
+  const raw = product?.prixTtc ?? product?.prix_ttc ?? null;
+  return positivePrice(raw) !== null ? raw : null;
 }
 
 export function publicPrice(product: any): number | null {
-  return positivePrice(publicPriceSource(product));
+  const raw = publicPriceSource(product);
+  return raw == null ? null : Number(raw);
 }
 
 // "125,500 TND", "1 250,5 DT", "99.90 TND"

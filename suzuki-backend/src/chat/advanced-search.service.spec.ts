@@ -38,6 +38,27 @@ describe('AdvancedSearchService retrieval and ranking', () => {
     ]);
   });
 
+  it('does not translate a dialect token that is an exact catalog word', async () => {
+    const service = new AdvancedSearchService(
+      {} as PrismaService,
+      {
+        getCategoryVariants: () => ({}),
+        getNormalizedLookup: () => ({}),
+        getStopWords: () => new Set<string>(),
+        getTunisianMap: () => ({ tableau: 'tableau de bord' }),
+        isKnownAutomotiveTerm: () => false,
+        hasCatalogWord: async (word: string) => word === 'tableau',
+      } as unknown as SynonymsService,
+      { getNameTokens: () => new Set<string>() } as unknown as VehicleModelsService,
+      {} as OpenAIService,
+    );
+
+    await expect((service as any).applyDialect('TABLEAU INF')).resolves.toEqual({
+      text: 'tableau inf',
+      applied: false,
+    });
+  });
+
   it('derives identity terms from compatible catalog evidence instead of unknown chat filler', () => {
     const service = createService() as any;
     const query = 'Salem n7eb coussinet palier vilebrequin sup rouge marron lel baleno mawjoud ch7al';

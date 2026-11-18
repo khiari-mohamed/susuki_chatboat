@@ -93,17 +93,30 @@ describe('ErpSyncService', () => {
     expect(call.update.prixPublic).toBe(280);
   });
 
-  it('never overwrites the legacy public price (prixTtc) of existing parts, but updates prixPublic', async () => {
+  it('updates prixTtc from the ERP but never blanks an existing one', async () => {
     const { service, prisma } = setup({
-      part: [{ reference: 'R1', designation: 'X', source: 'BC-ERP', prixTtc: 222.5, prixPublic: 280 }],
+      part: [
+        { reference: 'R1', designation: 'X', source: '01_PROD', prixTtc: 119 },
+        { reference: 'R2', designation: 'Y', source: '01_PROD', prixTtc: null },
+      ],
     });
 
     await service.runSync('MANUAL');
 
-    const call = (prisma.part.upsert as any).mock.calls[0][0];
-    expect(call.create.prixTtc).toBe(222.5);
-    expect(call.update).not.toHaveProperty('prixTtc');
-    expect(call.update.prixPublic).toBe(280);
+    const calls = (prisma.part.upsert as any).mock.calls.map((c: any[]) => c[0]);
+    expect(calls[0].update.prixTtc).toBe(119);
+    expect(calls[1].update).not.toHaveProperty('prixTtc');
+  });
+
+  it('never blanks the identity fields of an existing vehicle, and freezes modeleDescription', async () => {
+    const { service, prisma } = setup({
+      vehicle: [{ vehicleNo: 'V1', vin: 'VIN1', typeCode: null, marque: null, modele: null, modeleDescription: 'NEW', immatriculation: null }],
+    });
+
+    await service.runSync('MANUAL');
+
+    const call = (prisma.vehicle.upsert as any).mock.calls[0][0];
+    expect(call.update).toEqual({ vehicleNo: 'V1', vin: 'VIN1' });
   });
 
   it('never blanks an existing French designation when the ERP sends none', async () => {

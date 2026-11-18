@@ -108,16 +108,26 @@ const SPECS: EntitySpec[] = [
 
 /**
  * Columns the chatbot keeps itself: the ERP never overwrites them on existing rows.
- * prixTtc = legacy public price of 01_PROD rows (validated by Car Pro); the relay's prixTtc is unconfirmed.
- * source = catalog tag set at creation; the relay stamps 01_PROD on every row and must not re-tag local parts.
+ *  - part.searchDescription: enriched by the chatbot.
+ *  - part.source: catalog tag set at creation (the relay stamps 01_PROD on every row).
+ *  - vehicle.modeleDescription: frozen until the relay's differing values have been reviewed.
  */
-const CHATBOT_OWNED_COLUMNS: Record<string, string[]> = { part: ['searchDescription', 'prixTtc', 'source'] };
+const CHATBOT_OWNED_COLUMNS: Record<string, string[]> = {
+  part: ['searchDescription', 'source'],
+  vehicle: ['modeleDescription'],
+};
 
 /** The relay stamps every part with this generic marker; it must not erase the legacy 01_PROD / 02_CARPRO origin. */
 const GENERIC_ERP_SOURCE = 'BC-ERP';
 
-/** The ERP may send these empty, but they are never blanked locally: French names drive display and identity checks. */
-const NEVER_BLANK_COLUMNS: Record<string, string[]> = { part: ['designation2'] };
+/**
+ * The ERP may send these empty, but they are never blanked locally: French names and the vehicle identity
+ * chain (VIN, model, type code) are relied on by customer answers. A missing ERP price keeps the old value.
+ */
+const NEVER_BLANK_COLUMNS: Record<string, string[]> = {
+  part: ['designation2', 'prixTtc'],
+  vehicle: ['vin', 'typeCode', 'marque', 'modele', 'immatriculation'],
+};
 
 /** A snapshot prune that would remove more than max(50, 20 %) of a table is treated as an ERP/relay incident. */
 const MIN_PRUNE_GUARD = 50;
@@ -356,7 +366,8 @@ export class ErpSyncService implements OnModuleInit {
           Object.entries(i.data).filter(
             ([key, value]) =>
               !owned.includes(key) &&
-              !(neverBlank.includes(key) && value == null) &&
+              !(neverBlank.includes(key) &&
+                (value == null || (key === 'prixTtc' && (typeof value !== 'number' ? Number(value) <= 0 : value <= 0)))) &&
               // Existing parts keep their real origin; only a real value from the ERP replaces it.
               !(spec.entity === 'part' && key === 'source' && value === GENERIC_ERP_SOURCE),
           ),

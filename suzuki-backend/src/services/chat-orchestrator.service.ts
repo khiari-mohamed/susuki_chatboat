@@ -176,7 +176,7 @@ export class ChatOrchestratorService implements OnModuleDestroy {
       searchDescription: p.searchDescription ?? p.search_description ?? null,
       reference:    p.reference,
       prixHt:       p.prixHt != null ? String(p.prixHt) : null,
-      // Price quoted to customers (same value as the chat text): ERP public price, TTC.
+      // Price quoted to customers (same value as the chat text): prixTtc for 01_PROD rows.
       prixTtc:      price != null ? String(price) : null,
       prixPublic:   (p.prixPublic ?? p.prix_public) != null ? String(p.prixPublic ?? p.prix_public) : null,
       unite:        p.unite ?? null,
@@ -337,13 +337,14 @@ export class ChatOrchestratorService implements OnModuleDestroy {
       : vehicleScoped
         ? await this.advancedSearch.resolveVehicleScope(vehicle)
         : null;
-    const compatibleTypeCodes = resolvedVehicleScope?.typeCodes ?? [];
+    const exactReferenceExempt = options.requireVehicleScope === false;
+    const compatibleTypeCodes = exactReferenceExempt ? [] : (resolvedVehicleScope?.typeCodes ?? []);
     modelCode = resolvedVehicleScope?.primaryTypeCodes[0] ?? null;
-    const vehicleModelResolved = !vehicleScoped || (
+    const vehicleModelResolved = exactReferenceExempt || !vehicleScoped || (
       compatibleTypeCodes.length > 0 &&
       (!vinScoped || resolvedVehicleScope?.typeCodeSource !== 'model-map')
     );
-    const scope = { scoped: vehicleScoped, compatibleTypeCodes };
+    const scope = { scoped: exactReferenceExempt ? false : vehicleScoped, compatibleTypeCodes };
     const constrainedPart = options.constraint?.requestedPart?.trim() ?? '';
     const constrainedPartHead = constrainedPart.split(/\s+/)[0] || null;
     const vehicleWords = new Set(
@@ -1218,7 +1219,9 @@ Allowed flag types: PART_IDENTITY, POSITION, QUALIFIER, VEHICLE, PRICE_STOCK. Ne
           context,
           this.hasExplicitPartConcept(processedMessage),
         );
-    const mainSearch  = await this.searchService.searchWithDiagnostics(searchQuery, vehicle);
+    const mainSearch = preflightSearch.products.length > 0
+      ? preflightSearch
+      : await this.searchService.searchWithDiagnostics(searchQuery, vehicle);
     const mainConstraint: ConstraintOutcome | null = mainSearch.constraint;
     let products = this.restrictToCompatibleCandidates(mainSearch.products, compatibleCandidates);
 
@@ -1340,7 +1343,7 @@ Allowed flag types: PART_IDENTITY, POSITION, QUALIFIER, VEHICLE, PRICE_STOCK. Ne
     }
 
     // 10. Clarification check
-    const clarificationCheck = this.clarificationService.checkNeeded(preFilteredProducts, processedMessage);
+    const clarificationCheck = this.clarificationService.checkNeeded(preFilteredProducts, searchQuery);
     const hasExplicitFilterType = /\b(filtre|filter)\s+(?:de\s+)?(?:habitacle|climatiseur|air|huile|carburant|gazoile|essence)\b/i.test(processedMessage);
     if (clarificationCheck.needed && !hasExplicitFilterType) {
       const clPartName = this.extractPartName(processedMessage);

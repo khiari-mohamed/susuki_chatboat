@@ -131,6 +131,18 @@ describe('RelayErpSource', () => {
     expect(rows[1]).not.toHaveProperty('_deleted');
   });
 
+  it('writes vehicle type codes like the vehicles table but keeps the hyphenated form for fitments', async () => {
+    fetchMock
+      .mockResolvedValueOnce(page([{ vehicleNo: 'V1', typeCode: 'AVH310-TYPE 2' }]))
+      .mockResolvedValueOnce(page([{ partReference: 'P1', typeCode: 'AVH310-TYPE 2' }]));
+
+    const vehicles = await collect(new RelayErpSource().fetch('vehicle', null));
+    const fitments = await collect(new RelayErpSource().fetch('fitment', null));
+
+    expect(vehicles[0].typeCode).toBe('AVH310-TYPE2');
+    expect(fitments[0].typeCode).toBe('AVH310-TYPE-2');
+  });
+
   it('keeps a missing consolidated stock as null and rejects divergent duplicates', async () => {
     fetchMock.mockResolvedValueOnce(
       page([

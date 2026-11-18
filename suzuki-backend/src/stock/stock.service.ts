@@ -4,8 +4,8 @@
 // Business rules (CarPro emails 2026-09-11/18):
 //   - a part is "Disponible" only when consolidated stock >= 2
 //     (rule lives in constants/business-rules.constants.ts)
-//   - the public price is prixPublic (TTC), falling back to legacy prix_ttc
-//     for unsynced 01_PROD rows; 02_CARPRO rows are wholesale and never exposed as a price
+//   - the public TTC price is prixTtc for 01_PROD rows
+//   - prixPublic is before VAT (HT) and is never exposed as the customer TTC price
 //   - missing consolidated stock is "Inconnue" and must be redirected
 //
 // Lookups start from `parts`, not `stock`: parts without a stock row still
@@ -41,7 +41,7 @@ export interface StockStatusResult {
   /** 'Suzuki OEM' | 'CarPro Parts' */
   sourceLabel: string | null;
   prixHt: string | null;
-  /** Public TTC price quoted to customers (prixPublic, else legacy 01_PROD prix_ttc); null otherwise. */
+  /** Public TTC price quoted to customers (01_PROD prix_ttc); null otherwise. */
   prixTtc: string | null;
   prixPublic?: string | null;
   categorie: string | null;

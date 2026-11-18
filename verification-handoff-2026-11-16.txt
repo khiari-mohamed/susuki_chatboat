@@ -1,0 +1,111 @@
+Suzuki ERP Relay Verification Handoff
+Date: 2026-11-16
+
+Purpose
+This file summarizes what was verified locally for handoff to Claude. It contains no API key or database credentials.
+
+EXECUTIVE STATUS
+- Code checks passed. No live relay/staging sync has run; a full-sync rehearsal using a local mock relay DID run against a disposable restored copy.
+- No sync_runs are recorded in the configured source database.
+- The disposable rehearsal database was dropped after verification. The configured source database remains at 11,092 parts, 10,624 stock rows, zero sync_runs, and zero MOCK-prefixed part references.
+- The configured relay URL uses HTTP. Unauthenticated HTTPS health checks on 2026-11-12 and 2026-11-16 both failed at TLS connection setup; no API key was sent.
+- The backend .env still contains the previously exposed API key; it has not been rotated in this environment. The key was not sent again during this verification.
+- A saved real-relay comparison output dated 2026-11-18 was found and summarized below; it was not re-run during the current verification. No live/staging sync has run. Do not treat this as production approval.
+
+CODE AND TESTS
+- CHATBOT_OWNED_COLUMNS includes searchDescription, prixTtc, and source in suzuki-backend/src/sync/erp-sync.service.ts. Existing source tags are protected from being overwritten by relay data.
+- The upsert test expectation in erp-sync.service.spec.ts was updated.
+- Production TypeScript check passed: npx tsc --noEmit -p tsconfig.build.json.
+- Latest full Jest run passed: 23 suites, 237 tests.
+- Dashboard build passed: npm run build in suzuki-dashboard. Vite emitted a non-fatal warning that the main minified JS chunk is over 500 kB.
+- SyncPage.jsx, useSyncStatus.js, and config/sync.js exist; App.jsx imports SyncPage and routes /sync to it.
+- Price-related code checks:
+  - chat.controller.ts maps prixTtc and prixPublic fields.
+  - stock.service.ts uses publicPriceSource and selects prixPublic.
+  - chat-orchestrator.service.ts uses publicPriceTtc.
+  - suzuki-dashboard/src/config/entities.js labels Prix TTC and Prix public (HT).
+- These are source/test checks, not end-to-end verification with a live sync.
+- Public price behavior is corrected: catalog-verifier.ts quotes only 01_PROD prix_ttc. The relay mapper imports the relay prixTtc field. prixPublic is retained as the HT amount and is not used as customer TTC.
+- Hosting environment price settings are not accessible or checked.
+
+LOCAL DATABASE AND SAFETY
+- DATABASE_URL resolves to localhost/suzuki_parts. This is the local database; the owner previously confirmed it was intended as staging.
+- Latest sync_runs query returned zero rows: no recorded sync has run.
+- Local .env has one SYNC_ENABLED=false and one SYNC_APPLY_DELETES=false. dotenv resolves both to false.
+- Production environment settings were not accessible or checked.
+- Full PostgreSQL backup was created and its archive validated:
+  C:\Users\LENOVO\.copilot\session-state\4c99a0d9-7aee-4ad1-9d99-034533c7eaf3\files\suzuki_parts_before_sync_20261112.dump
+- Backup size: 7,087,564 bytes.
+- Price snapshot is in backup.parts_price_snapshot_20261112_101811600 and contains 11,092 rows.
+
+LOCAL MOCK-RELAY REHEARSAL
+- Added suzuki-backend/scripts/mock-relay.mjs. It serves only fixed fixtures and binds to 127.0.0.1:4066; it does not call the external relay.
+- Optional MOCK_EXISTING_REF adds one existing-part update fixture and one stock update fixture; the reference is kept in the local process environment and was not logged.
+- Restored the validated backup into a new database named suzuki_parts_rehearsal. Before creation, confirmed that database name did not exist. Ran the Nest ErpSyncService full sync with DATABASE_URL explicitly set to that database, ERP_RELAY_URL=http://127.0.0.1:4066, test-only key, SYNC_ENABLED=false, and SYNC_APPLY_DELETES=false.
+- Result: PARTIAL, as expected from the deliberately invalid fixtures:
+  - vehicleTypeMaster: received 2, upserted 2.
+  - vehicleModelMap: received 2, upserted 2.
+  - vehicle: received 2, upserted 1, pendingDeletes 1.
+  - part: received 3, upserted 2, invalid 1.
+  - stock: received 2, upserted 1, invalid 1.
+  - fitment: received 3, upserted 2, failed 1 (the intentionally unknown part FK).
+  - itemReference: received 1, upserted 1, pendingDeletes 7,194 (pre-existing rows absent from mock snapshot; deletes stayed off).
+- Verified in the rehearsal DB: MOCK-P1 has prix_ttc 119 and prix_public 150; ZZT100 TYPE1 was normalized to ZZT100-TYPE1; MOCK-P3 was rejected; MOCK-P2 has no stock row; MOCK-P1 has two fitments and one item reference; the deleted MOCKV2 was not physically removed.
+- Verified the configured source database afterward using read-only queries: database name suzuki_parts, 11,092 parts, 10,624 stock rows, zero sync_runs, zero MOCK-prefixed parts.
+- Dropped only suzuki_parts_rehearsal after the checks and stopped the local mock relay. The production database was not accessed.
+- This exercised actual Prisma upserts, foreign keys, type-code normalization, and the sync service against mock HTTP data. It did not exercise the dashboard login/click flow or the real relay.
+
+EXISTING-ROW UPDATE-PATH REHEARSAL
+- Restored the validated backup into a second new database, suzuki_parts_update_rehearsal, and selected an existing 02_CARPRO part with a French designation and legacy TTC entirely inside that restored copy.
+- Ran the same full sync against the loopback mock with that reference added to the mock parts and stock fixtures.
+- Result: PARTIAL, expected from the invalid fixtures. Parts: received 4, upserted 3, invalid 1. Stock: received 3, upserted 2, invalid 1. Other fixture counts matched the first rehearsal; item references had 7,194 pending deletes, with deletes disabled.
+- Compared the candidate to the untouched source row without printing its identifier or names. All checks passed: source unchanged; designation2 unchanged; legacy prix_ttc unchanged; designation changed to RELAY NAME; prix_public changed to 999; stock_consolide changed to 7.
+- Dropped only suzuki_parts_update_rehearsal and stopped the mock relay. A subsequent read-only check of the source database again returned 11,092 parts, 10,624 stock rows, zero sync_runs, and zero MOCK-prefixed part references.
+
+CURRENT LOCAL DATABASE BASELINE (READ ONLY)
+Source | Parts | With stock | Stock >= 2 | Without stock
+01_PROD | 11,042 | 10,582 | 6,115 | 460
+02_CARPRO | 50 | 42 | 1 | 8
+
+Source | Parts | prix_public > 0 | prix_ttc > 0 | Usable public price | No usable public price
+01_PROD | 11,042 | 0 | 10,079 | 10,079 | 963
+02_CARPRO | 50 | 0 | 19 | 0 | 50
+
+Usable public price definition: prix_public > 0, or for 01_PROD only, legacy prix_ttc > 0. SQL counts explicitly coalesce nullable predicates to false.
+
+SAVED READ-ONLY RELAY COMPARISON OUTPUT (2026-11-18)
+- Found existing suzuki-backend/relay-compare-output.txt, last modified 2026-11-18 11:07. This is a saved output file; it was not re-run during the current turn. No credentials were sent by the current verification.
+- Moved the existing relay-compare.mjs from scripts/scripts/ to its documented path scripts/relay-compare.mjs. Syntax checks pass. The comparison script itself sends the API key to the configured endpoint; it was not executed in this turn.
+- PARTS: relay 10,439 / local 11,092; 0 would be created; 0 rejected. Local rows absent from relay: 610 01_PROD and 43 02_CARPRO. Relay prixPublic missing/zero: 836; 69 of these have an old local price. 3,246 relay parts lack designation2; 3,158 already have a local French designation, so 88 lack one locally as well.
+- PRICE SIGNAL: saved 2026-11-18 price diagnostics compared 9,663 01_PROD rows. Relay prixTtc matched old prix_ttc in 9,572 rows; relay prixHt/prixPublic matched old prixHt in 9,574. Keep prixTtc as the customer TTC price and retain prixPublic as HT.
+- STOCK: relay 10,439; no duplicate references, divergent stock values, missing consolidated stock, deleted rows, or references without a known part. 12 new stock rows; 1,472 values would change; 186 availability flips at the >=2 threshold.
+- VEHICLE TYPES: relay 48 / local 58; 7 relay codes contain spaces and normalize to hyphens; 5 normalized codes would be created; no missing model names. No local spaced-code/hyphenated-twin pairs were reported.
+- VEHICLE MODELS: relay 80 / local 109; 76 would be created; 3 reference unknown type codes; 105 local aliases are absent from relay and are retained. The saved progress line showed 80 rows while totalRecords was reported as 1; investigate the relay count metadata.
+- VEHICLES: relay 30,033 / local 30,059; none would be created; 26 local are absent from relay. No duplicate/missing vehicle numbers or deleted flags; 34 inactive; 109 without VIN; 4,374 without type code. Brand counts include 29,508 SUZUKI, 297 null, 50 PEUGEOT, 27 CITROEN, 22 VOLKSWAGEN, 21 KIA, 15 JAECOO J7 PHEV, and 11 BMW.
+- FITMENTS: relay 16,045 / local 16,044; 0 new, 0 absent locally, 0 unknown-part failures, 0 unknown-type failures.
+- ITEM REFERENCES: relay 7,205 / local 7,194; 41 would be created, 30 local absent from relay, 14 point to unknown parts.
+- Approximate expected first-sync issue count from this saved comparison: 3 unknown-type model rows + 14 unknown-part reference rows = 17 failures; actual sync summary is still unavailable.
+
+PRIOR READ-ONLY RELAY PROBE (2026-11-12)
+- Probe script available: suzuki-backend/scripts/relay-probe.mjs.
+- The relay returned 10,439 parts, all source 01_PROD; no duplicate references.
+- 836 relay parts had missing/zero prixPublic; 3,246 lacked designation2.
+- Stock returned 10,439 rows: one per reference, stockConsolide present for all, no deleted rows, no stock references absent from parts. warehouseCode was null for all rows.
+- Item references: 7,205 rows; referenceType 3 for 7,204, type 0 for one.
+- Vehicles, vehicle types, models, and fitments were not covered by that probe.
+- Probe results are historical; they are not a substitute for a fresh comparison or sync.
+
+BLOCKERS / NOT VERIFIED
+1. The saved comparison contains aggregate relay results, but price-check.mjs and vehicle-diff.mjs have not been run; no new relay calls were made during this turn.
+2. No live/staging sync: no lastRun summary exists in the configured source database. Post-sync price and refreshed-row coverage cannot be calculated.
+3. Vehicle diff against existing local rows has not been done; the saved comparison checks counts and FK compatibility, not field-by-field blanking or changes.
+4. Production hosting settings for SYNC_ENABLED and the public-price behavior were not accessible or checked.
+5. The available relay URL is HTTP; unauthenticated HTTPS checks failed. The saved API key in local .env matches the previously exposed key. Do not execute relay diagnostics against this HTTP URL from this environment.
+6. Actual omissions in local parts are reported in the saved comparison (610 01_PROD, 43 02_CARPRO), but no real sync has verified update timestamps or behaviors.
+
+SAFE NEXT ACTIONS
+- Ask Deltasoft for a replacement key and HTTPS or a secure VPN/tunnel. Store the key only in the ignored backend .env; never paste it into chat or a command line.
+- Confirm production settings separately; local .env does not establish production state.
+- Run price-check.mjs and vehicle-diff.mjs only from an environment with an approved secure relay path; do not enable ERP public pricing until Car Pro confirms which field is customer TTC.
+- Before any write, preserve the existing backup and keep SYNC_ENABLED=false and SYNC_APPLY_DELETES=false. Only run a manually approved staging sync after confirming the target.
+- After that sync, capture GET /admin/sync/status lastRun, the price comparison against backup.parts_price_snapshot_20261112_101811600, source/coverage counts, and usable-public-price counts.
